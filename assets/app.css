@@ -1,0 +1,191 @@
+/* ---------- Token (tema gelap ala platform clipper) ---------- */
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap");
+:root {
+  color-scheme: dark;
+  --bg: #0a0b0d; --surface: #121417; --surface-2: #1a1d21; --surface-3: #24282d;
+  --border: rgba(255, 255, 255, .08); --border-strong: rgba(255, 255, 255, .14);
+  --text: #f4f6f8; --text-2: #b6bcc4; --muted: #767d87;
+  --accent: #0058D3; --accent-hover: #1A6BE6; --accent-soft: rgba(30, 112, 240, .18); --accent-text: #fff; --accent-fg: #5B9BFF;
+  --ok: #3ccf7f; --ok-soft: rgba(60, 207, 127, .13); --warn: #f2b14a; --warn-soft: rgba(242, 177, 74, .13);
+  --err: #ff6b6b; --heat: #f5a04a;
+  --grad: linear-gradient(135deg, #2F7BF0 0%, #0058D3 50%, #003A8C 100%);
+  --grad-soft: linear-gradient(135deg, rgba(30, 112, 240, .22), rgba(0, 58, 140, .08));
+  --glow: 0 1px 2px rgba(0, 0, 0, .4), 0 6px 18px -8px rgba(30, 112, 240, .69);
+  --ring: 0 0 0 3px rgba(30, 112, 240, .28);
+  --radius: 16px; --radius-sm: 10px; --radius-modal: 24px;
+  --btn-bg: rgba(30, 112, 240, .16); --btn-fg: #86B6FF;
+  --shadow: inset 0 1px 0 rgba(255, 255, 255, .03), 0 8px 24px -12px rgba(0, 0, 0, .6);
+}
+
+/* ---------- Dasar ---------- */
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--bg); color: var(--text);
+  font: 15px/1.55 "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+a { color: inherit; text-decoration: none; }
+img { display: block; }
+[hidden] { display: none !important; }
+::selection { background: rgba(30, 112, 240, .44); color: #fff; }
+* { scrollbar-width: thin; scrollbar-color: var(--surface-3) transparent; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: var(--surface-3); border-radius: 999px; border: 2px solid var(--bg); }
+::-webkit-scrollbar-track { background: transparent; }
+.wrap { max-width: 1080px; margin: 0 auto; padding: 0 16px 80px; }
+.wrap.narrow { max-width: 760px; }
+
+/* ---------- Header ---------- */
+.topbar { display: flex; align-items: center; gap: 12px; padding: 20px 0 18px; margin-bottom: 8px; }
+.brand { display: inline-flex; align-items: center; gap: 10px; font-size: 18px; letter-spacing: -.02em; color: var(--text); }
+.brand img { width: 30px; height: 30px; border-radius: 8px; box-shadow: 0 4px 14px -6px rgba(0, 88, 211, .8); }
+.brand span { font-weight: 400; }
+.brand b { font-weight: 800; }
+/* Tombol kembali: ikon saja, berbingkai & sedikit membulat */
+.back { flex: none; width: 34px; height: 34px; display: inline-grid; place-items: center; border: 1px solid var(--border); border-radius: 10px;
+  background: var(--surface-2); color: var(--text-2); transition: background .15s, color .15s, border-color .15s; }
+.back .i { width: 17px; height: 17px; }
+.back:hover { background: var(--surface-3); color: var(--text); border-color: var(--border-strong); }
+
+/* ---------- Komponen ---------- */
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
+.pad { padding: 20px; }
+/* Semua modal (kartu dialog) memakai sudut lebih membulat */
+.card[role="dialog"] { border-radius: var(--radius-modal); }
+/* Tombol "Soft Tint": utama teal solid, sekunder teal transparan tanpa garis, ghost hanya teks */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; font: inherit; font-size: 13.5px;
+  font-weight: 500; line-height: 1.25; letter-spacing: .01em; cursor: pointer; border-radius: 10px; border: 1px solid transparent;
+  background: var(--btn-bg); color: var(--btn-fg); padding: 6px 14px; white-space: nowrap; position: relative;
+  transition: background .15s, color .15s, box-shadow .15s, transform .08s; }
+.btn:hover { background: rgba(30, 112, 240, .28); }
+.btn:active { filter: brightness(.92); } /* tanpa geser posisi: klik di tepi tombol tetap kena */
+.btn:focus-visible { outline: none; box-shadow: var(--ring); }
+/* Tombol utama: gradasi biru gelap seperti logo */
+.btn.primary { background: linear-gradient(135deg, #1A6BE6 0%, #0058D3 50%, #00418F 100%); color: #fff; font-weight: 600;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .16), 0 6px 16px -8px rgba(0, 88, 211, .9); }
+.btn.primary:hover { background: linear-gradient(135deg, #3482F5 0%, #0F66E6 50%, #004CA6 100%); }
+.btn.ghost { background: transparent; color: var(--text-2); }
+.btn.ghost:hover { background: rgba(255, 255, 255, .06); color: var(--text); }
+.btn.sm { padding: 4px 10px; font-size: 12.5px; border-radius: 8px; }
+.btn.lg { padding: 8px 20px; font-size: 14.5px; }
+.btn.danger:hover { color: #ff8a80; background: rgba(255, 107, 107, .12); }
+.btn:disabled { opacity: .45; cursor: default; transform: none; }
+.btn:disabled:hover { background: var(--btn-bg); }
+.btn.primary:disabled:hover { background: linear-gradient(135deg, #1A6BE6 0%, #0058D3 50%, #00418F 100%); }
+.btn.ghost:disabled:hover { background: transparent; color: var(--text-2); }
+.btn .i { width: 15px; height: 15px; flex: none; margin: 0 -1px; pointer-events: none; }
+.btn.sm .i { width: 13px; height: 13px; }
+.btn.lg .i { width: 16px; height: 16px; }
+.btn .i + .i, .btn .i:only-child { margin: 0; }
+.input { width: 100%; min-width: 0; padding: 12px 14px; border-radius: var(--radius-sm); border: 1px solid var(--border);
+  background: var(--surface-2); color: var(--text); font: inherit; outline: none; transition: border-color .15s, background .15s, box-shadow .15s; }
+.input::placeholder { color: var(--muted); }
+.input:hover { border-color: var(--border-strong); }
+.input:focus { border-color: var(--accent); background: var(--surface); box-shadow: var(--ring); }
+select.input { padding: 8px 10px; font-size: 13.5px; cursor: pointer; }
+/* Foto profil akun (avatar inisial memakai <span class="av">) */
+img.av { object-fit: cover; background: var(--surface-3); }
+.muted { color: var(--muted); }
+.small { font-size: 13px; }
+.err-text { color: var(--err); }
+.spin { display: inline-block; width: 14px; height: 14px; border: 2px solid currentColor; border-right-color: transparent;
+  border-radius: 50%; animation: spin .7s linear infinite; vertical-align: -2px; flex: none; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.pill { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 500; padding: 2px 8px;
+  border-radius: 999px; background: var(--surface-3); color: var(--text-2); white-space: nowrap; }
+.pill.accent { background: var(--accent-soft); color: var(--accent-fg); }
+.pill.ok { background: var(--ok-soft); color: var(--ok); }
+.pill > .i { width: 12px; height: 12px; flex: none; }
+.pill.warn { background: var(--warn-soft); color: var(--warn); }
+.pill.heat { background: rgba(245, 160, 74, .14); color: var(--heat); }
+.progress { height: 4px; border-radius: 2px; background: var(--surface-3); overflow: hidden; }
+.progress > i { display: block; height: 100%; background: var(--accent); width: 0; transition: width .4s; }
+.empty { text-align: center; padding: 48px 16px; color: var(--muted); }
+.empty b { display: block; color: var(--text); font-size: 15px; margin-bottom: 4px; }
+
+/* ---------- Tabs ---------- */
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 18px; overflow-x: auto; }
+.tab { font: inherit; font-size: 14px; font-weight: 500; background: none; border: 0; padding: 10px 12px; cursor: pointer;
+  color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; }
+.tab:hover { color: var(--text); }
+.tab.on { color: var(--text); border-bottom-color: var(--accent); font-weight: 600; }
+.tab .count { font-size: 12px; color: var(--muted); margin-left: 4px; }
+.seg { display: inline-flex; background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px; padding: 3px; gap: 2px; }
+.seg button { font: inherit; font-size: 12.5px; border: 0; background: none; color: var(--muted); padding: 4px 12px;
+  border-radius: 999px; cursor: pointer; }
+.seg button:hover { color: var(--text); }
+.seg button.on { background: var(--surface-3); color: var(--text); }
+
+/* ---------- Toast ---------- */
+.toast { position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 20px); opacity: 0; pointer-events: none;
+  background: var(--surface-3); color: var(--text); border: 1px solid var(--border-strong); box-shadow: 0 12px 32px -8px rgba(0, 0, 0, .7);
+  padding: 10px 16px; border-radius: 12px; font-size: 14px;
+  transition: opacity .2s, transform .2s; z-index: 50; max-width: calc(100% - 32px); }
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+/* ---------- Daftar unduhan ---------- */
+.jobs { display: flex; flex-direction: column; gap: 8px; }
+.job { display: grid; grid-template-columns: 88px 1fr auto; gap: 14px; align-items: center; padding: 12px; }
+.job .thumb { width: 88px; aspect-ratio: 16/9; border-radius: 8px; object-fit: cover; background: var(--surface-2); }
+.job-title { font-weight: 600; font-size: 14px; line-height: 1.35; overflow: hidden; text-overflow: ellipsis;
+  display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; word-break: break-all; }
+.job-meta { font-size: 12.5px; color: var(--muted); margin-top: 2px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.job-meta .ok { color: var(--ok); font-weight: 600; display: inline-flex; align-items: center; gap: 4px; }
+.job-meta .i { width: 13px; height: 13px; flex: none; }
+.job-meta .err { color: var(--err); }
+.job .progress { margin-top: 8px; }
+.job-actions { display: flex; gap: 4px; }
+@media (max-width: 640px) {
+  .job { grid-template-columns: 64px 1fr; }
+  .job .thumb { width: 64px; }
+  .job-actions { grid-column: 1 / -1; justify-content: flex-end; }
+}
+
+/* ---------- Pilihan kualitas & format download ---------- */
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font: inherit; font-size: 13px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text);
+  border-radius: 999px; padding: 6px 12px; cursor: pointer; transition: border-color .15s, background .15s; }
+.chip:hover { border-color: var(--border-strong); }
+.chip small { color: var(--muted); margin-left: 4px; font-size: 11.5px; }
+.chip.on { border-color: var(--accent); color: var(--accent-fg); background: var(--accent-soft); }
+.chip.on small { color: inherit; opacity: .8; }
+.formats { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 6px; }
+.format { display: flex; gap: 10px; align-items: flex-start; border: 1px solid var(--border); background: var(--surface-2);
+  border-radius: 12px; padding: 10px 12px; cursor: pointer; transition: border-color .15s; }
+.format:hover { border-color: var(--border-strong); }
+.format input { margin: 3px 0 0; accent-color: var(--accent); }
+.format b { font-size: 13.5px; font-weight: 600; display: block; }
+.format span { font-size: 12px; color: var(--muted); line-height: 1.4; display: block; }
+.format.on { border-color: var(--accent); }
+
+/* ---------- Sentuhan gradasi (teal #0058D3 -> teal gelap) ---------- */
+/* Latar: cahaya biru gelap tipis di atas, seperti gradasi logo */
+body { background: radial-gradient(900px 460px at 18% -14%, rgba(0, 88, 211, .2), transparent 68%),
+  radial-gradient(800px 420px at 100% -10%, rgba(0, 58, 140, .14), transparent 70%), var(--bg); background-attachment: fixed; }
+.progress > i { background: var(--grad); }
+.pill.accent, .chip.on { background: var(--grad-soft); }
+.format.on { background: var(--grad-soft); }
+.tab.on { border-image: var(--grad) 1; }
+.grad-text { display: inline-block; background: linear-gradient(180deg, #5B9BFF 0%, #0058D3 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+.card { background-image: linear-gradient(180deg, rgba(255, 255, 255, .03), transparent 40%); }
+
+
+/* Pengingat jam upload (pojok kanan bawah, semua halaman kecuali editor) */
+.reminder { position: fixed; right: 18px; bottom: 18px; z-index: 70; width: 320px; max-width: calc(100vw - 32px); padding: 14px; border-radius: 20px;
+  border: 1px solid rgba(91, 155, 255, .35); background: linear-gradient(160deg, rgba(30, 112, 240, .18), transparent 60%), var(--surface);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, .5); display: flex; flex-direction: column; gap: 10px; animation: rm-in .3s ease; }
+@keyframes rm-in { from { transform: translateY(14px); opacity: 0; } }
+.reminder .rm-top { display: flex; gap: 10px; align-items: flex-start; }
+.reminder .rm-bell { flex: none; width: 34px; height: 34px; display: grid; place-items: center; border-radius: 11px; background: var(--accent); color: #fff; }
+.reminder .rm-bell .i { width: 17px; height: 17px; }
+.reminder .rm-tx { flex: 1; min-width: 0; }
+.reminder .rm-tx b { display: block; font-size: 13.5px; }
+.reminder .rm-tx span { display: block; margin-top: 2px; font-size: 12px; color: var(--muted); }
+.reminder .rm-x { flex: none; width: 26px; height: 26px; display: grid; place-items: center; border: 0; border-radius: 8px; background: none; color: var(--muted); cursor: pointer; }
+.reminder .rm-x:hover { background: var(--surface-3); color: var(--text); }
+.reminder .rm-x .i { width: 14px; height: 14px; }
+.reminder .rm-list { display: flex; flex-direction: column; gap: 6px; }
+.reminder .rm-acc { display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 600; }
+.reminder .rm-acc .av { flex: none; border-radius: 50%; display: inline-grid; place-items: center; color: #fff; font-weight: 700; object-fit: cover; }
+.reminder .rm-acc span { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.reminder .rm-acc small { margin-left: auto; flex: none; font-size: 11.5px; font-weight: 600; color: var(--ok); }
+.reminder .btn { align-self: stretch; }

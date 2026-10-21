@@ -1,0 +1,18 @@
+# Data pribadi & hasil kerja lokal (API key Gemini, akun, room, video, model AI)
+/storage/*
+!/storage/.htaccess
+/downloads/*
+!/downloads/.htaccess
+/previews/*
+!/previews/.htaccess
+/avatars/*
+
+# Binary hasil build lokal (macOS): xcrun swiftc -O tools/superres.swift -o tools/superres
+/tools/superres
+
+# File sementara / sistem
+.DS_Store
+._*
+*.part
+*.tmp
+/_*.php
