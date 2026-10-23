@@ -184,16 +184,89 @@ ensure_dirs();
   .acc-filter .av { width: 18px; height: 18px; font-size: 9.5px; }
   .acc-filter .n { color: var(--muted); font-variant-numeric: tabular-nums; }
   .top-links { margin-left: auto; display: flex; gap: 4px; }
+  /* Tiga aksi utama beranda: tenang dengan aksen biru brand.
+     Hover premium: semua perubahan memudar perlahan (kurva ease-out panjang), sorotan biru mengikuti kursor,
+     kotak ikon terisi gradasi biru secara halus, kartu terangkat sedikit. */
+  .acts3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; --ease: cubic-bezier(.22, 1, .36, 1); }
+  .act3 { position: relative; isolation: isolate; display: flex; flex-direction: column; justify-content: space-between; align-items: flex-start; gap: 28px;
+    padding: 18px 18px 16px; border: 1px solid rgba(255, 255, 255, .08); border-radius: 16px; cursor: pointer; overflow: hidden;
+    font: inherit; color: var(--text); text-decoration: none; text-align: left;
+    background: radial-gradient(120% 90% at 0% 0%, rgba(30, 112, 240, .10), transparent 55%),
+      linear-gradient(180deg, rgba(255, 255, 255, .035), rgba(255, 255, 255, .01)), var(--surface);
+    transform: translateZ(0);
+    transition: transform .55s var(--ease), border-color .55s var(--ease), box-shadow .55s var(--ease); }
+  /* Garis cahaya biru tipis di tepi atas */
+  .act3::before { content: ""; position: absolute; left: 18px; right: 18px; top: 0; height: 1px; opacity: .5; z-index: 1;
+    background: linear-gradient(90deg, transparent, rgba(61, 139, 255, .95), transparent); transition: opacity .55s var(--ease), left .55s var(--ease), right .55s var(--ease); }
+  /* Sorotan biru lembut yang mengikuti posisi kursor */
+  .act3::after { content: ""; position: absolute; inset: 0; z-index: -1; opacity: 0; pointer-events: none;
+    background: radial-gradient(260px circle at var(--mx, 30%) var(--my, 0%), rgba(61, 139, 255, .16), transparent 65%);
+    transition: opacity .6s var(--ease); }
+  .act3:hover { transform: translateY(-2px); border-color: rgba(61, 139, 255, .42);
+    box-shadow: 0 0 0 3px rgba(30, 112, 240, .07), 0 18px 40px -12px rgba(0, 0, 0, .55), 0 8px 24px -10px rgba(30, 112, 240, .35); }
+  .act3:hover::before { opacity: 1; left: 0; right: 0; }
+  .act3:hover::after { opacity: 1; }
+  .act3:active { transform: translateY(0) scale(.992); transition-duration: .15s; }
+  .act3:focus-visible { outline: none; border-color: rgba(61, 139, 255, .7); }
+  .act3 .ic { position: relative; isolation: isolate; width: 36px; height: 36px; display: grid; place-items: center; border-radius: 10px; color: #6FA8FF; overflow: hidden;
+    border: 1px solid rgba(61, 139, 255, .28); background: rgba(30, 112, 240, .12);
+    transition: color .5s var(--ease), border-color .5s var(--ease), box-shadow .5s var(--ease); }
+  /* Isi gradasi biru memudar masuk (gradasi tidak bisa ditransisikan langsung) */
+  .act3 .ic::before { content: ""; position: absolute; inset: 0; z-index: -1; opacity: 0; background: linear-gradient(145deg, #2F80FF, #0058D3); transition: opacity .5s var(--ease); }
+  .act3 .ic .i { width: 17px; height: 17px; transition: transform .55s var(--ease); }
+  .act3:hover .ic { color: #fff; border-color: rgba(120, 170, 255, .7); box-shadow: 0 6px 18px -6px rgba(30, 112, 240, .7); }
+  .act3:hover .ic::before { opacity: 1; }
+  .act3:hover .ic .i { transform: scale(1.08); }
+  .act3 b { font-size: 15px; font-weight: 600; letter-spacing: -.01em; transition: letter-spacing .55s var(--ease); }
+  .act3 .go { position: absolute; right: 16px; bottom: 16px; color: #6FA8FF; opacity: 0; transform: translateX(-8px);
+    transition: opacity .45s var(--ease), transform .55s var(--ease); }
+  .act3 .go .i { width: 15px; height: 15px; }
+  .act3:hover .go { opacity: 1; transform: none; }
+  @media (prefers-reduced-motion: reduce) { .act3, .act3 *, .act3::before, .act3::after { transition: none !important; } .act3:hover { transform: none; } }
+  @media (max-width: 760px) {
+    .acts3 { gap: 8px; }
+    .act3 { gap: 18px; padding: 14px 12px; border-radius: 14px; }
+    .act3 b { font-size: 13.5px; } .act3 .go { display: none; }
+  }
+  .url-card { max-width: 640px; }
+  .url-card .search { padding: 4px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface-2); }
+  .url-card .video { margin-top: 14px; box-shadow: none; }
+  /* Timeline proses buat clip */
+  .flow-card { max-width: 520px; }
+  .fl-thumb { width: 88px; aspect-ratio: 16/9; object-fit: cover; border-radius: 8px; flex: none; background: var(--surface-2); }
+  .fl-steps { display: grid; gap: 0; }
+  .fl-step { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 12px; position: relative; padding-bottom: 16px; }
+  .fl-step:not(:last-child)::before { content: ""; position: absolute; left: 13px; top: 28px; bottom: 0; width: 2px; background: var(--border); }
+  .fl-step.done:not(:last-child)::before { background: var(--accent); }
+  .fl-dot { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: var(--surface-3); color: var(--muted); font-size: 12px; font-weight: 700; }
+  .fl-dot .i { width: 14px; height: 14px; }
+  .fl-step.done .fl-dot { background: var(--accent); color: #fff; }
+  .fl-step.active .fl-dot { background: var(--accent-soft); color: var(--accent-fg); box-shadow: 0 0 0 3px rgba(30, 112, 240, .25); }
+  .fl-step.error .fl-dot { background: rgba(229, 72, 77, .2); color: #ff8a80; }
+  .fl-step b { display: block; font-size: 13.5px; margin-top: 4px; }
+  .fl-step small { display: block; font-size: 12px; color: var(--muted); margin-top: 2px; line-height: 1.45; }
+  .fl-step.error small { color: #ff8a80; }
+  .fl-step .bar { height: 4px; margin-top: 7px; border-radius: 3px; background: var(--surface-3); overflow: hidden; }
+  .fl-step .bar i { display: block; height: 100%; background: var(--accent); transition: width .4s; }
+  .fl-note { margin: 4px 0 0; font-size: 12px; color: var(--muted); }
   /* Pintu masuk clip campaign dari footage lokal */
-  .camp-cta { display: flex; align-items: center; gap: 12px; margin: 12px 0 0; padding: 11px 14px; border: 1px dashed var(--border-strong); border-radius: 14px;
-    color: var(--text); text-decoration: none; transition: border-color .15s, background .15s; }
-  .camp-cta:hover { border-color: var(--accent); background: var(--accent-soft); }
-  .camp-cta .ic { flex: none; width: 34px; height: 34px; display: grid; place-items: center; border-radius: 10px; background: var(--accent-soft); color: var(--accent-fg); }
+  .camp-cta { position: relative; isolation: isolate; overflow: hidden; display: flex; align-items: center; gap: 12px; margin: 12px 0 0; padding: 12px 16px;
+    border: 1px solid rgba(255, 255, 255, .08); border-radius: 16px; color: var(--text); text-decoration: none;
+    background: linear-gradient(180deg, rgba(255, 255, 255, .035), rgba(255, 255, 255, .01)), var(--surface);
+    transition: border-color .55s cubic-bezier(.22, 1, .36, 1), box-shadow .55s cubic-bezier(.22, 1, .36, 1); }
+  .camp-cta::after { content: ""; position: absolute; inset: 0; z-index: -1; opacity: 0; pointer-events: none;
+    background: radial-gradient(320px circle at var(--mx, 10%) var(--my, 50%), rgba(61, 139, 255, .13), transparent 65%); transition: opacity .6s cubic-bezier(.22, 1, .36, 1); }
+  .camp-cta:hover { border-color: rgba(61, 139, 255, .42); box-shadow: 0 0 0 3px rgba(30, 112, 240, .06); }
+  .camp-cta:hover::after { opacity: 1; }
+  .camp-cta .ic { flex: none; width: 36px; height: 36px; display: grid; place-items: center; border-radius: 10px; color: #6FA8FF;
+    border: 1px solid rgba(61, 139, 255, .28); background: rgba(30, 112, 240, .12); transition: color .5s, border-color .5s; }
+  .camp-cta:hover .ic { color: #fff; border-color: rgba(120, 170, 255, .7); }
   .camp-cta .ic .i { width: 17px; height: 17px; }
   .camp-cta > span:nth-child(2) { flex: 1; min-width: 0; }
-  .camp-cta b { display: block; font-size: 13.5px; }
+  .camp-cta b { display: block; font-size: 13.5px; font-weight: 600; }
   .camp-cta small { display: block; font-size: 12px; color: var(--muted); margin-top: 1px; }
-  .camp-cta > .i { width: 16px; height: 16px; color: var(--muted); flex: none; }
+  .camp-cta > .i { width: 15px; height: 15px; color: var(--muted); flex: none; transition: transform .55s cubic-bezier(.22, 1, .36, 1), color .45s; }
+  .camp-cta:hover > .i { transform: translateX(3px); color: #6FA8FF; }
   /* Dropdown Pengaturan */
   .set-dd { position: relative; }
   .set-menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: 50; width: 260px; padding: 6px; border-radius: 14px; box-shadow: 0 16px 40px rgba(0, 0, 0, .45); }
@@ -250,19 +323,31 @@ ensure_dirs();
   </header>
 
   <section class="hero">
-    <h1>Video kualitas maksimal &amp; clip terbaik</h1>
-    <p>Tempel link video YouTube untuk diunduh atau dijadikan clip oleh AI.</p>
+    <h1>Mau bikin apa hari ini?</h1>
+    <p>Jadikan video YouTube clip oleh AI, edit footage sendiri, atau unduh video &amp; audio dengan kualitas maksimal.</p>
   </section>
 
-  <form class="card search" id="form">
+  <!-- Tiga aksi utama -->
+  <div class="acts3">
+    <button class="act3" type="button" data-open="clip"><span class="ic"><?= icon('scissors') ?></span><b>Buat clip</b><span class="go"><?= icon('arrow-right') ?></span></button>
+    <a class="act3" href="project.php"><span class="ic"><?= icon('layers') ?></span><b>Edit manual</b><span class="go"><?= icon('arrow-right') ?></span></a>
+    <button class="act3" type="button" data-open="download"><span class="ic"><?= icon('download') ?></span><b>YT Downloader</b><span class="go"><?= icon('arrow-right') ?></span></button>
+  </div>
+  <a class="camp-cta" href="campaign.php"><span class="ic"><?= icon('film') ?></span>
+    <span><b>Punya footage sendiri untuk campaign?</b><small>Unggah bahan dari komputer, tulis angle-nya, AI menyusun clip + hook</small></span>
+    <?= icon('arrow-right') ?></a>
+
+  <!-- Modal link YouTube: dipakai "Buat clip" & "Download" -->
+  <div class="modal" id="url-modal" hidden>
+  <div class="card m-card url-card" role="dialog" aria-modal="true" aria-labelledby="um-title">
+    <div class="m-head"><div class="grow"><h3 id="um-title"></h3><p id="um-sub"></p></div>
+      <button class="btn sm ghost" id="um-close" title="Tutup (Esc)"><?= icon('x') ?></button></div>
+  <form class="search" id="form">
     <input class="input" type="text" id="url" placeholder="https://youtube.com/watch?v=…" autocomplete="off" autofocus>
     <button type="button" class="btn ghost" id="paste"><?= icon('paste') ?> Tempel</button>
     <button type="submit" class="btn primary" id="check" disabled><?= icon('search') ?> Cek Video</button>
   </form>
   <div class="search-msg" id="msg"></div>
-  <a class="camp-cta" href="campaign.php"><span class="ic"><?= icon('film') ?></span>
-    <span><b>Punya footage sendiri untuk campaign?</b><small>Unggah bahan dari komputer, tulis angle-nya, AI menyusun clip + hook</small></span>
-    <?= icon('arrow-right') ?></a>
 
   <div class="card video" id="video" hidden>
     <div class="video-head">
@@ -288,14 +373,29 @@ ensure_dirs();
       <div class="dl-foot"><button class="btn primary" id="start"><?= icon('download') ?> Mulai Download</button></div>
     </div>
   </div>
+  </div>
+  </div>
+
+  <!-- Modal timeline proses setelah "Mulai buat clip" -->
+  <div class="modal" id="flow-modal" hidden>
+    <div class="card m-card flow-card" role="dialog" aria-modal="true" aria-labelledby="fl-title">
+      <div class="m-head"><img class="fl-thumb" id="fl-thumb" alt=""><div class="grow"><h3 id="fl-title">Memproses clip</h3><p id="fl-video"></p></div></div>
+      <div class="fl-steps" id="fl-steps"></div>
+      <p class="fl-note">Proses tetap berjalan walau jendela ini ditutup. Room-nya ada di tab Clip Studio.</p>
+      <div class="m-foot"><button class="btn ghost" id="fl-close">Tutup</button>
+        <a class="btn primary" id="fl-go" href="#"><?= icon('scissors') ?> Masuk Clip Studio</a></div>
+    </div>
+  </div>
 
   <section class="section">
     <div class="tabs" id="tabs">
       <button class="tab on" data-tab="studio">Clip Studio<span class="count" id="c-studio"></span></button>
+      <button class="tab" data-tab="projects">Project<span class="count" id="c-projects"></span></button>
       <button class="tab" data-tab="downloads">Unduhan<span class="count" id="c-downloads"></span></button>
       <button class="tab-act" id="sel-toggle" type="button" title="Pilih room untuk dihapus" aria-label="Pilih room untuk dihapus"><?= icon('trash') ?></button>
     </div>
     <div id="p-studio"></div>
+    <div id="p-projects" hidden></div>
     <div id="p-downloads" hidden></div>
   </section>
 </div>
@@ -377,7 +477,30 @@ let video = null, height = 0, mode = 'edit_h264', polling = null;
 let accounts = [], accFilter = store.get('room-filter') ?? 'all';
 const avatar = a => accAvatar(a);
 async function loadAccounts() { try { accounts = (await api('accounts')).accounts; } catch { accounts = []; } }
-let tab = store.get('tab') === 'downloads' ? 'downloads' : 'studio';
+let tab = ['downloads', 'projects'].includes(store.get('tab')) ? store.get('tab') : 'studio';
+
+/* ---------- Modal link YouTube: mode "clip" (lanjut atur clip) atau "download" ---------- */
+let urlMode = 'clip';
+function openUrl(mode) {
+  urlMode = mode;
+  $('um-title').textContent = mode === 'clip' ? 'Buat clip dari YouTube' : 'Download dari YouTube';
+  $('um-sub').textContent = mode === 'clip' ? 'Tempel link video, lalu klik Proses. Berikutnya kamu bisa mengatur jenis & jumlah clip.'
+    : 'Tempel link video, lalu pilih kualitas & format.';
+  $('check').innerHTML = `${ic(mode === 'clip' ? 'scissors' : 'search')} ${mode === 'clip' ? 'Proses' : 'Cek video'}`;
+  $('video').hidden = true;
+  $('msg').textContent = '';
+  $('url-modal').hidden = false;
+  setTimeout(() => $('url').focus(), 30);
+}
+const closeUrl = () => { $('url-modal').hidden = true; };
+document.querySelectorAll('[data-open]').forEach(b => b.onclick = () => openUrl(b.dataset.open));
+$('um-close').onclick = closeUrl;
+$('url-modal').addEventListener('click', e => { if (e.target === $('url-modal')) closeUrl(); });
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  if (!$('url-modal').hidden) closeUrl();
+  else if (!$('flow-modal').hidden) closeFlow();
+});
 
 /* ---------- Cek video ---------- */
 
@@ -400,9 +523,10 @@ $('form').onsubmit = async e => {
   $('video').hidden = true;
   try {
     video = await api('info', { url });
-    showVideo();
     $('msg').textContent = '';
     $('url').value = ''; // kembali ke kondisi awal, siap untuk link berikutnya
+    // Buat clip: langsung ke pengaturan clip; Download: tampilkan pilihan kualitas & format
+    if (urlMode === 'clip') { closeUrl(); openModal(); } else showVideo();
   } catch (err) {
     $('msg').className = 'search-msg err-text';
     $('msg').textContent = err.message;
@@ -419,9 +543,12 @@ function showVideo() {
   $('v-meta').textContent = [video.uploader, video.duration ? fmtDur(video.duration) : '',
     best ? 'maks ' + qName(best.height) + (best.fps > 30 ? best.fps : '') : ''].filter(Boolean).join(' · ');
   height = 0;
-  $('dl-panel').hidden = true;
-  $('go-download').classList.remove('on');
   $('video').hidden = false;
+  // Di modal Download: panel unduh langsung terbuka, tombol pilihan disembunyikan
+  $('video').querySelector('.choices').hidden = urlMode === 'download';
+  $('dl-panel').hidden = urlMode !== 'download';
+  $('go-download').classList.toggle('on', urlMode === 'download');
+  if (urlMode === 'download') { renderQualities(); renderFormats(); }
 }
 
 
@@ -459,6 +586,7 @@ $('start').onclick = async () => {
       title: video.title, thumbnail: video.thumbnail });
     $('video').hidden = true;
     $('url').value = ''; syncCheck();
+    closeUrl();
     setTab('downloads');
     toast('Download dimulai');
     loadJobs();
@@ -664,12 +792,72 @@ $('m-start').onclick = async () => {
     const { id } = await api('analyze', { url: video.url, title: video.title, thumbnail: video.thumbnail,
       clip_min: clipCfg.min, clip_max: clipCfg.max, max_clips: clipCfg.count, style: clipCfg.style, account_id: clipCfg.account, out_lang: clipCfg.lang,
       concepts: conceptPick(clipCfg.style), concept_note: $('concept-note').value.trim(), caption_style: capStylePick() });
-    location.href = 'studio.php?id=' + id;
+    $('m-start').disabled = false;
+    closeModal();
+    openFlow(id);
+    loadJobs();
   } catch (err) {
     toast(err.message);
     $('m-start').disabled = false;
   }
 };
+
+/* ---------- Timeline proses buat clip (setelah "Mulai buat clip") ---------- */
+let flowId = null, flowPoll = null;
+function openFlow(id) {
+  flowId = id;
+  $('fl-thumb').src = video?.thumbnail || '';
+  $('fl-thumb').hidden = !video?.thumbnail;
+  $('fl-video').textContent = video?.title || '';
+  $('fl-go').href = 'studio.php?id=' + id;
+  $('fl-steps').innerHTML = '<div class="empty" style="padding:18px"><span class="spin"></span></div>';
+  $('flow-modal').hidden = false;
+  pollFlow();
+}
+function closeFlow() { $('flow-modal').hidden = true; flowId = null; clearTimeout(flowPoll); }
+$('fl-close').onclick = closeFlow;
+$('flow-modal').addEventListener('click', e => { if (e.target === $('flow-modal')) closeFlow(); });
+const FL_ACTIVE = ['queued', 'downloading', 'converting', 'analyzing'];
+async function pollFlow() {
+  if (!flowId) return;
+  let d;
+  try { d = await api('studio', null, '&id=' + flowId); } catch { flowPoll = setTimeout(pollFlow, 3000); return; }
+  const A = d.analysis || {}, S = d.source, P = d.project, steps = [];
+  const st = (title, state, sub = '', progress = null) => steps.push({ title, state, sub, progress });
+  st('Membaca video', 'done', video?.duration ? fmtDur(video.duration) : '');
+  if (A.status === 'done') st('Menganalisa dengan AI', A.clip_count ? 'done' : 'error', A.clip_count ? `${A.clip_count} momen terbaik ditemukan` : 'AI tidak menemukan momen yang cocok');
+  else if (FL_ACTIVE.includes(A.status)) st('Menganalisa dengan AI', 'active', A.stage || 'Menunggu…', A.progress || 0);
+  else st('Menganalisa dengan AI', 'error', A.error || 'Analisa gagal');
+  if (S?.status === 'done') st('Mengunduh video sumber', 'done', S.size ? fmtSize(S.size) : '');
+  else if (S && FL_ACTIVE.includes(S.status)) st('Mengunduh video sumber', 'active', [S.stage, S.speed].filter(Boolean).join(' · '), S.progress || 0);
+  else if (S?.status === 'error') st('Mengunduh video sumber', 'error', S.error || 'Unduhan gagal');
+  else st('Mengunduh video sumber', 'pending', 'Menunggu…');
+  const items = P?.items || [], js = items.map(it => d.jobs?.[it.job_id] || {});
+  const done = js.filter(j => j.status === 'done').length;
+  if (!items.length) st('Memotong & merender clip', 'pending', 'Setelah analisa selesai');
+  else if (done === items.length) st('Memotong & merender clip', 'done', `${done} clip selesai dirender`);
+  else st('Memotong & merender clip', 'active', `${done} dari ${items.length} clip selesai`, done / items.length * 100);
+  st('Siap diedit & diunduh', items.length && done === items.length ? 'done' : 'pending', 'Buka Clip Studio untuk melihat, mengedit, & mengunduh clip');
+  if (P?.id) $('fl-go').href = 'studio.php?id=' + P.id;
+  setHTML($('fl-steps'), steps.map((s, i) => `<div class="fl-step ${s.state}"><span class="fl-dot">${s.state === 'done' ? ic('check') : s.state === 'active' ? '<span class="spin" style="width:13px;height:13px"></span>' : s.state === 'error' ? '!' : i + 1}</span>
+    <div><b>${esc(s.title)}</b>${s.sub ? `<small>${esc(s.sub)}</small>` : ''}${s.progress != null ? `<div class="bar"><i style="width:${Math.max(3, Math.min(100, s.progress))}%"></i></div>` : ''}</div></div>`).join(''));
+  const finished = steps.some(s => s.state === 'error') || steps[steps.length - 1].state === 'done';
+  if (!finished) flowPoll = setTimeout(pollFlow, 2000);
+}
+
+/* ---------- Tab Project: project manual (project.php) ---------- */
+async function loadProjects() {
+  let d;
+  try { d = await api('mproj_list'); } catch { return; }
+  $('c-projects').textContent = d.projects.length || '';
+  setHTML($('p-projects'), `<div class="rooms">
+    <button type="button" class="card room new-proj" data-newproj style="text-align:left;font:inherit;color:inherit;cursor:pointer;padding:0">
+      <div class="room-thumb" style="display:grid;place-items:center;color:var(--muted)">${ic('plus').replace('class="i"', 'class="i" style="width:30px;height:30px"')}</div>
+      <div class="room-body"><div class="room-title">Project baru</div><div class="room-meta"><span>Edit manual dari footage sendiri</span></div></div></button>
+    ${d.projects.map(p => `<a class="card room" href="project.php?id=${p.id}">
+      <div class="room-thumb">${p.thumb ? `<img src="${esc(p.thumb)}" alt="" loading="lazy">` : ''}<span class="pill">${ic('film')} ${p.clips} potongan</span></div>
+      <div class="room-body"><div class="room-title">${esc(p.name)}</div><div class="room-meta"><span>${p.ratio} · ${fmtDur(p.duration)}${p.renders ? ` · ${p.renders} render` : ''}</span></div></div></a>`).join('')}</div>`);
+}
 
 /* ---------- Tab Room & Unduhan ---------- */
 
@@ -679,6 +867,8 @@ function setTab(t) {
   document.querySelectorAll('#tabs .tab').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
   $('p-studio').hidden = t !== 'studio';
   $('p-downloads').hidden = t !== 'downloads';
+  $('p-projects').hidden = t !== 'projects';
+  if (t === 'projects') loadProjects();
   // Tombol hapus room hanya untuk tab Clip Studio
   if (t !== 'studio' && selecting) setSelecting(false);
   $('sel-toggle').hidden = t !== 'studio' || !Object.keys(rooms).length;
@@ -866,6 +1056,17 @@ $('p-studio').addEventListener('click', e => {
   loadJobs();
 });
 loadAccounts().then(loadJobs);
+loadProjects();
+// Sorotan hover mengikuti kursor (posisi relatif kartu sebagai variabel CSS --mx / --my)
+document.querySelectorAll('.act3, .camp-cta').forEach(el => el.addEventListener('pointermove', e => {
+  const r = el.getBoundingClientRect();
+  el.style.setProperty('--mx', (e.clientX - r.left) + 'px');
+  el.style.setProperty('--my', (e.clientY - r.top) + 'px');
+}));
+// Kartu "Project baru": langsung buat project lalu buka editornya
+$('p-projects').addEventListener('click', async e => {
+  if (e.target.closest('[data-newproj]')) openNewProject();
+});
 // Dropdown Pengaturan: Manajemen storage / Kompresi hasil clip
 (() => {
   const btn = $('set-btn'), menu = $('set-menu');

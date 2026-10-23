@@ -147,6 +147,7 @@ const GROUPS = [
   ['downloads', 'Unduhan lain', '#6e56cf'],
   ['proxy', 'Preview editor', '#12a594'],
   ['campaign', 'Bahan campaign', '#e54666'],
+  ['manual', 'Footage project', '#3e63dd'],
   ['music', 'Library musik', '#8e4ec6'],
   ['models', 'Model AI', '#697177'],
 ];

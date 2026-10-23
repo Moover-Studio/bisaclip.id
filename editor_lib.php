@@ -1147,7 +1147,7 @@ function edit_footage_sequence(array $edit): array
  */
 function gfx_sanitize($g): ?array
 {
-    if (!is_array($g) || !in_array($g['type'] ?? '', ['hook', 'hook_dark', 'hook_yellow', 'hook_grad', 'hook_outline', 'clipnews', 'news', 'viral', 'breaking', 'minimal', 'banner', 'banner_blue', 'banner_dark', 'banner_yellow', 'banner_white', 'banner_square', 'banner_pill'], true)) {
+    if (!is_array($g) || !in_array($g['type'] ?? '', ['hook', 'hook_dark', 'hook_yellow', 'hook_grad', 'hook_outline', 'clipnews', 'news', 'viral', 'breaking', 'minimal', 'banner', 'banner_blue', 'banner_dark', 'banner_yellow', 'banner_white', 'banner_square', 'banner_pill', 'quote', 'quote_dark', 'quote_blue', 'quote_yellow'], true)) {
         return null;
     }
     $hex = fn($v, $d) => preg_match('/^#[0-9a-f]{6}$/i', (string) $v) ? strtoupper((string) $v) : $d;

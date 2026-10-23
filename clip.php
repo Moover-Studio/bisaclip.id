@@ -319,9 +319,12 @@ function split_graph(array $items, int $W, int $H, int $vi, float $dur): string
 }
 
 /** Filtergraph: potong per segmen, crop ke pembicara, skala 1080x1920, lalu gabungkan lagi → [cv]. */
-const CAM_PAN = 0.55;       // durasi kamera bergeser halus ke pembicara berikutnya (detik)
+const CAM_PAN = 0.9;        // durasi kamera bergeser halus untuk perpindahan kecil (detik)
 const CAM_DEADZONE = 0.02;  // pergeseran lebih kecil dari 2% lebar/tinggi video diabaikan (tidak bergetar)
-const CAM_HOLD = 0.8;       // pembicara yang tampil kurang dari ini tidak membuat kamera bergeser
+const CAM_HOLD = 1.0;       // pembicara yang tampil kurang dari ini tidak membuat kamera berpindah
+// Perpindahan lebih jauh dari 18% lebar/tinggi video (mis. dari pembicara kiri ke kanan di shot lebar) dibuat
+// cut langsung seperti ganti kamera — geseran kilat sejauh itu terlihat seperti glitch.
+const CAM_JUMP = 0.18;
 
 /** Posisi crop (x, y) untuk wajah di segmen dengan ukuran crop tetap cw x ch (sama dengan speaker_crop). */
 function speaker_xy(array $seg, int $cw, int $ch, int $W, int $H): array
@@ -384,11 +387,16 @@ function camera_runs(array $segs, ?array $cuts, int $W, int $H, float $aspect): 
             if ($k > 0 && abs($x - $last[1]) < $W * CAM_DEADZONE && abs($y - $last[2]) < $H * CAM_DEADZONE) {
                 continue; // pembicara hampir di posisi yang sama: kamera diam
             }
-            $keys[] = [$k === 0 ? $r['start'] : $seg['start'], $x, $y];
+            $jump = $k > 0 && (abs($x - $last[1]) > $W * CAM_JUMP || abs($y - $last[2]) > $H * CAM_JUMP);
+            $keys[] = [$k === 0 ? $r['start'] : $seg['start'], $x, $y, $jump];
         }
         // Selaan singkat (< CAM_HOLD detik) tidak menggerakkan kamera bolak-balik
         $keys = array_values(array_filter($keys, fn($kv, $k) => $k === 0 || (($keys[$k + 1][0] ?? $r['end']) - $kv[0]) >= CAM_HOLD,
             ARRAY_FILTER_USE_BOTH));
+        // Setelah selaan dibuang, jenis perpindahan dihitung ulang dari posisi kamera sebelumnya
+        foreach ($keys as $k => $kv) {
+            $keys[$k][3] = $k > 0 && (abs($kv[1] - $keys[$k - 1][1]) > $W * CAM_JUMP || abs($kv[2] - $keys[$k - 1][2]) > $H * CAM_JUMP);
+        }
         $r['keys'] = $keys;
         unset($r['segs']);
     }
@@ -396,7 +404,10 @@ function camera_runs(array $segs, ?array $cuts, int $W, int $H, float $aspect): 
     return $runs;
 }
 
-/** Ekspresi ffmpeg posisi kamera (x atau y) di dalam satu run; t lokal = 0 di awal potongan run. */
+/**
+ * Ekspresi ffmpeg posisi kamera (x atau y) di dalam satu run; t lokal = 0 di awal potongan run.
+ * Perpindahan jauh = cut langsung; perpindahan kecil = geser halus (smootherstep, mulai & berhenti sangat lembut).
+ */
 function camera_expr(array $keys, int $axis, float $t0): string
 {
     $e = (string) $keys[0][$axis];
@@ -405,8 +416,13 @@ function camera_expr(array $keys, int $axis, float $t0): string
         if (abs($d) < 0.5) {
             continue;
         }
-        $p = sprintf('clip((t-%.3f)/%.3f,0,1)', $keys[$k][0] - $t0, CAM_PAN);
-        $e .= sprintf('+%.1f*(%s)*(%s)*(3-2*(%s))', $d, $p, $p, $p); // smoothstep
+        $tk = $keys[$k][0] - $t0;
+        if (!empty($keys[$k][3])) {
+            $e .= sprintf('+%.1f*gte(t,%.3f)', $d, $tk);
+            continue;
+        }
+        $p = sprintf('clip((t-%.3f)/%.3f,0,1)', $tk, CAM_PAN);
+        $e .= sprintf('+%.1f*pow(%2$s,3)*(%2$s*(6*%2$s-15)+10)', $d, $p);
     }
     return $e;
 }

@@ -183,6 +183,8 @@ if (!valid_job_id($pid) || !preg_match('/^[a-f0-9]{8}$/', $iid)) {
   .p-input { padding: 9px 12px; font-size: 14px; }
   textarea.p-input { width: 100%; resize: vertical; min-height: 76px; line-height: 1.45; font: inherit; font-size: 14px; }
   /* Template grafik: contoh tampil di atas "frame video" gelap */
+  .p-hint { margin-top: 6px; font-size: 11.5px; line-height: 1.45; color: var(--muted); }
+  .p-hint b { color: var(--text-2); }
   .gfx-grid { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr; gap: 10px; padding: 6px 12px 12px; align-content: start; overflow-y: auto; }
   .gfxt { display: flex; flex-direction: column; gap: 7px; padding: 6px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-2);
     color: var(--text-2); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; text-align: left; transition: border-color .15s, background .15s; }
@@ -1207,6 +1209,7 @@ if (!valid_job_id($pid) || !preg_match('/^[a-f0-9]{8}$/', $iid)) {
 <video id="vid" preload="auto" playsinline hidden></video>
 
 <script src="assets/common.js?v=<?= filemtime(__DIR__ . '/assets/common.js') ?>"></script>
+<script src="assets/gfx.js?v=<?= filemtime(__DIR__ . '/assets/gfx.js') ?>"></script>
 <script>
 const PID = <?= json_encode($pid) ?>;
 const UPLOAD_MAX = <?= (function () { $b = fn($v) => (int) $v * (['K' => 1 << 10, 'M' => 1 << 20, 'G' => 1 << 30][strtoupper(substr(trim($v), -1))] ?? 1);
@@ -1303,193 +1306,7 @@ function drawFrameMask(g, CW, CH) {
   g.fill('evenodd');
   g.restore();
 }
-/* ---------- Template grafik (judul berita ala clipper): digambar di canvas jadi PNG, dipakai sebagai media overlay ---------- */
-const GFX = {
-  hook: { name: 'Default', cat: 'Teks hook', label: '', text: 'Kalimat pembuka yang bikin penasaran',
-    c1: '#FFFFFF', c2: '#FFFFFF', c3: '#111111', cn: [null, 'Kotak', 'Teks'], noLabel: true },
-  hook_dark: { name: 'Gelap', cat: 'Teks hook', label: '', text: 'Kalimat pembuka yang bikin penasaran',
-    c1: '#FFFFFF', c2: '#111318', c3: '#FFFFFF', cn: [null, 'Kotak', 'Teks'], noLabel: true },
-  hook_yellow: { name: 'Kuning', cat: 'Teks hook', label: '', text: 'Kalimat pembuka yang bikin penasaran',
-    c1: '#FFFFFF', c2: '#FFD43B', c3: '#111111', cn: [null, 'Kotak', 'Teks'], noLabel: true },
-  hook_grad: { name: 'Gradasi', cat: 'Teks hook', label: '', text: 'Kalimat pembuka yang bikin penasaran',
-    c1: '#003A8C', c2: '#2F7BF0', c3: '#FFFFFF', cn: ['Gradasi', 'Kotak', 'Teks'], noLabel: true },
-  hook_outline: { name: 'Outline', cat: 'Teks hook', label: '', text: 'Kalimat pembuka yang bikin penasaran',
-    c1: '#FFFFFF', c2: '#000000', c3: '#FFFFFF', cn: [null, 'Garis', 'Teks'], noLabel: true },
-  clipnews: { cat: 'Grafik news', name: 'Clip News', label: 'Clip News', text: 'INDONESIA GAWAT DARURAT! KEUANGAN NEGARA HAMPIR HABIS, TERNYATA INI PENYEBABNYA!',
-    c1: '#E5432E', c2: '#FFFFFF', c3: '#111111', cn: ['Label', 'Kotak', 'Teks'] },
-  news: { cat: 'Grafik news', name: 'News', label: 'NEWS', text: 'DETIK-DETIK BOCAH BAKAR RUMPUT KERING DI KALIMANTAN, HITUNGAN MENIT API LANGSUNG MEMBESAR',
-    c1: '#E0312B', c2: '#0B0B0B', c3: '#FFFFFF', cn: ['Label', 'Kotak', 'Teks'] },
-  viral: { cat: 'Grafik news', name: 'Viral', label: '#VIRALIN', text: 'Detik-detik Dua Mobil Tabrakan Adu Banteng, Sopir Sempat Terjepit',
-    c1: '#1F4FB5', c2: '#F4D53A', c3: '#161616', cn: ['Label', 'Kotak', 'Teks'] },
-  breaking: { cat: 'Grafik news', name: 'Breaking', label: 'BREAKING NEWS', text: 'Harga Emas Hari Ini Tembus Rekor Tertinggi Sepanjang Sejarah',
-    c1: '#FFFFFF', c2: '#D72C2C', c3: '#FFFFFF', cn: ['Label', 'Kotak', 'Teks'] },
-  // Banner judul selebar layar: pita + kartu bergaris + label. c1 kartu & pita, c2 garis, c3 judul, c4 latar label, c5 teks label
-  ...Object.fromEntries([
-    ['banner', 'Merah', '#A8383A', '#FFFFFF', '#FFFFFF', '#A8383A', '#FFFFFF'],
-    ['banner_blue', 'Biru', '#1E4FB8', '#FFFFFF', '#FFFFFF', '#FFD43B', '#111111'],
-    ['banner_dark', 'Gelap', '#15171C', '#FFD43B', '#FFFFFF', '#FFD43B', '#111111'],
-    ['banner_yellow', 'Kuning', '#FFD43B', '#111111', '#111111', '#111111', '#FFD43B'],
-    ['banner_white', 'Putih', '#FFFFFF', '#E0312B', '#111111', '#E0312B', '#FFFFFF'],
-    ['banner_square', 'Tegas', '#D72C2C', '#FFFFFF', '#FFFFFF', '#111111', '#FFFFFF'],
-    ['banner_pill', 'Kapsul', '#0F766E', '#FFFFFF', '#FFFFFF', '#FFFFFF', '#0F766E'],
-  ].map(([k, name, c1, c2, c3, c4, c5]) => [k, { cat: 'Banner judul', name, label: 'clipper4fame', text: 'Ngobrol Bareng Radit, Mas Tepe Malah Liat Jam?',
-    c1, c2, c3, c4, c5, cn: ['Kartu & pita', 'Garis', 'Judul', 'Latar label', 'Teks label'], full: true }])),
-  minimal: { cat: 'Grafik news', name: 'Minimal', label: 'TERKINI', text: 'Pemerintah Umumkan Kebijakan Baru untuk Pekerja Muda',
-    c1: '#2F7BF0', c2: '#0E131B', c3: '#FFFFFF', cn: ['Aksen', 'Kotak', 'Teks'] },
-};
-const GFX_W = 900;  // lebar desain grafik (px pada layar 1080)
-const gfxFont = (st, sz) => `${st} ${sz}px "Clip Montserrat", "Arial Black", sans-serif`;
-function wrapText(g, text, maxW) {
-  const words = String(text).split(/\s+/).filter(Boolean), lines = [];
-  let cur = '';
-  for (const w of words) {
-    const t = cur ? cur + ' ' + w : w;
-    if (cur && g.measureText(t).width > maxW) { lines.push(cur); cur = w; } else cur = t;
-  }
-  if (cur) lines.push(cur);
-  return lines.length ? lines : [' '];
-}
-// Sedikit lebih gelap / terang untuk gradasi kotak
-function shade(hex, f) {
-  const n = parseInt(hex.slice(1), 16), c = v => Math.max(0, Math.min(255, Math.round(v + (f < 0 ? v : 255 - v) * f)));
-  return `rgb(${c(n >> 16)},${c(n >> 8 & 255)},${c(n & 255)})`;
-}
-// Gambar grafik ke canvas baru (skala = kerapatan piksel). Mengembalikan canvas.
-async function gfxCanvas(p, scale = 2) {
-  await Promise.all(['800', 'italic 800', '900', '700'].map(w => document.fonts.load(`${w} 40px "Clip Montserrat"`).catch(() => {})));
-  if (p.tw) await document.fonts.load(`${p.tw} 40px "ClipW Montserrat"`).catch(() => {});
-  const meas = document.createElement('canvas').getContext('2d');
-  const M = 18, W = GFX_W, ops = [];
-  let H = 0;
-  const text = (font, upper) => { meas.font = font; return upper ? String(p.text || '').toUpperCase() : String(p.text || ''); };
-  const label = String(p.label || '');
-  const T = p.type;
-  // Ukuran label (kotak + teks label), 60–200% dari ukuran bawaan template
-  const k = Math.max(0.6, Math.min(2, (p.ls ?? 100) / 100));
-  // Teks utama: ukuran (ts %), jarak baris (lh %), ketebalan (tw) & perataan (ta); kosong = bawaan template
-  const ts = Math.max(0.6, Math.min(1.6, (p.ts ?? 100) / 100)), lhf = Math.max(0.7, Math.min(1.6, (p.lh ?? 100) / 100));
-  // Ketebalan pilihan memakai file ketebalan asli Montserrat (keluarga "ClipW Montserrat"); bawaan = font template
-  const titleFont = (st, sz) => p.tw
-    ? `${/italic/.test(st) ? 'italic ' : ''}${p.tw} ${sz * ts}px "ClipW Montserrat", "Clip Montserrat", sans-serif`
-    : gfxFont(st, sz * ts);
-  const LH = base => base * ts * lhf;
-  const place = (def, left, right) => {
-    const align = p.ta || def;
-    return { align, x: align === 'left' ? left : align === 'right' ? right : (left + right) / 2 };
-  };
-  if (T === 'clipnews') {
-    const bf = gfxFont('italic 800', 42 * k); meas.font = bf;
-    const bw = Math.min(W - 22, meas.measureText(label).width + 56 * k), bh = 74 * k;
-    const hf = titleFont('italic 800', 46), lines = wrapText(meas, text(hf, true), W - 88), lh = LH(60), pl = place('left', 44, W - 44);
-    const by = bh * 0.62, bhh = 40 + bh * 0.38 + lines.length * lh + 34;
-    ops.push({ k: 'box', x: 0, y: by, w: W, h: bhh, r: 16, fill: p.c2, grad: true, shadow: true });
-    lines.forEach((l, i) => ops.push({ k: 'text', x: pl.x, align: pl.align, y: by + 40 + bh * 0.38 + i * lh + lh * 0.78, t: l, font: hf, fill: p.c3 }));
-    if (label) {
-      ops.push({ k: 'box', x: 22, y: 0, w: bw, h: bh, r: 12, fill: p.c1, shadow: true });
-      ops.push({ k: 'text', x: 22 + bw / 2, y: bh * 0.7, t: label, font: bf, fill: '#FFFFFF', align: 'center' });
-    }
-    H = by + bhh;
-  } else if (T === 'news') {
-    const tf = gfxFont('900', 32 * k); meas.font = tf;
-    const tw = Math.min(W, meas.measureText(label.toUpperCase()).width + 36 * k), th = label ? 52 * k : 0;
-    const hf = titleFont('800', 48), lines = wrapText(meas, text(hf, true), W - 64), lh = LH(60), pl = place('left', 32, W - 32);
-    const bh = lines.length * lh + 52;
-    ops.push({ k: 'box', x: 0, y: th, w: W, h: bh, r: 0, fill: p.c2, shadow: true });
-    lines.forEach((l, i) => ops.push({ k: 'text', x: pl.x, align: pl.align, y: th + 26 + i * lh + lh * 0.8, t: l, font: hf, fill: p.c3 }));
-    if (label) {
-      ops.push({ k: 'box', x: 0, y: 0, w: tw, h: th, r: 0, fill: p.c1 });
-      ops.push({ k: 'text', x: 18 * k, y: th * 0.72, t: label.toUpperCase(), font: tf, fill: '#FFFFFF' });
-    }
-    H = th + bh;
-  } else if (T === 'viral') {
-    const bf = gfxFont('900', 52 * k); meas.font = bf;
-    const bw = Math.min(W, meas.measureText(label).width + 64 * k), bh = label ? 92 * k : 0;
-    const hf = titleFont('800', 54), lines = wrapText(meas, text(hf, false), W - 72), lh = LH(66), pl = place('center', 36, W - 36);
-    const by = Math.max(0, bh - 16 * k), bhh = lines.length * lh + 56 + (label ? 16 : 0);
-    ops.push({ k: 'box', x: 0, y: by, w: W, h: bhh, r: 8, fill: p.c2, shadow: true });
-    lines.forEach((l, i) => ops.push({ k: 'text', x: pl.x, y: by + 28 + (label ? 16 : 0) + i * lh + lh * 0.78, t: l, font: hf, fill: p.c3, align: pl.align }));
-    if (label) {
-      ops.push({ k: 'box', x: (W - bw) / 2, y: 0, w: bw, h: bh, r: 8, fill: p.c1, shadow: true });
-      ops.push({ k: 'text', x: W / 2, y: bh * 0.68, t: label, font: bf, fill: '#FFFFFF', align: 'center' });
-    }
-    H = by + bhh;
-  } else if (T.startsWith('banner')) {
-    // Banner judul selebar layar: pita dari tepi kiri ke kanan (bergaris di atas), kartu bergaris berisi judul rata tengah,
-    // label kecil menimpa garis atas kartu. Variasi bentuk: sudut kartu, posisi & bentuk label
-    const SH = { banner_square: { r: 4, tab: 'left', tr: 2 }, banner_pill: { r: 52, tab: 'center', tr: 'pill' } }[T] || { r: 26, tab: 'center', tr: 8 };
-    const lf = gfxFont('700', 30 * k), hf = titleFont('700', 62); meas.font = lf;
-    const tabW = Math.min(W - 120, meas.measureText(label).width + (SH.tr === 'pill' ? 56 : 40) * k), tabH = label ? 54 * k : 0;
-    meas.font = hf;
-    const cx = 40, cw = W - 80, lines = wrapText(meas, String(p.text || ''), cw - 90), lh = LH(76), pl = place('center', cx + 45, cx + cw - 45);
-    const cy = tabH / 2, ch = (label ? 34 + tabH / 2 : 40) + lines.length * lh + 34;
-    // Pita sampai bawah layar: diperpanjang sebesar ext (dihitung fitBand dari posisi grafik)
-    const bandY = cy + ch * 0.58, bottom = cy + ch + 46 + (p.fill !== false ? Math.max(0, p.ext || 0) : 0);
-    ops.push({ k: 'box', x: -M, y: bandY, w: W + M * 2, h: bottom - bandY + M, r: 0, fill: p.c1 });
-    ops.push({ k: 'box', x: -M, y: bandY, w: W + M * 2, h: 7, r: 0, fill: p.c2 });
-    ops.push({ k: 'box', x: cx, y: cy, w: cw, h: ch, r: SH.r, fill: p.c1, line: p.c2, lw: 9, shadow: true });
-    lines.forEach((l, i) => ops.push({ k: 'text', x: pl.x, y: cy + (label ? 34 + tabH / 2 : 40) + i * lh + lh * 0.8, t: l, font: hf, fill: p.c3, align: pl.align }));
-    if (label) {
-      const tx = SH.tab === 'left' ? cx + 34 : (W - tabW) / 2;
-      ops.push({ k: 'box', x: tx, y: 0, w: tabW, h: tabH, r: SH.tr === 'pill' ? tabH / 2 : SH.tr * k, fill: p.c4 || p.c1, line: p.c2, lw: 4 * k });
-      ops.push({ k: 'text', x: tx + tabW / 2, y: tabH * 0.7, t: label, font: lf, fill: p.c5 || p.c3, align: 'center' });
-    }
-    H = bottom;
-  } else if (T.startsWith('hook')) {
-    // Teks hook: kotak membulat selebar teks (polos / gradasi), atau tanpa kotak dengan garis tepi tebal; teks tebal rata tengah
-    const outline = T === 'hook_outline', hf = titleFont(outline ? '900' : '800', outline ? 56 : 50); meas.font = hf;
-    const lines = wrapText(meas, String(p.text || ''), W - 120), lh = LH(outline ? 68 : 62);
-    const bw = Math.min(W, Math.max(...lines.map(l => meas.measureText(l).width)) + 96), bh = lines.length * lh + 52;
-    if (!outline) ops.push({ k: 'box', x: (W - bw) / 2, y: 0, w: bw, h: bh, r: 14, fill: p.c2, shadow: true, grad2: T === 'hook_grad' ? p.c1 : null });
-    const pl = place('center', (W - bw) / 2 + 48, (W + bw) / 2 - 48);
-    lines.forEach((l, i) => ops.push({ k: 'text', x: pl.x, y: 26 + i * lh + lh * 0.78, t: l, font: hf, fill: p.c3, align: pl.align, stroke: outline ? p.c2 : null }));
-    H = bh;
-  } else if (T === 'breaking') {
-    const tf = gfxFont('900', 30 * k); meas.font = tf;
-    const tw = Math.min(W, meas.measureText(label.toUpperCase()).width + 40 * k), th = label ? 50 * k : 0;
-    const hf = titleFont('800', 50), lines = wrapText(meas, text(hf, false), W - 64), lh = LH(62), pl = place('left', 32, W - 32);
-    const bh = lines.length * lh + 56;
-    ops.push({ k: 'box', x: 0, y: th, w: W, h: bh, r: 10, fill: p.c2, grad: true, shadow: true });
-    lines.forEach((l, i) => ops.push({ k: 'text', x: pl.x, align: pl.align, y: th + 28 + i * lh + lh * 0.8, t: l, font: hf, fill: p.c3 }));
-    if (label) {
-      ops.push({ k: 'box', x: 0, y: 0, w: tw, h: th + 10, r: 10, fill: p.c1 });
-      ops.push({ k: 'text', x: 20 * k, y: th * 0.72, t: label.toUpperCase(), font: tf, fill: p.c2 });
-    }
-    H = th + bh;
-  } else {
-    const lf = gfxFont('800', 28 * k), hf = titleFont('700', 46); meas.font = hf;
-    const lines = wrapText(meas, String(p.text || ''), W - 100), lh = LH(58), top = label ? 36 + 38 * k : 36, pl = place('left', 50, W - 40);
-    const bh = top + lines.length * lh + 34;
-    ops.push({ k: 'box', x: 0, y: 0, w: W, h: bh, r: 18, fill: p.c2, alpha: .9, shadow: true });
-    ops.push({ k: 'box', x: 0, y: 0, w: 10, h: bh, r: [18, 0, 0, 18], fill: p.c1 });
-    if (label) ops.push({ k: 'text', x: 50, y: 30 + 28 * k, t: label.toUpperCase(), font: lf, fill: p.c1, spacing: 3 * k });
-    lines.forEach((l, i) => ops.push({ k: 'text', x: pl.x, align: pl.align, y: top + i * lh + lh * 0.78, t: l, font: hf, fill: p.c3 }));
-    H = bh;
-  }
-  const cv2 = document.createElement('canvas');
-  cv2.width = Math.ceil((W + M * 2) * scale); cv2.height = Math.ceil((H + M * 2) * scale);
-  const g = cv2.getContext('2d');
-  g.scale(scale, scale);
-  g.translate(M, M);
-  for (const o of ops) {
-    g.save();
-    if (o.k === 'box') {
-      if (o.shadow) { g.shadowColor = 'rgba(0,0,0,.35)'; g.shadowBlur = 16; g.shadowOffsetY = 5; }
-      g.globalAlpha = o.alpha ?? 1;
-      if (o.grad2) { const gr = g.createLinearGradient(o.x, o.y, o.x + o.w, o.y + o.h); gr.addColorStop(0, o.fill); gr.addColorStop(1, o.grad2); g.fillStyle = gr; }
-      else if (o.grad) { const gr = g.createLinearGradient(0, o.y, 0, o.y + o.h); gr.addColorStop(0, shade(o.fill, .06)); gr.addColorStop(1, shade(o.fill, -.12)); g.fillStyle = gr; }
-      else g.fillStyle = o.fill;
-      g.beginPath(); g.roundRect(o.x, o.y, o.w, o.h, o.r); g.fill();
-      if (o.line) { g.shadowColor = 'transparent'; g.lineWidth = o.lw || 4; g.strokeStyle = o.line; g.stroke(); }
-    } else {
-      g.font = o.font; g.fillStyle = o.fill; g.textAlign = o.align || 'left';
-      if (o.spacing) g.letterSpacing = o.spacing + 'px';
-      if (o.stroke) { g.lineJoin = 'round'; g.lineWidth = 12; g.strokeStyle = o.stroke; g.strokeText(o.t, o.x, o.y); }
-      g.fillText(o.t, o.x, o.y);
-    }
-    g.restore();
-  }
-  return cv2;
-}
+/* Template grafik (GFX, gfxCanvas, wrapText, richLines, …): assets/gfx.js, dipakai bersama editor manual */
 
 /**
  * Banner selebar layar: pita memanjang sampai tepi bawah layar dari posisi grafik sekarang.
@@ -1654,7 +1471,8 @@ function gfxPanelHtml(m) {
         <span class="gpk-img" data-gthumb="${k}">${gfxThumbs[k] ? `<img src="${gfxThumbs[k]}" alt="">` : ''}</span><span class="gpk-nm">${esc(t.name)}</span></button>`).join('')}</div></div>
     ${pre.noLabel ? '' : `<div class="p-field"><div class="p-label"><label>Label</label><span class="cnt">${g.label.length}/40</span></div><input class="input p-input" data-gfx="label" value="${esc(g.label)}" maxlength="40" spellcheck="false"></div>
       <div class="p-row"><label>Ukuran label</label><input type="range" min="60" max="200" step="5" data-gfx="ls" value="${g.ls ?? 100}"><span class="val">${g.ls ?? 100}%</span></div>`}
-    <div class="p-field"><div class="p-label"><label>${pre.noLabel ? 'Teks hook' : 'Judul'}</label><span class="cnt">${g.text.length}/200</span></div><textarea class="input p-input" data-gfx="text" rows="3" maxlength="200" spellcheck="false">${esc(g.text)}</textarea></div>
+    <div class="p-field"><div class="p-label"><label>${pre.noLabel ? 'Teks hook' : 'Judul'}</label><span class="cnt">${g.text.length}/200</span></div><textarea class="input p-input" data-gfx="text" rows="3" maxlength="200" spellcheck="false">${esc(g.text)}</textarea>
+      ${pre.rich ? '<div class="p-hint">Apit kata dengan <b>*tanda bintang*</b> untuk warna sorotan, mis. *sahabat sendiri*. Label = baris sumber di bawah.</div>' : ''}</div>
     <div class="gt-row">
       <div class="gt-al">${[['', 'Bawaan', 'reset'], ['left', 'Rata kiri', 'align-left'], ['center', 'Rata tengah', 'align-center'], ['right', 'Rata kanan', 'align-right']].map(([v, t, i]) =>
         `<button type="button" class="tb ${(g.ta || '') === v ? 'on' : ''}" data-gfx-align="${v}" title="${t}">${ic(i)}</button>`).join('')}</div>
@@ -2252,7 +2070,8 @@ function speakerCrop(seg, W, H, a = 9 / 16) {
 /* Kamera halus "ikuti pembicara": sama dengan camera_runs() / camera_expr() di clip.php.
    Satu run = satu shot kamera sumber: ukuran crop tetap, kamera bergeser ease-in-out ke pembicara berikutnya.
    Antar run (cut di video sumber) kamera langsung pindah. */
-const CAM_PAN = 0.55, CAM_DEADZONE = 0.02, CAM_HOLD = 0.8;
+// Sama dengan clip.php: perpindahan jauh (> CAM_JUMP) = cut langsung, perpindahan kecil = geser halus
+const CAM_PAN = 0.9, CAM_DEADZONE = 0.02, CAM_HOLD = 1.0, CAM_JUMP = 0.18;
 let camCache = { key: null, runs: [] };
 function cameraRuns(a) {
   const W = E.src.w, H = E.src.h, segs = E.segments || [];
@@ -2292,10 +2111,12 @@ function camAt(time, a = 9 / 16) {
   const runs = cameraRuns(a);
   if (!runs.length) return null;
   const r = runs.find((x, k) => time < x.e || k === runs.length - 1) || runs[0];
-  const smooth = p => p * p * (3 - 2 * p);
+  const smooth = p => p * p * p * (p * (6 * p - 15) + 10);  // smootherstep
+  const W0 = E.src.w, H0 = E.src.h;
   let x = r.keys[0][1], y = r.keys[0][2];
   for (let k = 1; k < r.keys.length; k++) {
-    const p = smooth(Math.max(0, Math.min(1, (time - r.keys[k][0]) / CAM_PAN)));
+    const jump = Math.abs(r.keys[k][1] - r.keys[k - 1][1]) > W0 * CAM_JUMP || Math.abs(r.keys[k][2] - r.keys[k - 1][2]) > H0 * CAM_JUMP;
+    const p = jump ? (time >= r.keys[k][0] ? 1 : 0) : smooth(Math.max(0, Math.min(1, (time - r.keys[k][0]) / CAM_PAN)));
     x += (r.keys[k][1] - r.keys[k - 1][1]) * p;
     y += (r.keys[k][2] - r.keys[k - 1][2]) * p;
   }
@@ -2363,7 +2184,7 @@ function draw() {
   else {
     if (vid.readyState < 2) return;
     if (isHidden('video')) { ctx.fillStyle = '#000'; ctx.fillRect(0, 0, cv.width, cv.height); }
-    else paintMain(ctx, vid, t, cv.width, cv.height);
+    else paintMain(ctx, vid, frameTime(), cv.width, cv.height);
     drawEffects(cv.width, cv.height);
     drawFrameMask(ctx, cv.width, cv.height);
     drawOverlay();
@@ -4071,6 +3892,27 @@ function bindTimelineDrop() {
     addFootage(lib, d.pos, d.k);
   });
 }
+
+/*
+ * Waktu persis frame yang sedang tampil (requestVideoFrameCallback). Saat diputar, vid.currentTime bisa selisih 1–2 frame
+ * dari gambar di layar, sehingga di pergantian shot crop kamera sempat salah posisi (terlihat seperti kedipan / glitch).
+ * Framing (kamera, split) memakai waktu frame ini supaya selalu cocok dengan gambarnya — sama seperti hasil render.
+ */
+let vfT = null;
+function watchFrames(v) {
+  if (!v?.requestVideoFrameCallback || v._vf) return;
+  v._vf = true;
+  const onFrame = (now, md) => {
+    if (v === vid && E) {
+      vfT = E.pad[0] + md.mediaTime;
+      if (playing && !fp) draw();
+    }
+    v.requestVideoFrameCallback(onFrame);
+  };
+  v.requestVideoFrameCallback(onFrame);
+}
+// Waktu untuk framing gambar video: frame yang tampil saat diputar, posisi playhead saat diam
+const frameTime = () => (playing && vfT !== null && Math.abs(vfT - t) < 0.5 ? vfT : t);
 
 function loop() {
   const now = performance.now(), dt = Math.min(0.25, (now - lastTick) / 1000);
@@ -6135,6 +5977,8 @@ function commitClip(iid, d, v) {
   history.replaceState(null, '', `editor.php?project=${PID}&item=${iid}`);
   vid.onseeked = null;
   vid = v;
+  vfT = null;
+  watchFrames(vid);
   vid.onseeked = () => draw();
   sel = { type: 'clip' };
   adoptEdit(d);
@@ -6162,6 +6006,8 @@ function openClip(iid, force) {
   vid = document.createElement('video');
   vid.preload = 'auto';
   vid.playsInline = true;
+  vfT = null;
+  watchFrames(vid);
   setDirty(false);
   $('t-status').textContent = 'Memuat…';
   $('main').innerHTML = '<div class="card prep"><span class="spin"></span></div>';
@@ -6193,6 +6039,7 @@ document.addEventListener('keydown', e => {
   if (e.ctrlKey && !e.metaKey && e.key.toLowerCase() === 'y') { e.preventDefault(); redo(); }
 });
 
+watchFrames(vid);
 load();
 loadProject();
 </script>

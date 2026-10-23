@@ -539,6 +539,8 @@ function storage_info(): array
             'downloads' => $sum(array_values($other)),
             'proxy' => $sum($proxies),
             'music' => $sum(glob(MUSIC_DIR . '/*') ?: []),
+            // Footage project manual (file asli + preview ringan)
+            'manual' => $sum(array_merge(glob(STORAGE_DIR . '/manual/*/*.*') ?: [], glob(APP_DIR . '/previews/manual/*/*.mp4') ?: [])),
             // Bahan footage campaign (file asli + versi ringan untuk pratinjau)
             'campaign' => $sum(array_merge(glob(STORAGE_DIR . '/campaigns/*/*.{mp4,mov,m4v,mkv,webm,avi}', GLOB_BRACE) ?: [],
                 glob(APP_DIR . '/previews/campaign/*/*.mp4') ?: [])),
@@ -2164,6 +2166,327 @@ switch ($action) {
         }
         write_project($project);
         respond(['ok' => true, 'queued' => $queued, 'skipped' => $skipped, 'uploaded_skipped' => $uploadedSkipped]);
+
+    /* ---------- Project manual (project.php): susun footage sendiri di timeline & render ---------- */
+    case 'mproj_list':
+        require_once __DIR__ . '/mproject_lib.php';
+        $list = [];
+        foreach (glob(MPROJ_DIR . '/*.json') ?: [] as $f) {
+            $p = json_decode((string) file_get_contents($f), true);
+            if (!is_array($p) || empty($p['id'])) {
+                continue;
+            }
+            $first = $p['timeline'][0]['mid'] ?? array_key_first($p['media'] ?? []) ?? '';
+            $list[] = ['id' => $p['id'], 'name' => $p['name'], 'ratio' => $p['ratio'], 'clips' => count($p['timeline'] ?? []),
+                'duration' => round(array_sum(array_map(fn($c) => $c['out'] - $c['in'], $p['timeline'] ?? [])), 1),
+                'thumb' => $p['media'][$first]['thumb'] ?? '', 'renders' => count($p['renders'] ?? []), 'updated_at' => $p['updated_at'] ?? 0];
+        }
+        usort($list, fn($a, $b) => $b['updated_at'] <=> $a['updated_at']);
+        respond(['projects' => $list]);
+
+    case 'mproj_create':
+        require_once __DIR__ . '/mproject_lib.php';
+        // Rasio dipilih user saat membuat project (tidak lagi ditebak dari footage pertama)
+        $in = input();
+        $ratio = isset(MPROJ_RATIOS[$in['ratio'] ?? '']) ? $in['ratio'] : null;
+        $p = ['id' => bin2hex(random_bytes(8)), 'name' => mb_substr(trim((string) ($in['name'] ?? '')) ?: 'Project baru', 0, 100),
+            'ratio' => $ratio ?? '9:16', 'ratio_set' => (bool) $ratio, 'fit' => 'blur', 'media' => [], 'timeline' => [], 'renders' => [], 'created_at' => time()];
+        @mkdir(mproj_media_dir($p['id']), 0777, true);
+        @chmod(mproj_media_dir($p['id']), 0777);
+        write_mproj($p);
+        respond(['project' => $p]);
+
+    case 'mproj_get':
+        require_once __DIR__ . '/mproject_lib.php';
+        $p = read_mproj((string) ($_GET['id'] ?? ''));
+        if (!$p) {
+            respond(['error' => 'Project tidak ditemukan.'], 404);
+        }
+        foreach ($p['media'] as $mid => $m) {
+            if (in_array($m['status'] ?? '', ['queued', 'processing'], true) && !empty($m['job']) && ($j = read_job($m['job']))) {
+                $p['media'][$mid]['progress'] = $j['progress'] ?? 0;
+                $p['media'][$mid]['stage'] = $j['stage'] ?? '';
+            }
+        }
+        $rj = !empty($p['render_job']) ? read_job($p['render_job']) : null;
+        respond(['project' => $p, 'native' => mproj_native_short($p), 'qualities' => MPROJ_QUALITIES, 'ratios' => array_keys(MPROJ_RATIOS),
+            'render' => $rj ? array_intersect_key($rj, array_flip(['id', 'status', 'stage', 'progress', 'error', 'file', 'size', 'note'])) : null,
+            'ai' => mproj_ai_available()]);
+
+    case 'mproj_save':
+        // Simpan nama, rasio, mode isi layar, & susunan timeline (dirapikan: hanya media yang ada, potongan dalam durasi media)
+        require_once __DIR__ . '/mproject_lib.php';
+        $in = input();
+        $p = update_mproj((string) ($in['id'] ?? ''), function ($p) use ($in) {
+            if (isset($in['name'])) {
+                $p['name'] = mb_substr(trim((string) $in['name']), 0, 100) ?: $p['name'];
+            }
+            if (isset($in['ratio']) && isset(MPROJ_RATIOS[$in['ratio']])) {
+                $p['ratio'] = $in['ratio'];
+                $p['ratio_set'] = true;
+            }
+            if (isset($in['fit']) && in_array($in['fit'], ['fill', 'blur', 'black'], true)) {
+                $p['fit'] = $in['fit'];
+            }
+            if (isset($in['timeline']) && is_array($in['timeline'])) {
+                $tl = [];
+                foreach (array_slice($in['timeline'], 0, 300) as $c) {
+                    $m = $p['media'][(string) ($c['mid'] ?? '')] ?? null;
+                    if (!$m || ($m['status'] ?? '') !== 'done') {
+                        continue;
+                    }
+                    if ($m['kind'] === 'image') {
+                        $in0 = 0;
+                        $out = max(0.5, min(60, (float) ($c['out'] ?? 3)));
+                    } else {
+                        $in0 = max(0, min($m['duration'] - 0.2, (float) ($c['in'] ?? 0)));
+                        $out = max($in0 + 0.2, min($m['duration'], (float) ($c['out'] ?? $m['duration'])));
+                    }
+                    $tl[] = ['cid' => preg_match('/^[a-z0-9]{4,12}$/', (string) ($c['cid'] ?? '')) ? $c['cid'] : bin2hex(random_bytes(4)),
+                        'mid' => $m['mid'], 'in' => round($in0, 3), 'out' => round($out, 3), 'vol' => (int) max(0, min(200, (int) ($c['vol'] ?? 100))),
+                        'fit' => in_array($c['fit'] ?? '', ['fill', 'blur', 'black'], true) ? $c['fit'] : null,
+                        // Transisi masuk dari potongan sebelumnya
+                        'tin' => is_array($c['tin'] ?? null) && isset(TRANSITION_PRESETS[$c['tin']['type'] ?? ''])
+                            ? ['type' => $c['tin']['type'], 'dur' => round(max(0.2, min(2, (float) ($c['tin']['dur'] ?? 0.5))), 2)] : null,
+                        // Ukuran (1 = pas layar) & titik tengah footage di layar; null = ikut mode isi layar
+                        'tr' => is_array($c['tr'] ?? null) ? ['s' => round(max(0.1, min(5, (float) ($c['tr']['s'] ?? 1))), 3),
+                            'x' => round(max(-1, min(2, (float) ($c['tr']['x'] ?? 0.5))), 3), 'y' => round(max(-1, min(2, (float) ($c['tr']['y'] ?? 0.5))), 3)] : null];
+                }
+                $p['timeline'] = $tl;
+            }
+            $total = array_sum(array_map(fn($c) => $c['out'] - $c['in'], $p['timeline']));
+            $clamp = fn($v, $a, $b) => max($a, min($b, (float) $v));
+            if (isset($in['overlays']) && is_array($in['overlays'])) {
+                // Grafik & teks: template (dirapikan seperti editor clip), PNG hasil gambar, waktu tampil, posisi & lebar
+                $ov = [];
+                foreach (array_slice($in['overlays'], 0, 60) as $o) {
+                    $g = gfx_sanitize($o['gfx'] ?? null);
+                    $file = basename((string) ($o['file'] ?? ''));
+                    if (!$g || !footage_file_ok($file)) {
+                        continue;
+                    }
+                    $s0 = round($clamp($o['s'] ?? 0, 0, 3600), 3);
+                    $ov[] = ['oid' => preg_match('/^[a-z0-9]{4,12}$/', (string) ($o['oid'] ?? '')) ? $o['oid'] : bin2hex(random_bytes(4)), 'gfx' => $g, 'file' => $file,
+                        's' => $s0, 'e' => round(max($s0 + 0.2, $clamp($o['e'] ?? $s0 + 3, 0, 3600)), 3),
+                        'x' => round($clamp($o['x'] ?? 0.5, -0.5, 1.5), 4), 'y' => round($clamp($o['y'] ?? 0.3, -0.5, 1.5), 4), 'w' => round($clamp($o['w'] ?? 0.84, 0.05, 2), 4),
+                        'opacity' => (int) $clamp($o['opacity'] ?? 100, 0, 100), 'anim' => anim_sanitize($o['anim'] ?? null)];
+                }
+                $p['overlays'] = $ov;
+            }
+            if (isset($in['music']) && is_array($in['music'])) {
+                $mu = [];
+                foreach (array_slice($in['music'], 0, 20) as $m) {
+                    if (!music_file_ok($m['file'] ?? null)) {
+                        continue;
+                    }
+                    $s0 = round($clamp($m['s'] ?? 0, 0, 3600), 3);
+                    $mu[] = ['id' => preg_match('/^[a-z0-9]{4,12}$/', (string) ($m['id'] ?? '')) ? $m['id'] : bin2hex(random_bytes(4)), 'file' => $m['file'],
+                        'name' => mb_substr((string) ($m['name'] ?? 'Musik'), 0, 80), 'dur' => round($clamp($m['dur'] ?? 0, 0, 36000), 3),
+                        's' => $s0, 'e' => round(max($s0 + 0.2, $clamp($m['e'] ?? $s0 + 10, 0, 3600)), 3), 'off' => round($clamp($m['off'] ?? 0, 0, 36000), 3),
+                        'vol' => (int) $clamp($m['vol'] ?? 40, 0, 100), 'fin' => round($clamp($m['fin'] ?? 0, 0, 10), 1), 'fout' => round($clamp($m['fout'] ?? 1.5, 0, 10), 1)];
+                }
+                $p['music'] = $mu;
+            }
+            if (isset($in['pips']) && is_array($in['pips'])) {
+                // Overlay media: footage/gambar dari panel Media yang ditaruh di atas footage utama
+                $pp = [];
+                foreach (array_slice($in['pips'], 0, 40) as $q) {
+                    $m = $p['media'][$q['mid'] ?? ''] ?? null;
+                    if (!$m) {
+                        continue;
+                    }
+                    $img = $m['kind'] === 'image';
+                    $in0 = $img ? 0 : round($clamp($q['in'] ?? 0, 0, max(0, (float) $m['duration'] - 0.1)), 3);
+                    $s0 = round($clamp($q['s'] ?? 0, 0, 3600), 3);
+                    $max = $img ? 3600 : $s0 + max(0.1, (float) $m['duration'] - $in0);
+                    $pp[] = ['id' => preg_match('/^[a-z0-9]{4,12}$/', (string) ($q['id'] ?? '')) ? $q['id'] : bin2hex(random_bytes(4)), 'mid' => $m['mid'],
+                        's' => $s0, 'e' => round(max($s0 + 0.1, min($max, $clamp($q['e'] ?? $s0 + 3, 0, 3600))), 3), 'in' => $in0,
+                        'x' => round($clamp($q['x'] ?? 0.5, -0.5, 1.5), 4), 'y' => round($clamp($q['y'] ?? 0.5, -0.5, 1.5), 4), 'w' => round($clamp($q['w'] ?? 0.5, 0.05, 2), 4),
+                        'vol' => (int) $clamp($q['vol'] ?? 100, 0, 200)];
+                }
+                $p['pips'] = $pp;
+            }
+            if (isset($in['tracks']) && is_array($in['tracks'])) {
+                // Status track timeline: sembunyikan (mata), kunci, bisukan
+                $tk = [];
+                foreach (['gfx', 'pip', 'video', 'music'] as $k) {
+                    $tk[$k] = ['hide' => !empty($in['tracks'][$k]['hide']), 'lock' => !empty($in['tracks'][$k]['lock']), 'mute' => !empty($in['tracks'][$k]['mute'])];
+                }
+                $p['tracks'] = $tk;
+            }
+            return $p;
+        });
+        if (!$p) {
+            respond(['error' => 'Project tidak ditemukan.'], 404);
+        }
+        respond(['project' => $p]);
+
+    case 'mproj_upload':
+        // Unggah footage per potongan (chunk) supaya file besar tidak terbentur batas upload PHP
+        require_once __DIR__ . '/mproject_lib.php';
+        $pid = (string) ($_POST['id'] ?? '');
+        if (!read_mproj($pid)) {
+            respond(['error' => 'Project tidak ditemukan.'], 404);
+        }
+        $chunk = $_FILES['chunk'] ?? null;
+        if (!$chunk || ($chunk['error'] ?? 1) !== UPLOAD_ERR_OK) {
+            respond(['error' => 'Potongan file gagal diterima.'], 400);
+        }
+        $idx = (int) ($_POST['idx'] ?? 0);
+        $total = max(1, (int) ($_POST['total'] ?? 1));
+        $mid = (string) ($_POST['mid'] ?? '');
+        if ($idx === 0) {
+            $name = mb_substr(basename((string) ($_POST['name'] ?? 'footage')), 0, 120);
+            $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
+            $kind = in_array($ext, MPROJ_VIDEO_EXTS, true) ? 'video' : (in_array($ext, MPROJ_IMAGE_EXTS, true) ? 'image' : '');
+            if (!$kind) {
+                respond(['error' => 'Format harus video (MP4, MOV, MKV, WEBM) atau gambar (JPG, PNG, WEBP).'], 400);
+            }
+            $mid = bin2hex(random_bytes(4));
+            update_mproj($pid, function ($p) use ($mid, $name, $ext, $kind) {
+                $p['media'][$mid] = ['mid' => $mid, 'name' => $name, 'ext' => $ext, 'kind' => $kind, 'status' => 'uploading', 'added_at' => time()];
+                return $p;
+            });
+        }
+        $p = read_mproj($pid);
+        $m = $p['media'][$mid] ?? null;
+        if (!$m || $m['status'] !== 'uploading') {
+            respond(['error' => 'Unggahan tidak dikenal.'], 400);
+        }
+        $part = mproj_media_dir($pid) . "/$mid.part";
+        if ($idx === 0) {
+            @unlink($part);
+        }
+        file_put_contents($part, file_get_contents($chunk['tmp_name']), FILE_APPEND | LOCK_EX);
+        if ($idx < $total - 1) {
+            respond(['mid' => $mid, 'ok' => true]);
+        }
+        rename($part, mproj_media_file($pid, $m));
+        @chmod(mproj_media_file($pid, $m), 0666);
+        $jid = bin2hex(random_bytes(8));
+        write_job(['id' => $jid, 'kind' => 'mproj_media', 'project_id' => $pid, 'media_id' => $mid, 'title' => $m['name'],
+            'status' => 'queued', 'stage' => 'Menunggu…', 'progress' => 0, 'created_at' => time(), 'updated_at' => time()]);
+        update_mproj($pid, function ($p) use ($mid, $jid) {
+            $p['media'][$mid]['status'] = 'processing';
+            $p['media'][$mid]['job'] = $jid;
+            $p['media'][$mid]['size'] = (int) @filesize(mproj_media_file($p['id'], $p['media'][$mid]));
+            return $p;
+        });
+        spawn_worker($jid);
+        respond(['mid' => $mid, 'ok' => true, 'done' => true]);
+
+    case 'mproj_media_delete':
+        require_once __DIR__ . '/mproject_lib.php';
+        $in = input();
+        $pid = (string) ($in['id'] ?? '');
+        $mid = (string) ($in['mid'] ?? '');
+        $p = read_mproj($pid);
+        $m = $p['media'][$mid] ?? null;
+        if (!$m) {
+            respond(['error' => 'Media tidak ditemukan.'], 404);
+        }
+        if (!empty($m['job'])) {
+            touch(JOBS_DIR . "/{$m['job']}.cancel");
+            @chmod(JOBS_DIR . "/{$m['job']}.cancel", 0666);
+        }
+        @unlink(mproj_media_file($pid, $m));
+        @unlink(mproj_media_dir($pid) . "/$mid.part");
+        foreach (glob(MPROJ_PUB . "/$pid/{$mid}*") ?: [] as $f) {
+            @unlink($f);
+        }
+        $p = update_mproj($pid, function ($p) use ($mid) {
+            unset($p['media'][$mid]);
+            $p['timeline'] = array_values(array_filter($p['timeline'], fn($c) => $c['mid'] !== $mid));
+            return $p;
+        });
+        respond(['project' => $p]);
+
+    case 'mproj_render':
+        require_once __DIR__ . '/mproject_lib.php';
+        $in = input();
+        $p = read_mproj((string) ($in['id'] ?? ''));
+        if (!$p) {
+            respond(['error' => 'Project tidak ditemukan.'], 404);
+        }
+        if (!$p['timeline']) {
+            respond(['error' => 'Timeline masih kosong. Seret footage ke timeline dulu.'], 400);
+        }
+        $old = !empty($p['render_job']) ? read_job($p['render_job']) : null;
+        if ($old && in_array($old['status'], ['queued', 'converting'], true)) {
+            respond(['error' => 'Render sebelumnya masih berjalan.'], 409);
+        }
+        $short = in_array((int) ($in['short'] ?? 0), MPROJ_QUALITIES, true) ? (int) $in['short'] : mproj_native_short($p);
+        $jid = bin2hex(random_bytes(8));
+        write_job(['id' => $jid, 'kind' => 'mproj_render', 'project_id' => $p['id'], 'title' => $p['name'], 'timeline' => $p['timeline'],
+            'overlays' => $p['overlays'] ?? [], 'music' => $p['music'] ?? [], 'pips' => $p['pips'] ?? [], 'tracks' => $p['tracks'] ?? [],
+            'ratio' => $p['ratio'], 'short' => $short, 'upscale' => !empty($in['upscale']),
+            'status' => 'queued', 'stage' => 'Menunggu…', 'progress' => 0, 'created_at' => time(), 'updated_at' => time()]);
+        update_mproj($p['id'], function ($p) use ($jid) {
+            $p['render_job'] = $jid;
+            return $p;
+        });
+        spawn_worker($jid);
+        respond(['ok' => true, 'job' => $jid]);
+
+    case 'mproj_render_delete':
+        require_once __DIR__ . '/mproject_lib.php';
+        $in = input();
+        $p = update_mproj((string) ($in['id'] ?? ''), function ($p) use ($in) {
+            foreach ($p['renders'] ?? [] as $k => $r) {
+                if ($r['job'] === ($in['job'] ?? '')) {
+                    @unlink(DOWNLOAD_DIR . '/' . basename($r['file']));
+                    @unlink(job_path($r['job']));
+                    unset($p['renders'][$k]);
+                }
+            }
+            $p['renders'] = array_values($p['renders'] ?? []);
+            return $p;
+        });
+        respond(['project' => $p]);
+
+    case 'mproj_presets':
+        // Preset editor manual: gaya yang bisa dipakai ulang (grafik/teks, transisi, musik, isi layar)
+        $list = json_decode((string) @file_get_contents(STORAGE_DIR . '/mproj_presets.json'), true);
+        respond(['presets' => is_array($list) ? $list : []]);
+
+    case 'mproj_preset_save':
+    case 'mproj_preset_delete':
+        $in = input();
+        $path = STORAGE_DIR . '/mproj_presets.json';
+        $list = json_decode((string) @file_get_contents($path), true);
+        $list = is_array($list) ? $list : [];
+        if ($action === 'mproj_preset_save') {
+            $data = $in['data'] ?? null;
+            if (!is_array($data) || strlen(json_encode($data)) > 300000) {
+                respond(['error' => 'Data preset tidak valid.'], 400);
+            }
+            array_unshift($list, ['id' => bin2hex(random_bytes(6)), 'name' => mb_substr(trim((string) ($in['name'] ?? '')) ?: 'Preset', 0, 60),
+                'data' => $data, 'created_at' => time()]);
+        } else {
+            $list = array_values(array_filter($list, fn($x) => $x['id'] !== ($in['id'] ?? '')));
+        }
+        file_put_contents($path, json_encode(array_slice($list, 0, 50), JSON_UNESCAPED_UNICODE), LOCK_EX);
+        @chmod($path, 0666);
+        respond(['presets' => array_slice($list, 0, 50)]);
+
+    case 'mproj_delete':
+        require_once __DIR__ . '/mproject_lib.php';
+        $pid = (string) (input()['id'] ?? '');
+        $p = read_mproj($pid);
+        if (!$p) {
+            respond(['error' => 'Project tidak ditemukan.'], 404);
+        }
+        foreach ($p['media'] as $m) {
+            if (!empty($m['job'])) {
+                @unlink(job_path($m['job']));
+            }
+        }
+        rrmdir(mproj_media_dir($pid));
+        rrmdir(MPROJ_PUB . "/$pid");
+        @unlink(mproj_path($pid));
+        @unlink(MPROJ_DIR . "/$pid.lock");
+        // Hasil render tetap ada di folder downloads
+        respond(['ok' => true]);
 
     /* ---------- Campaign dari footage lokal (campaign.php) ---------- */
     case 'campaign_list':

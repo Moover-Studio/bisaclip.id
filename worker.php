@@ -195,6 +195,54 @@ function acquire_prepare_slot(string $id, string $cancelFlag)
     }
 }
 
+// Project manual (beranda → Buat project): siapkan media & render timeline
+if (in_array($job['kind'] ?? '', ['mproj_media', 'mproj_render'], true)) {
+    require_once __DIR__ . '/editor_lib.php';
+    require_once __DIR__ . '/clip.php';
+    require_once __DIR__ . '/mproject_lib.php';
+    try {
+        rrmdir($tmpDir);
+        mkdir($tmpDir, 0777, true);
+        if ($job['kind'] === 'mproj_media') {
+            run_mproj_media($id, $job, $tmpDir, $cancelFlag);
+        } else {
+            // Render = encode berat: antre bersama render clip
+            $lock = fopen(STORAGE_DIR . '/render.lock', 'c');
+            @chmod(STORAGE_DIR . '/render.lock', 0666);
+            while (!flock($lock, LOCK_EX | LOCK_NB)) {
+                if (file_exists($cancelFlag)) {
+                    throw new Cancelled();
+                }
+                update_job($id, ['stage' => 'Menunggu giliran render…']);
+                sleep(1);
+            }
+            try {
+                run_mproj_render($id, $job, $tmpDir, $cancelFlag);
+            } finally {
+                flock($lock, LOCK_UN);
+                fclose($lock);
+            }
+        }
+    } catch (Cancelled $e) {
+        update_job($id, ['status' => 'cancelled', 'stage' => 'Dibatalkan']);
+    } catch (Throwable $e) {
+        update_job($id, ['status' => 'error', 'stage' => 'Gagal', 'error' => $e->getMessage()]);
+        if ($job['kind'] === 'mproj_media') {
+            update_mproj($job['project_id'], function ($p) use ($job, $e) {
+                if (isset($p['media'][$job['media_id']])) {
+                    $p['media'][$job['media_id']]['status'] = 'error';
+                    $p['media'][$job['media_id']]['error'] = $e->getMessage();
+                }
+                return $p;
+            });
+        }
+    } finally {
+        rrmdir($tmpDir);
+        @unlink($cancelFlag);
+    }
+    exit;
+}
+
 // Campaign dari footage lokal: analisa adegan tiap bahan & rakit susunan clip
 if (in_array($job['kind'] ?? '', ['campaign_file', 'campaign_build', 'campaign_plan'], true)) {
     require_once __DIR__ . '/editor_lib.php';

@@ -245,3 +245,54 @@ if (!/editor\.php/.test(location.pathname)) {
   document.addEventListener('DOMContentLoaded', () => { checkUploadReminder(); setInterval(checkUploadReminder, 30e3); });
   document.addEventListener('visibilitychange', () => { if (!document.hidden) checkUploadReminder(); });
 }
+
+
+/* ---------- Modal "Project baru" (beranda & daftar project): nama + rasio layar ---------- */
+const NP_RATIOS = [
+  ['9:16', 'Portrait', 'TikTok, Reels, Shorts', 9, 16],
+  ['16:9', 'Landscape', 'YouTube, presentasi', 16, 9],
+  ['1:1', 'Square', 'Feed Instagram', 1, 1],
+  ['4:5', 'Portrait 4:5', 'Feed Instagram tinggi', 4, 5],
+];
+function openNewProject() {
+  let m = document.getElementById('np-modal');
+  if (!m) {
+    m = document.createElement('div');
+    m.id = 'np-modal';
+    m.className = 'np-modal';
+    m.innerHTML = `<form class="np-card" role="dialog" aria-modal="true" aria-labelledby="np-title" autocomplete="off">
+      <div class="np-head"><div><h3 id="np-title">Project baru</h3><p>Pilih rasio layar sesuai platform tujuan. Bisa diganti nanti di editor.</p></div>
+        <button type="button" class="np-x" data-np-close aria-label="Tutup">${ic('x')}</button></div>
+      <label class="np-lbl" for="np-name">Nama project</label>
+      <input class="input np-name" id="np-name" maxlength="100" placeholder="mis. Recap liburan Bali">
+      <div class="np-lbl">Rasio layar</div>
+      <div class="np-ratios">${NP_RATIOS.map(([k, n, d, w, h], i) => `<label class="np-r${i ? '' : ' on'}"><input type="radio" name="np-ratio" value="${k}" ${i ? '' : 'checked'}>
+        <span class="np-frame"><i style="aspect-ratio:${w}/${h};${w >= h ? 'width:100%' : 'height:100%'}"></i></span>
+        <b>${n}</b><small>${k} · ${d}</small></label>`).join('')}</div>
+      <div class="np-foot"><button type="button" class="btn ghost" data-np-close>Batal</button>
+        <button type="submit" class="btn primary" id="np-go">${ic('plus')} Buat project</button></div>
+    </form>`;
+    document.body.appendChild(m);
+    const close = () => { m.classList.remove('show'); setTimeout(() => { m.hidden = true; }, 200); };
+    m.addEventListener('click', e => { if (e.target === m || e.target.closest('[data-np-close]')) close(); });
+    m.addEventListener('change', e => { if (e.target.name === 'np-ratio') m.querySelectorAll('.np-r').forEach(r => r.classList.toggle('on', r.querySelector('input').checked)); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && !m.hidden) close(); });
+    m.querySelector('form').addEventListener('submit', async e => {
+      e.preventDefault();
+      const go = m.querySelector('#np-go');
+      go.disabled = true;
+      go.innerHTML = '<span class="spin"></span> Membuat…';
+      try {
+        const r = await api('mproj_create', { name: m.querySelector('#np-name').value.trim(), ratio: m.querySelector('[name=np-ratio]:checked').value });
+        location.href = 'project.php?id=' + r.project.id;
+      } catch (err) {
+        toast(err.message);
+        go.disabled = false;
+        go.innerHTML = `${ic('plus')} Buat project`;
+      }
+    });
+  }
+  m.hidden = false;
+  requestAnimationFrame(() => m.classList.add('show'));
+  setTimeout(() => m.querySelector('#np-name').focus(), 60);
+}
