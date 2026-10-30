@@ -17,7 +17,7 @@ ensure_dirs();
   /* Judul & banner sambutan Beranda (banner di bawah tombol menu) */
   .home-hero { text-align: center; padding: 36px 0 30px; }
   .home-title { margin: 0 0 10px; font-size: 32px; line-height: 1.2; letter-spacing: -.02em; }
-  .home-desc { max-width: 600px; margin: 0 auto; color: var(--muted); font-size: 15px; line-height: 1.6; }
+  .home-desc { max-width: 560px; margin: 0 auto; color: var(--muted); font-size: 15px; line-height: 1.6; }
   /* Kata bergradasi biru yang bergerak pelan */
   .grad-flow { background: linear-gradient(90deg, #6EA8FF, #2F7BF0, #8FD3FF, #0058D3, #6EA8FF); background-size: 300% 100%;
     -webkit-background-clip: text; background-clip: text; color: transparent; animation: gradFlow 6s linear infinite; }
@@ -403,7 +403,7 @@ ensure_dirs();
 
   <section class="home-hero">
     <h1 class="home-title">Mau <span class="grad-flow">nge-clip</span> apa hari ini?</h1>
-    <p class="home-desc">Jadikan video YouTube clip oleh AI, edit footage sendiri, atau unduh video &amp; audio dengan kualitas maksimal. Pakai preset siap pakai untuk hasil instan, atau simpan gaya editanmu sendiri sebagai preset.</p>
+    <p class="home-desc">Clip video YouTube dengan AI, edit footage sendiri, dan pakai preset instan atau buat preset sendiri.</p>
   </section>
 
   <!-- Tiga aksi utama -->
