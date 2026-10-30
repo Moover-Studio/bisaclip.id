@@ -449,3 +449,46 @@ const CAPTION_STYLES = [
     'formal' => ['Profesional', 'Rapi, kredibel, tanpa slang',
         'profesional: bahasa rapi dan kredibel, tanpa slang berlebihan, emoji seperlunya; cocok untuk akun edukasi / bisnis'],
 ];
+
+/* ---------- Clip campaign brand (modal "Atur clip"): minta AI menyertakan clip yang membahas brand / topik terkaitnya ---------- */
+// key => [label, topik terkait bawaan (bisa diubah user di modal)]
+const BRAND_CATEGORIES = [
+    'skincare' => ['Skincare & kecantikan', ['kulit', 'jerawat', 'wajah', 'glowing', 'penampilan', 'percaya diri', 'self-care', 'rutinitas pagi/malam', 'stres & kurang tidur', 'penuaan']],
+    'food' => ['Makanan & minuman', ['makanan', 'kuliner', 'masak', 'lapar', 'kopi', 'jajan', 'diet', 'makan bareng keluarga', 'nongkrong']],
+    'finance' => ['Keuangan & investasi', ['uang', 'gaji', 'nabung', 'investasi', 'utang', 'cicilan', 'bisnis', 'pensiun', 'gaya hidup', 'kebebasan finansial']],
+    'health' => ['Kesehatan & olahraga', ['kesehatan', 'olahraga', 'gym', 'tidur', 'pola makan', 'berat badan', 'stres', 'energi', 'kesehatan mental']],
+    'tech' => ['Gadget & aplikasi', ['HP', 'gadget', 'aplikasi', 'internet', 'media sosial', 'kerja remote', 'produktivitas', 'AI', 'foto & video']],
+    'fashion' => ['Fashion', ['pakaian', 'outfit', 'gaya', 'penampilan', 'belanja', 'brand lokal', 'percaya diri', 'first impression']],
+    'education' => ['Edukasi & karier', ['belajar', 'kuliah', 'skill', 'karier', 'kerja', 'interview', 'bahasa Inggris', 'sertifikat', 'pindah kerja']],
+    'travel' => ['Travel & transportasi', ['liburan', 'jalan-jalan', 'mudik', 'perjalanan', 'hotel', 'pesawat', 'macet', 'kendaraan']],
+    'other' => ['Lainnya', []],
+];
+const BRAND_MODES = ['hard' => 'Sebut brand langsung (hard sell)', 'soft' => 'Bahas topik terkait (soft sell)'];
+
+/** Bersihkan pengaturan campaign brand dari modal; null = tidak aktif. */
+function brand_clean(array $in): ?array
+{
+    $name = mb_substr(trim((string) ($in['name'] ?? '')), 0, 60);
+    if (empty($in['enabled']) || $name === '') {
+        return null;
+    }
+    $topics = [];
+    foreach (array_slice((array) ($in['topics'] ?? []), 0, 20) as $t) {
+        $t = mb_substr(trim(preg_replace('/\s+/u', ' ', (string) $t)), 0, 40);
+        if ($t !== '' && !in_array(mb_strtolower($t), array_map('mb_strtolower', $topics), true)) {
+            $topics[] = $t;
+        }
+    }
+    $modes = array_values(array_intersect(array_keys(BRAND_MODES), (array) ($in['modes'] ?? [])));
+    preg_match_all('/[#@][\p{L}\p{N}_.]+/u', (string) ($in['tags'] ?? ''), $m);
+    return [
+        'name' => $name,
+        'category' => isset(BRAND_CATEGORIES[$in['category'] ?? '']) ? $in['category'] : 'other',
+        'topics' => $topics,
+        'modes' => $modes ?: array_keys(BRAND_MODES),
+        'all' => !empty($in['all']), // true = semua clip harus terkait brand
+        'min' => max(1, min(20, (int) ($in['min'] ?? 2))),
+        'brief' => mb_substr(trim((string) ($in['brief'] ?? '')), 0, 1500),
+        'tags' => array_slice(array_values(array_unique(array_map(fn($t) => rtrim($t, '.'), $m[0]))), 0, 10),
+    ];
+}

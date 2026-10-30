@@ -5,9 +5,11 @@
 require_once __DIR__ . '/source.php';
 require_once __DIR__ . '/subtitles.php';
 require_once __DIR__ . '/kinetic.php';
+require_once __DIR__ . '/hook_intro.php';
 
 define('OVERLAY_DIR', APP_DIR . '/previews/overlays'); // gambar overlay / lower third unggahan user
 define('MUSIC_DIR', APP_DIR . '/previews/music');       // pustaka musik (dipakai ulang di semua proyek)
+define('SFX_DIR', APP_DIR . '/previews/sfx');           // pustaka sound effect: bawaan (tools/sfx_gen.py) + unggahan user
 const OVERLAY_MARGIN = 115;
 
 /**
@@ -66,7 +68,7 @@ const EFFECT_PRESETS = [
     'grade_bw' => ['label' => 'Hitam Putih', 'kind' => 'grade', 'dur' => 0, 'eq' => [0.0, 1.12, 0.0], 'tint' => null],
 ];
 
-/** Rasio bingkai video (lebar / tinggi) di layar 1080x1920; selain "full", video berada di tengah layar hitam. */
+/** Rasio bingkai video (lebar / tinggi) di layar 1080x1920; selain "full", video berada di tengah layar hitam (atau background blur). */
 const FRAME_RATIOS = ['full' => 9 / 16, '1:1' => 1.0, '4:5' => 0.8, '3:4' => 0.75, '16:9' => 16 / 9];
 
 /** Geometri bingkai: [rasio, tinggi area video, y atas, radius sudut, layout aktif?] */
@@ -74,6 +76,7 @@ function frame_geom(array $edit): array
 {
     $f = ($edit['layout'] ?? '') === 'gaming' ? [] : ($edit['frame'] ?? []); // streaming game selalu layar penuh
     $ratio = ($edit['layout'] ?? '') === 'letterbox' && empty($f['ratio']) ? '3:4' : ($f['ratio'] ?? 'full');
+    $ratio = $ratio === 'split' ? 'full' : $ratio; // split screen selalu layar penuh
     $a = FRAME_RATIOS[$ratio] ?? 9 / 16;
     $h = $ratio === 'full' ? 1920 : (int) round(1080 / $a / 2) * 2;
     $r = (int) ($f['radius'] ?? 0);
@@ -113,6 +116,8 @@ const TRANSITION_PRESETS = [
     'wipeleft' => ['label' => 'Wipe', 'xf' => 'wipeleft'],
     'circleopen' => ['label' => 'Lingkaran', 'xf' => 'circleopen'],
     'zoomin' => ['label' => 'Zoom', 'xf' => 'zoomin'],
+    // Bukan xfade: gumpalan kertas lalu robek membuka item berikutnya (aset tools/paper_tear.py, durasi tetap)
+    'paper' => ['label' => 'Kertas robek', 'xf' => 'paper'],
 ];
 
 /*
@@ -251,6 +256,10 @@ function edit_path(string $pid, string $iid): string
     return edit_dir($pid) . "/$iid.json";
 }
 
+/** Tinggi video preview editor (proxy). 720p supaya preview 9:16 (potongan sempit video landscape) tetap tajam. */
+const PROXY_H = 720;
+const PROXY_ENC = ['-c:v h264_videotoolbox -b:v 3500k', '-c:v libx264 -preset veryfast -crf 22'];
+
 function proxy_rel(string $pid, string $iid): string
 {
     return "previews/proj_$pid/$iid.mp4";
@@ -259,7 +268,49 @@ function proxy_rel(string $pid, string $iid): string
 function read_edit(string $pid, string $iid): ?array
 {
     $data = json_decode((string) @file_get_contents(edit_path($pid, $iid)), true);
-    return is_array($data) ? $data : null;
+    return is_array($data) ? upgrade_layout($data) : null;
+}
+
+/**
+ * Konsep layout baru: jenis clip (podcast / streaming game), toggle ikuti pembicara, dan layout bingkai
+ * (rasio, split screen + rasio atas:bawah, background solid / blur). Resep lama dikonversi:
+ * crop tengah → ikuti pembicara mati, background blur → bingkai 16:9 + background blur, letterbox → bingkai 3:4,
+ * streaming game → jenis streaming game + split 70:30, split screen otomatis → split 50:50.
+ */
+function upgrade_layout(array $edit): array
+{
+    $l = (string) ($edit['layout'] ?? 'speaker');
+    $f = is_array($edit['frame'] ?? null) ? $edit['frame'] : [];
+    $ratio = $f['ratio'] ?? 'full';
+    if ($l === 'blur') {
+        $f['ratio'] = $ratio === 'full' ? '16:9' : $ratio;
+        $f['bg'] = 'blur';
+    } elseif ($l === 'letterbox' && $ratio === 'full') {
+        $f['ratio'] = '3:4';
+    } elseif ($l === 'crop_center') {
+        $edit['follow'] = false;
+    } elseif ($l === 'gaming' && $ratio !== 'split') {
+        [$f['ratio'], $f['split'], $edit['kind']] = ['split', 70, 'gaming'];
+    } elseif (($l === 'split' || !empty($edit['split']['enabled'])) && $ratio !== 'split') {
+        [$f['ratio'], $f['split']] = ['split', 50];
+    }
+    $edit['kind'] ??= $l === 'gaming' ? 'gaming' : 'podcast';
+    $edit['frame'] = $f + ['ratio' => 'full', 'radius' => 0];
+    $edit['layout'] = $l === 'gaming' || ($edit['frame']['ratio'] === 'split' && $edit['kind'] === 'gaming') ? 'gaming' : 'speaker';
+    return $edit;
+}
+
+/** Pilihan rasio split screen: persen tinggi panel atas (game / orang pertama). */
+const SPLIT_RATIOS = [50, 40, 60, 30, 70];
+
+/** Tinggi panel atas split screen dalam px (dari 1920). */
+function split_top(array $edit): int
+{
+    $p = (int) ($edit['frame']['split'] ?? 0);
+    if (!in_array($p, SPLIT_RATIOS, true)) {
+        $p = ($edit['layout'] ?? '') === 'gaming' ? 70 : 50;
+    }
+    return (int) (round(1920 * $p / 100 / 2) * 2);
 }
 
 function write_edit(string $pid, string $iid, array $edit): void
@@ -306,7 +357,7 @@ function make_proxy_parallel(array $v, ?array $a, float $start, float $dur, stri
     $list = '';
     // Hingga 8 bagian di-encode bersamaan: di NVIDIA memakai CPU (proxy 480p ringan) supaya tidak menghabiskan
     // jatah sesi NVENC GeForce yang dibutuhkan render
-    $enc = IS_MAC ? '-c:v h264_videotoolbox -b:v 1500k' : '-c:v libx264 -preset veryfast -crf 25';
+    $enc = IS_MAC ? PROXY_ENC[0] : PROXY_ENC[1];
     for ($k = 0; $k < $n; $k++) {
         $part = "$tmpDir/proxy_$k.mp4";
         @unlink($part);
@@ -315,7 +366,7 @@ function make_proxy_parallel(array $v, ?array $a, float $start, float $dur, stri
         // Bagian terakhir dibiarkan sampai akhir rentang supaya tidak ada sisa karena pembulatan
         $t = $k === $n - 1 ? $dur - $k * $len : $len;
         $script .= escapeshellarg(FFMPEG) . ' -hide_banner -nostdin -y -loglevel error' . $inputs
-            . ' -t ' . number_format($t, 3, '.', '') . " -map $vi:v:0 -vf scale=-2:480 -pix_fmt yuv420p $amap"
+            . ' -t ' . number_format($t, 3, '.', '') . " -map $vi:v:0 -vf scale=-2:" . PROXY_H . " -pix_fmt yuv420p $amap"
             . " $enc " . escapeshellarg($part) . " &\n";
         $list .= "file '" . str_replace("'", "'\\''", $part) . "'\n";
     }
@@ -392,7 +443,7 @@ function prepare_edit(string $jobId, array $job, string $cancelFlag): array
         $srcH = (int) ($hi['height'] ?? 1080);
     }
 
-    // 1. Proxy 480p + audio. YouTube membatasi kecepatan per koneksi, jadi rentangnya dibagi
+    // 1. Proxy (PROXY_H) + audio. YouTube membatasi kecepatan per koneksi, jadi rentangnya dibagi
     //    menjadi beberapa bagian (±15 detik) yang diunduh paralel, lalu digabung. Diulang kalau stream ditolak.
     $proxyRel = proxy_rel($pid, $iid);
     $proxy = APP_DIR . '/' . $proxyRel;
@@ -404,9 +455,9 @@ function prepare_edit(string $jobId, array $job, string $cancelFlag): array
     if ($local) {
         update_job($jobId, ['stage' => 'Menyiapkan editor: membuat video preview…', 'progress' => 0]);
         [$inputs] = clip_inputs(local_format($local), null, $padStart);
-        foreach (venc_list(['-c:v h264_videotoolbox -b:v 1500k', '-c:v libx264 -preset veryfast -crf 25']) as $enc) {
+        foreach (venc_list(PROXY_ENC) as $enc) {
             [$code] = run(escapeshellarg(FFMPEG) . ' -hide_banner -nostdin -y -loglevel error' . $inputs
-                . ' -t ' . number_format($padDur, 3, '.', '') . " -map 0:v:0 -map '0:a:0?' -vf scale=-2:480 -pix_fmt yuv420p"
+                . ' -t ' . number_format($padDur, 3, '.', '') . " -map 0:v:0 -map '0:a:0?' -vf scale=-2:" . PROXY_H . " -pix_fmt yuv420p"
                 . " -c:a aac -b:a 128k $enc -movflags +faststart " . escapeshellarg($proxy), fn() => null, $cancelFlag, 300);
             clearstatcache();
             if ($ok = $code === 0 && is_file($proxy) && filesize($proxy) > 0) {
@@ -422,7 +473,7 @@ function prepare_edit(string $jobId, array $job, string $cancelFlag): array
         }
         $raw = '';
         run(escapeshellarg(YTDLP) . ' -j --no-playlist --no-warnings'
-            . ' -f ' . escapeshellarg('bv*[height<=480][protocol=https]+ba[protocol=https]/b[height<=480]/bv*[height<=480]+ba')
+            . ' -f ' . escapeshellarg('bv*[height<=' . PROXY_H . '][protocol=https]+ba[protocol=https]/b[height<=' . PROXY_H . ']/bv*[height<=' . PROXY_H . ']+ba')
             . ' -S ' . escapeshellarg('res,fps') . ' --socket-timeout 20 -- ' . escapeshellarg($job['url']),
             function ($line) use (&$raw) {
                 if ($line !== '' && $line[0] === '{') {
@@ -555,6 +606,58 @@ function track_to_edit(?array $track, float $padStart, array $cuts = []): array
     return [$segments, $shots, $cam];
 }
 
+/** Tinggi video proxy (px), 0 kalau tidak terbaca. */
+function proxy_height(string $file): int
+{
+    $s = json_decode((string) shell_exec(escapeshellarg(FFPROBE) . ' -v error -select_streams v:0 -show_entries stream=height -of json ' . escapeshellarg($file)), true);
+    return (int) ($s['streams'][0]['height'] ?? 0);
+}
+
+/**
+ * Proxy lama (480p) dibuat ulang jadi PROXY_H dari video sumber lokal, supaya preview editor tajam. Resep edit tidak berubah
+ * (rentang proxy = pad yang sama). Mengembalikan true kalau proxy diganti; false kalau sudah tajam / sumber lokal tidak ada.
+ */
+function upgrade_proxy(array $project, string $iid): bool
+{
+    $edit = read_edit($project['id'], $iid);
+    $proxy = APP_DIR . '/' . proxy_rel($project['id'], $iid);
+    if (!$edit || !empty($edit['pending']) || !is_file($proxy) || proxy_height($proxy) >= PROXY_H) {
+        return false;
+    }
+    [$p0, $p1] = $edit['pad'];
+    $local = local_source($project['analysis_id'], $p0, $p1);
+    if (!$local || $local['h'] <= 480) {
+        return false;
+    }
+    $lock = fopen("$proxy.lock", 'c');
+    if (!flock($lock, LOCK_EX | LOCK_NB)) {
+        return false; // sedang dibuat ulang oleh permintaan lain
+    }
+    $tmp = "$proxy.hd.mp4";
+    // Sama dengan clip_inputs() untuk sumber lokal (dipanggil dari API, clip.php tidak dimuat): posisi relatif ke awal potongan
+    $inputs = ' -ss ' . number_format(max(0, $p0 - (float) $local['shift']), 3, '.', '') . ' -i ' . escapeshellarg($local['path']);
+    $ok = false;
+    foreach (venc_list(PROXY_ENC) as $enc) {
+        @unlink($tmp);
+        [$code] = run_with_timeout(escapeshellarg(FFMPEG) . ' -hide_banner -nostdin -y -loglevel error' . $inputs
+            . ' -t ' . number_format($p1 - $p0, 3, '.', '') . " -map 0:v:0 -map '0:a:0?' -vf scale=-2:" . PROXY_H . ' -pix_fmt yuv420p'
+            . " -c:a aac -b:a 128k $enc -movflags +faststart " . escapeshellarg($tmp), 300);
+        clearstatcache();
+        if ($ok = $code === 0 && is_file($tmp) && filesize($tmp) > 0) {
+            break;
+        }
+    }
+    if ($ok) {
+        @chmod($tmp, 0666);
+        rename($tmp, $proxy);
+    }
+    @unlink($tmp);
+    flock($lock, LOCK_UN);
+    fclose($lock);
+    @unlink("$proxy.lock");
+    return $ok;
+}
+
 /**
  * Hitung ulang segmen kamera & shot dari video preview lokal (untuk resep lama yang belum punya data shot).
  * Dipanggil langsung dari API; butuh ±5–15 detik.
@@ -605,7 +708,8 @@ function split_cfg(array $edit): array
 {
     $cfg = $edit['split'] ?? [];
     return [
-        'enabled' => (!empty($cfg['enabled']) || ($edit['layout'] ?? '') === 'split') && ($edit['layout'] ?? '') !== 'gaming',
+        'enabled' => (!empty($cfg['enabled']) || ($edit['layout'] ?? '') === 'split' || ($edit['frame']['ratio'] ?? '') === 'split' && ($edit['kind'] ?? '') !== 'gaming')
+            && ($edit['layout'] ?? '') !== 'gaming',
         // Toleransi = split muncul sekian detik LEBIH AWAL dari shot 2 orang yang terdeteksi AI
         'early' => max(0, min(5, (float) ($cfg['early'] ?? 0))),
     ];
@@ -614,8 +718,8 @@ function split_cfg(array $edit): array
 /** Framing dasar (dipakai di luar bagian split). */
 function base_layout(array $edit): string
 {
-    $l = (string) ($edit['layout'] ?? 'speaker');
-    return in_array($l, ['speaker', 'crop_center', 'blur', 'letterbox', 'gaming'], true) ? $l : 'speaker';
+    $e = upgrade_layout($edit);
+    return $e['layout'] === 'gaming' ? 'gaming' : (($e['follow'] ?? true) === false ? 'crop_center' : 'speaker');
 }
 
 /** Shot 2 orang yang lebih pendek dari ini tidak dijadikan split, supaya tampilan tidak berkedip. */
@@ -757,23 +861,29 @@ function sanitize_edit(array $in, array $current): array
             $edit['gaps'][] = [round($a, 3), round($b, 3)];
         }
     }
-    $edit['layout'] = in_array($in['layout'] ?? '', ['speaker', 'crop_center', 'blur', 'letterbox', 'gaming'], true) ? $in['layout'] : base_layout($current);
-    // Layout bingkai video (rasio & sudut membulat). Framing "letterbox" lama = crop tengah + 3:4
-    $fr = (array) ($in['frame'] ?? $current['frame'] ?? []);
+    // Jenis clip, ikuti pembicara, layout bingkai (rasio / split screen, sudut membulat, background solid / blur).
+    // layout & split.enabled diturunkan dari situ: split screen streaming game = game + webcam, podcast = split 2 orang otomatis.
+    $cur = upgrade_layout($current);
+    $up = upgrade_layout(['layout' => (string) ($in['layout'] ?? $cur['layout']), 'frame' => (array) ($in['frame'] ?? $cur['frame']),
+        'split' => (array) ($in['split'] ?? []), 'kind' => $in['kind'] ?? $cur['kind'], 'follow' => $in['follow'] ?? $cur['follow'] ?? true]);
+    $fr = (array) $up['frame'];
+    $ratio = in_array($fr['ratio'] ?? '', [...array_keys(FRAME_RATIOS), 'split'], true) ? $fr['ratio'] : 'full';
+    $edit['kind'] = $up['kind'] === 'gaming' ? 'gaming' : 'podcast';
+    $edit['follow'] = $up['follow'] !== false;
     $edit['frame'] = [
-        'ratio' => in_array($fr['ratio'] ?? '', array_keys(FRAME_RATIOS), true) ? $fr['ratio'] : (($in['layout'] ?? '') === 'letterbox' ? '3:4' : 'full'),
+        'ratio' => $ratio,
         'radius' => (int) max(0, min(120, (int) ($fr['radius'] ?? 0))),
+        'bg' => ($fr['bg'] ?? '') === 'blur' ? 'blur' : 'solid',
+        'split' => in_array((int) ($fr['split'] ?? 0), SPLIT_RATIOS, true) ? (int) $fr['split'] : ($edit['kind'] === 'gaming' ? 70 : 50),
     ];
-    if ($edit['layout'] === 'letterbox') {
-        $edit['layout'] = 'crop_center';
-    }
+    $edit['layout'] = $ratio === 'split' && $edit['kind'] === 'gaming' ? 'gaming' : 'speaker';
     // Gaya teks ucapan: subtitle biasa atau teks kinetik (beat bertumpuk)
     $edit['caption'] = ($in['caption'] ?? '') === 'kinetic' ? 'kinetic' : 'subtitle';
     $edit['kinetic'] = kinetic_sanitize($in['kinetic'] ?? null, $p0, $p1);
     // Kualitas render: standard | hd (dipertajam) | ultra (sumber resolusi tertinggi)
     $edit['quality'] = in_array($in['quality'] ?? '', ['standard', 'hd', 'ultra'], true) ? $in['quality'] : ($current['quality'] ?? 'hd');
     $sp = (array) ($in['split'] ?? []);
-    $edit['split'] = ['enabled' => !empty($sp['enabled']), 'early' => round($num($sp['early'] ?? 0, 0, 5), 2)];
+    $edit['split'] = ['enabled' => $ratio === 'split' && $edit['kind'] !== 'gaming', 'early' => round($num($sp['early'] ?? 0, 0, 5), 2)];
     $edit['subtitles'] = !empty($in['subtitles']);
     $edit['volume'] = (int) $num($in['volume'] ?? 100, 0, 200); // volume audio clip, persen
     $edit['volKf'] = kf_sanitize($in['volKf'] ?? [], $p0, $p1, 200); // keyframe volume audio clip (kosong = volume tetap)
@@ -799,7 +909,9 @@ function sanitize_edit(array $in, array $current): array
         'uppercase' => !empty($st['uppercase']),
         'font' => sub_font_key($st['font'] ?? null),
         'chunk' => (int) $num($st['chunk'] ?? 0, 0, 4), // kata per tampilan subtitle: 0 = sesuai baris, 1-4 kata
-    ];
+        'tpl' => preg_match('/^[a-z0-9-]{1,30}$/', (string) ($st['tpl'] ?? '')) ? $st['tpl'] : '', // template subtitle terakhir dipakai
+        // Highlight kata yang sedang diucapkan & efek teks subtitle (mengikuti waktu ucapan); resep lama dikonversi oleh sub_hl_cfg()
+    ] + sub_hl_cfg($st);
 
     $lines = [];
     foreach (array_slice((array) ($in['lines'] ?? []), 0, 3000) as $l) {
@@ -850,19 +962,25 @@ function sanitize_edit(array $in, array $current): array
     if (isset($hk['y']) && is_numeric($hk['y'])) {
         $edit['hook']['y'] = round($num($hk['y'], 0.02, 0.95), 4);
     }
+    // Item timeline (media, teks, efek, musik) biasanya memakai detik video asli (rentang editor p0..p1).
+    // Item yang digeser ke bagian footage / intro menempel ke footage itu: ref = id footage, s/e = detik dari awal footage itu
+    // di video akhir (boleh berlanjut melewati sambungan ke clip). Footage-nya dicek setelah daftar footage disanitasi.
+    $refRange = fn(array $it) => !empty($it['ref']) && is_string($it['ref']) && $it['ref'] !== 'main'
+        ? [['ref' => preg_replace('/[^a-z0-9]/', '', $it['ref'])], -600.0, 3600.0] : [[], $p0, $p1];
     // Media (gambar) di timeline: waktu tampil absolut, posisi titik tengah & lebar sebagai pecahan layar 1080x1920
     $edit['media'] = [];
     foreach (array_slice((array) ($in['media'] ?? []), 0, 30) as $m) {
         if (!overlay_file_ok($m['file'] ?? null)) {
             continue;
         }
-        $s = $num($m['s'] ?? $p0, $p0, $p1);
-        $edit['media'][] = [
+        [$ref, $lo, $hi] = $refRange($m);
+        $s = $num($m['s'] ?? $lo, $lo, $hi);
+        $edit['media'][] = $ref + [
             'id' => preg_replace('/[^a-z0-9]/', '', (string) ($m['id'] ?? '')) ?: bin2hex(random_bytes(4)),
             'file' => $m['file'],
             'name' => mb_substr((string) ($m['name'] ?? ''), 0, 80),
             's' => round($s, 3),
-            'e' => round($num($m['e'] ?? $s + 3, $s + 0.2, $p1), 3),
+            'e' => round($num($m['e'] ?? $s + 3, $s + 0.2, $hi), 3),
             'x' => round($num($m['x'] ?? 0.5, -0.5, 1.5), 4),
             'y' => round($num($m['y'] ?? 0.5, -0.5, 1.5), 4),
             'w' => round($num($m['w'] ?? 0.6, 0.05, 1.5), 4),
@@ -878,12 +996,13 @@ function sanitize_edit(array $in, array $current): array
         if ($text === '') {
             continue;
         }
-        $s = $num($tx['s'] ?? $p0, $p0, $p1);
-        $edit['texts'][] = [
+        [$ref, $lo, $hi] = $refRange($tx);
+        $s = $num($tx['s'] ?? $lo, $lo, $hi);
+        $edit['texts'][] = $ref + [
             'id' => preg_replace('/[^a-z0-9]/', '', (string) ($tx['id'] ?? '')) ?: bin2hex(random_bytes(4)),
             'text' => $text,
             's' => round($s, 3),
-            'e' => round($num($tx['e'] ?? $s + 3, $s + 0.2, $p1), 3),
+            'e' => round($num($tx['e'] ?? $s + 3, $s + 0.2, $hi), 3),
             'x' => round($num($tx['x'] ?? 0.5, -0.2, 1.2), 4),
             'y' => round($num($tx['y'] ?? 0.45, 0, 0.98), 4),
             'font' => sub_font_key($tx['font'] ?? null),
@@ -909,12 +1028,13 @@ function sanitize_edit(array $in, array $current): array
         if (!isset(EFFECT_PRESETS[$fx['type'] ?? ''])) {
             continue;
         }
-        $s = $num($fx['s'] ?? $p0, $p0, $p1);
-        $edit['effects'][] = [
+        [$ref, $lo, $hi] = $refRange($fx);
+        $s = $num($fx['s'] ?? $lo, $lo, $hi);
+        $edit['effects'][] = $ref + [
             'id' => preg_replace('/[^a-z0-9]/', '', (string) ($fx['id'] ?? '')) ?: bin2hex(random_bytes(4)),
             'type' => $fx['type'],
             's' => round($s, 3),
-            'e' => round($num($fx['e'] ?? $s + 1, $s + 0.2, $p1), 3),
+            'e' => round($num($fx['e'] ?? $s + 1, $s + 0.2, $hi), 3),
             'intensity' => (int) $num($fx['intensity'] ?? 100, 0, 100),
         ];
     }
@@ -941,7 +1061,25 @@ function sanitize_edit(array $in, array $current): array
             'kind' => $isVideo ? 'video' : 'image',
             'pos' => ($f['pos'] ?? '') === 'pre' ? 'pre' : 'post',
             'dur' => round($num($f['dur'] ?? 5, 0.5, $isVideo ? 600 : 60), 3),
-        ];
+        ] + (!$isVideo && is_array($f['intro'] ?? null) ? intro_sanitize($f, $num, $p0, $p1) : []);
+    }
+    // Sound effect (track SFX): menempel ke clip utama (ref 'main', at = detik video asli) atau ke footage (ref = id, at = detik di footage)
+    $feet = array_column($edit['footage'], 'dur', 'id');
+    $edit['sfx'] = [];
+    foreach (array_slice((array) ($in['sfx'] ?? []), 0, 60) as $x) {
+        $ref = (string) ($x['ref'] ?? 'main');
+        if (!sfx_file_ok($x['file'] ?? null) || ($ref !== 'main' && !isset($feet[$ref]))) {
+            continue;
+        }
+        $edit['sfx'][] = [
+            'id' => preg_replace('/[^a-z0-9]/', '', (string) ($x['id'] ?? '')) ?: bin2hex(random_bytes(4)),
+            'file' => $x['file'],
+            'name' => mb_substr((string) ($x['name'] ?? ''), 0, 80),
+            'dur' => round($num($x['dur'] ?? 1, 0.02, 60), 3),
+            'ref' => $ref,
+            'at' => round($ref === 'main' ? $num($x['at'] ?? $p0, $p0, $p1) : $num($x['at'] ?? 0, 0, $feet[$ref]), 3),
+            'vol' => (int) $num($x['vol'] ?? 100, 0, 200),
+        ] + (!empty($x['tr']) ? ['tr' => preg_replace('/[^a-z0-9]/', '', (string) $x['tr'])] : []); // terikat ke transisi (posisi ikut durasinya)
     }
     // Musik latar dari pustaka musik: waktu absolut (s..e), off = detik lagu yang diputar di s, volume & fade
     $edit['music'] = [];
@@ -949,29 +1087,34 @@ function sanitize_edit(array $in, array $current): array
         if (!music_file_ok($m['file'] ?? null)) {
             continue;
         }
-        $s = $num($m['s'] ?? $p0, $p0, $p1);
+        [$ref, $lo, $hi] = $refRange($m);
+        $s = $num($m['s'] ?? $lo, $lo, $hi);
         $len = $num($m['dur'] ?? 600, 0.2, 3600);
-        $edit['music'][] = [
+        $edit['music'][] = $ref + [
             'id' => preg_replace('/[^a-z0-9]/', '', (string) ($m['id'] ?? '')) ?: bin2hex(random_bytes(4)),
             'file' => $m['file'],
             'name' => mb_substr((string) ($m['name'] ?? ''), 0, 80),
             'dur' => $len,
             's' => round($s, 3),
-            'e' => round($num($m['e'] ?? $s + $len, $s + 0.2, $p1), 3),
+            'e' => round($num($m['e'] ?? $s + $len, $s + 0.2, $hi), 3),
             'off' => $num($m['off'] ?? 0, 0, $len),
             'vol' => (int) $num($m['vol'] ?? 40, 0, 100),
             'fin' => round($num($m['fin'] ?? 0, 0, 10), 1),
             'fout' => round($num($m['fout'] ?? 1.5, 0, 10), 1),
-            'kf' => kf_sanitize($m['kf'] ?? [], $p0, $p1, 100), // keyframe volume musik
+            'kf' => kf_sanitize($m['kf'] ?? [], $lo, $hi, 100), // keyframe volume musik
         ];
+    }
+    // Item yang menempel ke footage yang sudah tidak ada dibuang
+    foreach (['media', 'texts', 'effects', 'music'] as $k) {
+        $edit[$k] = array_values(array_filter($edit[$k], fn($it) => !isset($it['ref']) || isset($feet[$it['ref']])));
     }
     // Kontrol track timeline: sembunyikan / kunci (+ bisukan untuk video & musik). Subtitle memakai saklar 'subtitles'.
     $tr = (array) ($in['tracks'] ?? []);
     $edit['tracks'] = [];
-    foreach (['media', 'text', 'fx', 'sub', 'video', 'music'] as $k) {
+    foreach (['media', 'text', 'fx', 'sub', 'video', 'music', 'sfx'] as $k) {
         $t = (array) ($tr[$k] ?? []);
-        $edit['tracks'][$k] = ['lock' => !empty($t['lock'])] + (!in_array($k, ['sub', 'music'], true) ? ['hide' => !empty($t['hide'])] : [])
-            + (in_array($k, ['video', 'music'], true) ? ['mute' => !empty($t['mute'])] : []);
+        $edit['tracks'][$k] = ['lock' => !empty($t['lock'])] + (!in_array($k, ['sub', 'music', 'sfx'], true) ? ['hide' => !empty($t['hide'])] : [])
+            + (in_array($k, ['video', 'music', 'sfx'], true) ? ['mute' => !empty($t['mute'])] : []);
     }
     // Urutan lapisan di atas video (paling atas dulu)
     $edit['layers'] = edit_layer_order(['layers' => $in['layers'] ?? []]);
@@ -988,8 +1131,32 @@ function sanitize_edit(array $in, array $current): array
     $op = $in['opening'] ?? null;
     $edit['opening'] = is_array($op) && isset(OPENING_PRESETS[$op['type'] ?? ''])
         ? ['type' => $op['type'], 'dur' => round($num($op['dur'] ?? OPENING_PRESETS[$op['type']]['dur'], 0.2, 5), 2)] : null;
+    unset($edit['hook_intro']); // intro lama (dirakit saat render) diganti footage intro
     $edit['updated_at'] = time();
     return $edit;
+}
+
+/**
+ * Data footage intro (menu Intro di editor): screenshot clip + grafik hook + suara AI yang membacakan hook.
+ * Gambar akhirnya sudah jadi file footage biasa; data ini disimpan supaya intro bisa diedit & dibuat ulang.
+ * vo = file suara (hookvo_*.wav di folder voice proyek) yang menjadi audio footage ini saat render.
+ */
+function intro_sanitize(array $f, callable $num, float $p0, float $p1): array
+{
+    $in = $f['intro'];
+    $vo = (string) ($f['vo'] ?? '');
+    return [
+        'vo' => preg_match('/^hookvo_[a-f0-9]{32}\.wav$/', $vo) ? $vo : '',
+        'intro' => [
+            't' => round($num($in['t'] ?? $p0, $p0, $p1), 3),           // detik screenshot (waktu video asli)
+            'gfx' => gfx_sanitize($in['gfx'] ?? null),
+            'y' => round($num($in['y'] ?? 0.7, 0.05, 0.95), 4),          // posisi tengah grafik (bagian tinggi layar)
+            'w' => round($num($in['w'] ?? 0.87, 0.3, 1), 4),
+            'voice' => hook_voice_ok($in['voice'] ?? null) ? $in['voice'] : 'Puck',
+            'style' => isset(TTS_STYLES[$in['style'] ?? '']) ? $in['style'] : 'auto',   // gaya baca suara AI
+            'script' => mb_substr(trim((string) ($in['script'] ?? '')), 0, 300),       // naskah suara buatan user (kosong = dirapikan AI)
+        ],
+    ];
 }
 
 /** File pustaka media: gambar (overlay/footage) atau video (footage). */
@@ -1126,6 +1293,220 @@ function edit_music_relative(array $edit): array
     return $out;
 }
 
+/** File sound effect di pustaka SFX: bawaan (paper_rip.wav) atau unggahan (sha1.ext). */
+function sfx_file_ok($file): bool
+{
+    return is_string($file) && preg_match('/^[a-z0-9_]{3,64}\.(wav|mp3|m4a|aac|ogg|flac)$/', $file) && is_file(SFX_DIR . "/$file");
+}
+
+/** Pustaka SFX: bawaan (dibuat sekali oleh tools/sfx_gen.py) lalu unggahan user. [{file, name, dur, builtin}] */
+function sfx_library(): array
+{
+    $manifest = SFX_DIR . '/manifest.json';
+    if (!is_file($manifest)) {
+        @mkdir(SFX_DIR, 0777, true);
+        @chmod(SFX_DIR, 0777);
+        exec(escapeshellarg(PYTHON) . ' ' . escapeshellarg(APP_DIR . '/tools/sfx_gen.py') . ' --out ' . escapeshellarg(SFX_DIR) . ' 2>&1');
+    }
+    $built = (array) json_decode((string) @file_get_contents($manifest), true);
+    // Detik puncak tiap SFX bawaan dihitung sekali lalu disimpan di manifest
+    if ($built && !isset($built[0]['peak'])) {
+        $built = array_map(fn($s) => $s + ['peak' => audio_peak(SFX_DIR . '/' . $s['file'])], $built);
+        @file_put_contents($manifest, json_encode($built, JSON_UNESCAPED_UNICODE));
+    }
+    $built = array_map(fn($s) => $s + ['builtin' => true] + ($s['file'] === 'paper_rip.wav' ? ['tag' => 'paper'] : []), $built);
+    $user = json_decode((string) @file_get_contents(STORAGE_DIR . '/sfx.json'), true);
+    return array_values(array_filter([...$built, ...(is_array($user) ? $user : [])], fn($s) => sfx_file_ok($s['file'] ?? null)));
+}
+
+/** API key ElevenLabs (storage/elevenlabs.key, tidak bisa diakses lewat web); kosong = fitur SFX AI tidak aktif. */
+function elevenlabs_key(): string
+{
+    return trim((string) @file_get_contents(STORAGE_DIR . '/elevenlabs.key'));
+}
+
+/**
+ * Detik puncak (bagian paling keras) sebuah file audio: dipakai menyelaraskan SFX dengan momen visual,
+ * mis. bunyi robekan dengan saat kertas mulai robek di transisi. Jendela RMS 40 ms.
+ */
+function audio_peak(string $path): float
+{
+    $pcm = (string) shell_exec(escapeshellarg(FFMPEG) . ' -hide_banner -nostdin -loglevel error -i ' . escapeshellarg($path)
+        . ' -ac 1 -ar 8000 -f s16le - 2>/dev/null');
+    $s = $pcm !== '' ? array_values(unpack('s*', $pcm)) : [];
+    $win = 320;
+    [$best, $at] = [-1.0, 0];
+    for ($i = 0; $i + $win <= count($s); $i += 80) {
+        $e = 0.0;
+        for ($k = $i; $k < $i + $win; $k += 4) {
+            $e += $s[$k] * $s[$k];
+        }
+        if ($e > $best) {
+            [$best, $at] = [$e, $i];
+        }
+    }
+    return round(($at + $win / 2) / 8000, 3);
+}
+
+/**
+ * Buat sound effect dari deskripsi teks lewat ElevenLabs Sound Effects, simpan ke pustaka SFX.
+ * $dur null = durasi ditentukan AI. $tag mis. 'paper' = SFX kertas robek untuk transisi kertas.
+ */
+function sfx_generate_ai(string $text, ?float $dur, string $name, string $tag = ''): array
+{
+    $key = elevenlabs_key();
+    if ($key === '') {
+        throw new RuntimeException('API key ElevenLabs belum diatur.');
+    }
+    $body = ['text' => $text, 'prompt_influence' => 0.5] + ($dur ? ['duration_seconds' => max(0.5, min(22, $dur))] : []);
+    $ch = curl_init('https://api.elevenlabs.io/v1/sound-generation?output_format=mp3_44100_128');
+    curl_setopt_array($ch, [
+        CURLOPT_POST => true,
+        CURLOPT_POSTFIELDS => json_encode($body, JSON_UNESCAPED_UNICODE),
+        CURLOPT_HTTPHEADER => ['xi-api-key: ' . $key, 'Content-Type: application/json', 'Accept: audio/mpeg'],
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT => 120,
+    ]);
+    $res = curl_exec($ch);
+    $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $type = (string) curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
+    curl_close($ch);
+    if ($res === false) {
+        throw new RuntimeException('Tidak bisa terhubung ke ElevenLabs. Periksa internet lalu coba lagi.');
+    }
+    if ($code !== 200 || !str_contains($type, 'audio')) {
+        $err = json_decode((string) $res, true)['detail'] ?? [];
+        $status = is_array($err) ? (string) ($err['status'] ?? '') : '';
+        throw new RuntimeException(match (true) {
+            $status === 'missing_permissions' => 'API key ElevenLabs belum punya izin Sound Effects. Buka elevenlabs.io → Developers → API Keys, edit key ini, lalu aktifkan izin "Sound Effects".',
+            $status === 'quota_exceeded' || $code === 402 => 'Kredit ElevenLabs habis. Isi ulang kredit atau tunggu periode berikutnya.',
+            $code === 401 => 'API key ElevenLabs tidak valid.',
+            $code === 429 => 'ElevenLabs sedang sibuk / batas pemakaian tercapai. Coba lagi sebentar.',
+            default => 'ElevenLabs gagal membuat sound effect' . (is_array($err) && !empty($err['message']) ? ': ' . $err['message'] : " (HTTP $code)."),
+        });
+    }
+    sfx_library(); // pastikan folder pustaka ada
+    $file = sha1((string) $res) . '.mp3';
+    file_put_contents(SFX_DIR . "/$file", $res);
+    @chmod(SFX_DIR . "/$file", 0666);
+    $len = (float) trim((string) shell_exec(escapeshellarg(FFPROBE) . ' -v error -show_entries format=duration -of csv=p=0 ' . escapeshellarg(SFX_DIR . "/$file")));
+    $user = json_decode((string) @file_get_contents(STORAGE_DIR . '/sfx.json'), true) ?: [];
+    $user[] = ['file' => $file, 'name' => mb_substr($name, 0, 80), 'dur' => round($len, 3), 'ai' => true, 'prompt' => mb_substr($text, 0, 300),
+        'peak' => audio_peak(SFX_DIR . "/$file")] + ($tag !== '' ? ['tag' => $tag] : []);
+    write_sfx_uploads($user);
+    return end($user);
+}
+
+/** Simpan daftar SFX unggahan user (bawaan tidak disimpan di sini). */
+function write_sfx_uploads(array $list): void
+{
+    $path = STORAGE_DIR . '/sfx.json';
+    file_put_contents($path, json_encode(array_values($list), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), LOCK_EX);
+    @chmod($path, 0666);
+}
+
+/**
+ * Detik awal tiap potongan di video akhir (footage awal, clip yang dipertahankan, footage akhir; sama dengan footage_concat()):
+ * [[id footage | 'main' => detik], panjang total, rentang clip yang dipertahankan (relatif awal trim)].
+ */
+function edit_output_starts(array $edit): array
+{
+    [$t0, $t1] = $edit['trim'];
+    $keep = edit_keep_ranges($edit) ?: [[0, $t1 - $t0]];
+    $mainLen = array_sum(array_map(fn($r) => $r[1] - $r[0], $keep));
+    $start = [];
+    $pos = 0.0;
+    foreach (edit_footage_sequence($edit) ?: ['main'] as $it) {
+        $start[$it === 'main' ? 'main' : $it['id']] = $pos;
+        $pos += $it === 'main' ? $mainLen : (float) $it['dur'];
+    }
+    return [$start, $pos, $keep];
+}
+
+/** Resep edit tanpa item yang menempel ke footage (dirender seperti biasa di clip), dan daftar item yang menempel ke footage. */
+function edit_split_ref(array $edit): array
+{
+    $ref = [];
+    foreach (['media', 'texts', 'effects', 'music'] as $k) {
+        $ref[$k] = array_values(array_filter($edit[$k] ?? [], fn($it) => !empty($it['ref'])));
+        $edit[$k] = array_values(array_filter($edit[$k] ?? [], fn($it) => empty($it['ref'])));
+    }
+    return [$edit, $ref];
+}
+
+/**
+ * Item yang menempel ke footage dipindah ke waktu video akhir (detik dari awal video), untuk dirender di lapisan paling akhir.
+ * Mengembalikan resep "video akhir" (trim = [0, total]) berisi item-item itu saja, atau null kalau tidak ada.
+ */
+function edit_ref_output(array $edit, array $ref): ?array
+{
+    if (!array_filter($ref)) {
+        return null;
+    }
+    [$start, $total] = edit_output_starts($edit);
+    $g = ['trim' => [0.0, $total], 'pad' => [0.0, $total], 'tracks' => $edit['tracks'] ?? [], 'layers' => $edit['layers'] ?? [],
+        'layout' => $edit['layout'] ?? 'speaker', 'style' => $edit['style'] ?? [], 'hook' => ['enabled' => false] + ($edit['hook'] ?? []),
+        'overlay' => ['enabled' => false], 'media' => [], 'texts' => [], 'effects' => [], 'music' => []];
+    foreach ($ref as $k => $items) {
+        foreach ($items as $it) {
+            if (!isset($start[$it['ref']])) {
+                continue;
+            }
+            $o = $start[$it['ref']];
+            $s = max(0, $o + $it['s']);
+            $e = min($total, $o + $it['e']);
+            if ($e - $s < 0.05) {
+                continue;
+            }
+            // Musik: bagian lagu yang terpotong di depan (s < 0) dilewati; keyframe ikut digeser ke waktu video akhir
+            $extra = $k === 'music' ? ['off' => $it['off'] + ($s - ($o + $it['s'])),
+                'kf' => array_map(fn($p) => ['t' => $p['t'] + $o] + $p, $it['kf'] ?? [])] : [];
+            $g[$k][] = ['s' => $s, 'e' => $e] + $extra + $it;
+        }
+    }
+    return $g;
+}
+
+/**
+ * Sound effect di video akhir (setelah bagian terhapus dibuang & footage disambung): [file, detik di video akhir, panjang, volume].
+ * Urutan video akhir = footage awal, clip (bagian yang dipertahankan), footage akhir, sama dengan footage_concat().
+ */
+function edit_sfx_output(array $edit): array
+{
+    if (empty($edit['sfx']) || !empty($edit['tracks']['sfx']['mute'])) {
+        return [];
+    }
+    [$t0] = $edit['trim'];
+    [$start, , $keep] = edit_output_starts($edit);
+    $out = [];
+    foreach ($edit['sfx'] as $x) {
+        if (!isset($start[$x['ref']]) || $x['vol'] <= 0 || !sfx_file_ok($x['file'])) {
+            continue;
+        }
+        if ($x['ref'] === 'main') {
+            // Detik video asli → detik clip yang dipertahankan; SFX di luar trim / di bagian terhapus tidak dipakai
+            $rel = $x['at'] - $t0;
+            $at = null;
+            $acc = 0.0;
+            foreach ($keep as [$a, $b]) {
+                if ($rel >= $a - 0.001 && $rel < $b) {
+                    $at = $acc + max(0, $rel - $a);
+                    break;
+                }
+                $acc += $b - $a;
+            }
+            if ($at === null) {
+                continue;
+            }
+        } else {
+            $at = (float) $x['at'];
+        }
+        $out[] = ['file' => SFX_DIR . '/' . $x['file'], 'at' => $start[$x['ref']] + $at, 'len' => (float) $x['dur'], 'off' => 0,
+            'vol' => $x['vol'] / 100, 'fin' => 0, 'fout' => 0];
+    }
+    return $out;
+}
+
 function footage_is_video(string $file): bool
 {
     return (bool) preg_match('/\.(mp4|mov|webm|m4v)$/', $file);
@@ -1147,7 +1528,7 @@ function edit_footage_sequence(array $edit): array
  */
 function gfx_sanitize($g): ?array
 {
-    if (!is_array($g) || !in_array($g['type'] ?? '', ['hook', 'hook_dark', 'hook_yellow', 'hook_grad', 'hook_outline', 'clipnews', 'news', 'viral', 'breaking', 'minimal', 'banner', 'banner_blue', 'banner_dark', 'banner_yellow', 'banner_white', 'banner_square', 'banner_pill', 'quote', 'quote_dark', 'quote_blue', 'quote_yellow'], true)) {
+    if (!is_array($g) || !in_array($g['type'] ?? '', ['hook', 'hook_dark', 'hook_yellow', 'hook_red', 'hook_grad', 'hook_outline', 'clipnews', 'news', 'viral', 'breaking', 'minimal', 'banner', 'banner_blue', 'banner_dark', 'banner_yellow', 'banner_white', 'banner_square', 'banner_pill', 'quote', 'quote_dark', 'quote_blue', 'quote_yellow'], true)) {
         return null;
     }
     $hex = fn($v, $d) => preg_match('/^#[0-9a-f]{6}$/i', (string) $v) ? strtoupper((string) $v) : $d;

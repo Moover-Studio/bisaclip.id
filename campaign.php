@@ -245,8 +245,6 @@ function render() {
       <div class="chips">${D.targets.map(t => `<button class="chip${c.target === t ? ' on' : ''}" data-target="${t}">±${t} dtk</button>`).join('')}</div>
       <label class="lbl">Bahasa hook &amp; caption</label>
       <div class="chips"><button class="chip${c.lang === 'id' ? ' on' : ''}" data-lang="id">Indonesia</button><button class="chip${c.lang === 'en' ? ' on' : ''}" data-lang="en">English</button></div>
-      ${accounts.length ? `<label class="lbl" for="acc">Akun tujuan</label><select class="input" id="acc" style="max-width:320px"><option value="">Tanpa akun</option>
-        ${accounts.map(a => `<option value="${a.id}" ${c.account_id === a.id ? 'selected' : ''}>${esc(a.name)}</option>`).join('')}</select>` : ''}
       <div class="go-row"><button class="btn primary" id="plan-go" ${ready.length && c.angle.trim() && !planning() ? '' : 'disabled'}>
           ${planning() ? '<span class="spin"></span> AI sedang menyusun…' : `${ic('sparkles')} ${plan ? 'Susun ulang dengan AI' : 'Susun clip dengan AI'}`}</button>
         <span class="muted">${!ready.length ? 'Tunggu minimal 1 footage selesai dianalisa.' : !c.angle.trim() ? 'Isi angle dulu.' : `${ready.length} footage siap · ${ready.reduce((a, f) => a + (f.scenes?.length || 0), 0)} adegan`}</span></div>

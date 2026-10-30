@@ -14,9 +14,19 @@ ensure_dirs();
 <title>bisaclip</title>
 <link rel="stylesheet" href="assets/app.css?v=<?= filemtime(__DIR__ . '/assets/app.css') ?>">
 <style>
-  .hero { text-align: center; padding: 28px 0 22px; }
-  .hero h1 { font-size: 26px; line-height: 1.25; margin: 0 0 6px; letter-spacing: -.01em; }
-  .hero p { margin: 0; color: var(--muted); }
+  /* Judul & banner sambutan Beranda (banner di bawah tombol menu) */
+  .home-hero { text-align: center; padding: 36px 0 30px; }
+  .home-title { margin: 0 0 10px; font-size: 32px; line-height: 1.2; letter-spacing: -.02em; }
+  .home-desc { max-width: 560px; margin: 0 auto; color: var(--muted); font-size: 15px; line-height: 1.6; }
+  /* Kata bergradasi biru yang bergerak pelan */
+  .grad-flow { background: linear-gradient(90deg, #6EA8FF, #2F7BF0, #8FD3FF, #0058D3, #6EA8FF); background-size: 300% 100%;
+    -webkit-background-clip: text; background-clip: text; color: transparent; animation: gradFlow 6s linear infinite; }
+  @keyframes gradFlow { to { background-position: 300% 0; } }
+  @media (prefers-reduced-motion: reduce) { .grad-flow { animation: none; } }
+  @media (max-width: 640px) { .home-hero { padding: 24px 0 22px; } .home-title { font-size: 24px; } .home-desc { font-size: 13.5px; } }
+  /* Jarak antarbagian Beranda supaya lega (navbar tidak diubah) */
+  .acts3 + .camp-cta { margin-top: 16px; }
+  .home-banner { display: block; width: 100%; height: auto; aspect-ratio: 24 / 5; margin: 32px 0 0; border-radius: 16px; object-fit: cover; }
   .search { display: flex; align-items: center; gap: 6px; padding: 6px 6px 6px 4px; }
   .search .input { border: 0; background: transparent; font-size: 15px; padding: 9px 12px; }
   .search .input:focus { background: transparent; box-shadow: none; }
@@ -38,7 +48,7 @@ ensure_dirs();
   .dl-foot { display: flex; justify-content: flex-end; margin-top: 16px; }
 
   /* Section bawah */
-  .section { margin-top: 36px; }
+  .section { margin-top: 52px; }
   .rooms { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px; }
   .room { overflow: hidden; transition: transform .15s, border-color .15s; display: block; }
   .room:hover { border-color: var(--surface-3); box-shadow: 0 8px 24px rgba(0, 0, 0, .35); }
@@ -98,6 +108,36 @@ ensure_dirs();
   .m-card .m-foot { position: sticky; bottom: -18px; z-index: 3; margin: 18px -22px -18px; padding: 14px 22px 18px;
     background: var(--surface); border-top: 1px solid var(--border); }
   @keyframes mpop { from { opacity: 0; transform: translateY(8px) scale(.98); } }
+  /* Modal Atur clip dua kolom: ringkasan video di kiri, pengaturan di kanan (kanan di-scroll sendiri) */
+  .m-card.m-split { max-width: 860px; max-height: min(620px, calc(100vh - 32px)); display: grid; grid-template-columns: 300px minmax(0, 1fr); padding: 0; overflow: hidden; }
+  .m-side { display: flex; flex-direction: column; gap: 10px; min-width: 0; padding: 22px 20px; overflow-y: auto; scrollbar-width: thin;
+    background: var(--surface-2); border-right: 1px solid var(--border); }
+  .ms-thumb { position: relative; aspect-ratio: 16 / 9; border-radius: 10px; overflow: hidden; background: var(--surface-3); flex: none; }
+  .ms-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .ms-thumb img:not([src]), .ms-thumb img[src=""] { display: none; }
+  .ms-dur { position: absolute; right: 7px; bottom: 7px; padding: 2px 6px; border-radius: 5px; background: rgba(0, 0, 0, .78); color: #fff;
+    font-size: 11.5px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .ms-dur:empty { display: none; }
+  .ms-title { margin: 4px 0 0; font-size: 14.5px; font-weight: 700; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .ms-ch { margin-top: -4px; font-size: 12.5px; color: var(--text-2); }
+  .ms-ch:empty { display: none; }
+  .ms-meta { display: grid; grid-template-columns: auto 1fr; gap: 7px 12px; margin: 4px 0 0; padding: 12px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); font-size: 12.5px; }
+  .ms-meta dt { color: var(--muted); }
+  .ms-meta dd { margin: 0; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .ms-link { display: flex; align-items: center; gap: 6px; min-width: 0; padding: 7px 7px 7px 10px; border-radius: 9px; background: var(--surface); border: 1px solid var(--border); }
+  .ms-link a { flex: 1; min-width: 0; font-size: 12px; color: var(--accent-fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-decoration: none; }
+  .ms-link a:hover { text-decoration: underline; }
+  .ms-copy { flex: none; width: 26px; height: 26px; display: grid; place-items: center; border: 0; border-radius: 6px; background: none; color: var(--text-2); cursor: pointer; }
+  .ms-copy:hover { background: var(--surface-3); color: var(--text); }
+  .ms-copy .i { width: 14px; height: 14px; }
+  .m-side .estimate { margin-top: auto; }
+  .m-main { min-width: 0; max-height: min(620px, calc(100vh - 32px)); overflow-y: auto; padding: 22px 22px 18px; scrollbar-width: thin; display: flex; flex-direction: column; }
+  .m-main > .m-foot { margin-top: auto; } /* tombol aksi selalu di dasar kolom kanan */
+  @media (max-width: 760px) {
+    .m-card.m-split { grid-template-columns: 1fr; max-height: calc(100vh - 32px); overflow-y: auto; }
+    .m-side { border-right: 0; border-bottom: 1px solid var(--border); overflow: visible; }
+    .m-main { max-height: none; overflow: visible; }
+  }
   .m-head { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 18px; }
   .m-head h3 { margin: 0 0 3px; font-size: 17px; }
   .m-head p { margin: 0; font-size: 12.5px; color: var(--muted); line-height: 1.45; }
@@ -118,6 +158,75 @@ ensure_dirs();
   .concepts button.on .ck { background: var(--accent); border-color: var(--accent); color: #fff; }
   .concepts .all { justify-content: center; }
   .concept-note { width: 100%; margin-bottom: 18px; padding: 9px 12px; font-size: 13px; }
+  /* Clip campaign brand: bagian lipat, aktif lewat tombol toggle */
+  .tgl { flex: none; width: 34px; height: 20px; border-radius: 999px; border: 0; padding: 2px; background: var(--surface-3); cursor: pointer; transition: background .15s; }
+  .tgl i { display: block; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: transform .15s; }
+  .tgl[aria-pressed="true"] { background: var(--accent); }
+  .tgl[aria-pressed="true"] i { transform: translateX(14px); }
+  /* Bagian pengaturan di kolom kanan (kolom kanan di-scroll, panel ringkasan video di kiri tetap) */
+  .m-group { margin-bottom: 18px; }
+  .m-group .styles, .m-group .capstyles, .m-group .concepts, .m-group .langs { margin-bottom: 0; }
+  .m-group .concept-note { margin: 8px 0 0; }
+  .m-group .custom { margin-top: 8px; }
+  .m-rl { font-size: 13px; color: var(--text-2); }
+  .m-rl small { font-size: 11px; color: var(--muted); font-weight: 400; }
+  .m-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 4px; padding: 0 2px; }
+  .m-row .counter { gap: 10px; }
+  .m-row .counter .btn { width: 32px; height: 32px; padding: 0; }
+  .m-row.brand-h { margin: 16px 0 18px; padding-top: 16px; border-top: 1px solid var(--border); } /* jarak ke bar tombol (bar menempel di bawah saat di-scroll) */
+  .m-row.brand-h + .brand-box { margin-top: -8px; }
+  /* Kartu campaign brand: bagian berlabel seragam, dipisah garis tipis */
+  .brand-box { margin: -2px 0 18px; padding: 4px 16px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface-2); display: grid; }
+  .brand-box[hidden] { display: none; }
+  .brand-box .bf { padding: 14px 0; }
+  .brand-box .bf + .bf { border-top: 1px solid var(--border); }
+  .brand-box .lbl { display: flex; justify-content: space-between; align-items: center; margin-bottom: 9px;
+    font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+  .brand-box .lbl em { font-style: normal; font-weight: 500; text-transform: none; letter-spacing: 0; opacity: .8; margin-left: 4px; }
+  .brand-box .input { width: 100%; height: 38px; padding: 0 12px; font-size: 13px; border-radius: 9px; }
+  .brand-box textarea.input { height: auto; min-height: 72px; padding: 9px 12px; resize: vertical; font: inherit; font-size: 13px; line-height: 1.5; }
+  .brand-box .row2 { display: grid; grid-template-columns: 1fr 150px; gap: 8px; }
+  .brand-box select.input { cursor: pointer; color: var(--text-2); }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chips button { font: inherit; font-size: 12.5px; height: 30px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface);
+    color: var(--text-2); cursor: pointer; transition: border-color .15s, background .15s, color .15s; }
+  .chips button:hover { border-color: var(--border-strong); color: var(--text); }
+  .chips button.on { border-color: rgba(47, 123, 240, .7); background: var(--accent-soft); color: var(--accent-fg); }
+  /* Topik: tag berwarna dengan tombol hapus */
+  .chips .tag { display: inline-flex; align-items: center; gap: 2px; height: 28px; padding: 0 4px 0 10px; border-radius: 8px; font-size: 12.5px;
+    background: rgba(47, 123, 240, .12); border: 1px solid rgba(47, 123, 240, .3); color: #BFD6FF; cursor: default; }
+  .chips .tag b { display: grid; place-items: center; width: 18px; height: 18px; border-radius: 5px; font-weight: 500; cursor: pointer; color: rgba(191, 214, 255, .6); }
+  .chips .tag b:hover { color: #fff; background: rgba(255, 255, 255, .1); }
+  .chips input { flex: 1; min-width: 130px; height: 28px; font: inherit; font-size: 12.5px; padding: 0 10px; border-radius: 8px; border: 1px dashed var(--border-strong);
+    background: transparent; color: var(--text); }
+  .chips input:focus { outline: none; border-color: var(--accent); border-style: solid; }
+  .lnk-btn { display: inline-flex; align-items: center; gap: 4px; font: inherit; font-size: 11.5px; font-weight: 600; letter-spacing: 0; text-transform: none;
+    border: 0; background: none; color: var(--accent-fg); cursor: pointer; padding: 2px 4px; border-radius: 6px; }
+  .lnk-btn .i { width: 13px; height: 13px; }
+  .lnk-btn:hover:not(:disabled) { background: var(--accent-soft); }
+  .lnk-btn:disabled { color: var(--muted); cursor: default; }
+  /* Jenis clip brand & porsi: kartu pilihan dua kolom */
+  .br-opts, .br-mix { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .br-mode { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 10px 12px 10px 36px; border-radius: 10px;
+    border: 1px solid var(--border); background: var(--surface); color: var(--text); font: inherit; text-align: left; cursor: pointer; transition: border-color .15s, background .15s; }
+  .br-mode b { font-size: 13px; font-weight: 600; }
+  .br-mode small { font-size: 11.5px; color: var(--muted); }
+  .br-mode .ck { position: absolute; left: 11px; top: 11px; width: 16px; height: 16px; display: grid; place-items: center; border-radius: 5px;
+    border: 1.5px solid var(--border-strong); color: transparent; }
+  .br-mode .ck .i { width: 11px; height: 11px; }
+  .br-mode:hover { border-color: var(--border-strong); }
+  .br-mode.on { border-color: rgba(47, 123, 240, .7); background: var(--accent-soft); }
+  .br-mode.on .ck { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .br-opt { display: flex; align-items: center; gap: 8px; min-height: 46px; padding: 6px 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface);
+    font-size: 13px; cursor: pointer; transition: border-color .15s, background .15s; }
+  .br-opt:hover { border-color: var(--border-strong); }
+  .br-opt:has(input:checked) { border-color: rgba(47, 123, 240, .7); background: var(--accent-soft); }
+  .br-opt input { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); flex: none; }
+  .br-opt .br-t { color: var(--text); font-weight: 500; }
+  .br-mix .counter { display: inline-flex; gap: 4px; align-items: center; }
+  .br-mix .counter output { min-width: 18px; font-size: 14px; }
+  .br-mix .counter .btn { width: 24px; height: 24px; padding: 0; border-radius: 6px; }
+  @media (max-width: 520px) { .br-opts, .br-mix { grid-template-columns: 1fr; } }
   /* Gaya caption: pilih satu */
   .capstyles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-bottom: 18px; }
   .capstyles button { font: inherit; text-align: left; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface-2);
@@ -154,40 +263,11 @@ ensure_dirs();
   .style-opt .lay.game i:first-child { flex: 7; }
   .style-opt .lay.game i:last-child { flex: 3; }
   .style-opt.on .lay i { background: #86B6FF; opacity: .8; }
-  /* Akun tujuan (modal) & avatar inisial akun */
-  .av { flex: none; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 13px; }
-  .m-label a { color: var(--accent-fg); font-weight: 500; }
-  .accs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 18px; }
-  .acc-opt { font: inherit; text-align: left; display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px; min-width: 0;
-    border: 1px solid var(--border); background: var(--surface-2); color: var(--text); cursor: pointer; transition: border-color .15s, background .15s; }
-  .acc-opt > span:last-child { min-width: 0; }
-  .acc-opt b { display: block; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .acc-opt small { display: block; font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .acc-opt:hover { border-color: var(--border-strong); }
-  .acc-opt.on { border-color: rgba(30, 112, 240, .75); background: rgba(30, 112, 240, .15); }
-  .acc-opt.add { border-style: dashed; color: var(--text-2); justify-content: center; }
-  .acc-opt.add .av { background: var(--surface-3); color: var(--text-2); }
-  .acc-new { display: grid; gap: 8px; padding: 12px; margin: -10px 0 18px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface-2); }
-  .acc-new .input { padding: 9px 12px; font-size: 13.5px; }
-  .acc-new .row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-  .acc-new .hint { font-size: 12px; color: var(--muted); }
-  /* Label akun di kartu room & filter per akun */
-  .room-thumb .acc-tag { position: absolute; left: 8px; top: 8px; display: inline-flex; align-items: center; gap: 5px; max-width: calc(100% - 16px);
-    padding: 2px 8px 2px 3px; border-radius: 999px; background: rgba(0, 0, 0, .72); color: #fff; font-size: 11.5px; font-weight: 600; backdrop-filter: blur(4px); }
-  .acc-tag .av { width: 16px; height: 16px; font-size: 9px; }
-  .acc-tag span:last-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .acc-filter { display: flex; gap: 6px; flex-wrap: wrap; margin: -4px 0 14px; }
-  .acc-filter button { font: inherit; font-size: 12.5px; display: inline-flex; align-items: center; gap: 6px; padding: 4px 11px 4px 5px; border-radius: 999px;
-    border: 1px solid var(--border); background: var(--surface-2); color: var(--text-2); cursor: pointer; }
-  .acc-filter button:not(:has(.av)) { padding-left: 11px; }
-  .acc-filter button.on { border-color: rgba(30, 112, 240, .75); background: rgba(30, 112, 240, .15); color: var(--text); }
-  .acc-filter .av { width: 18px; height: 18px; font-size: 9.5px; }
-  .acc-filter .n { color: var(--muted); font-variant-numeric: tabular-nums; }
   .top-links { margin-left: auto; display: flex; gap: 4px; }
   /* Tiga aksi utama beranda: tenang dengan aksen biru brand.
      Hover premium: semua perubahan memudar perlahan (kurva ease-out panjang), sorotan biru mengikuti kursor,
      kotak ikon terisi gradasi biru secara halus, kartu terangkat sedikit. */
-  .acts3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; --ease: cubic-bezier(.22, 1, .36, 1); }
+  .acts3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; --ease: cubic-bezier(.22, 1, .36, 1); }
   .act3 { position: relative; isolation: isolate; display: flex; flex-direction: column; justify-content: space-between; align-items: flex-start; gap: 28px;
     padding: 18px 18px 16px; border: 1px solid rgba(255, 255, 255, .08); border-radius: 16px; cursor: pointer; overflow: hidden;
     font: inherit; color: var(--text); text-decoration: none; text-align: left;
@@ -293,7 +373,6 @@ ensure_dirs();
   .m-foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
 
   @media (max-width: 640px) {
-    .hero h1 { font-size: 22px; }
     .search { flex-wrap: wrap; }
     .search .input { flex-basis: 100%; }
     .search .btn { flex: 1; }
@@ -310,7 +389,6 @@ ensure_dirs();
   <header class="topbar">
     <a class="brand" href="index.php"><img src="assets/logo-96.png" alt=""><span><b>Bisa</b>Clip</span></a>
     <div class="top-links">
-      <a class="btn sm ghost" href="accounts.php" title="Akun"><?= icon('user') ?> <span>Akun</span></a>
       <a class="btn sm ghost" href="calendar.php" title="Kalender upload"><?= icon('calendar') ?> <span>Kalender upload</span></a>
       <div class="set-dd" id="set-dd">
         <button class="btn sm ghost" type="button" id="set-btn" title="Pengaturan" aria-haspopup="menu" aria-expanded="false"><?= icon('settings') ?> <span>Pengaturan</span></button>
@@ -322,9 +400,9 @@ ensure_dirs();
     </div>
   </header>
 
-  <section class="hero">
-    <h1>Mau bikin apa hari ini?</h1>
-    <p>Jadikan video YouTube clip oleh AI, edit footage sendiri, atau unduh video &amp; audio dengan kualitas maksimal.</p>
+  <section class="home-hero">
+    <h1 class="home-title">Mau <span class="grad-flow">nge-clip</span> apa hari ini?</h1>
+    <p class="home-desc">Jadikan video YouTube clip oleh AI, edit footage sendiri, atau unduh video &amp; audio dengan kualitas maksimal.</p>
   </section>
 
   <!-- Tiga aksi utama -->
@@ -336,6 +414,8 @@ ensure_dirs();
   <a class="camp-cta" href="campaign.php"><span class="ic"><?= icon('film') ?></span>
     <span><b>Punya footage sendiri untuk campaign?</b><small>Unggah bahan dari komputer, tulis angle-nya, AI menyusun clip + hook</small></span>
     <?= icon('arrow-right') ?></a>
+  <img class="home-banner" src="assets/banner-home.jpg?v=<?= filemtime(__DIR__ . '/assets/banner-home.jpg') ?>" width="1920" height="400"
+    alt="Selamat datang di BisaClip — nge-clip tidak pernah semudah ini">
 
   <!-- Modal link YouTube: dipakai "Buat clip" & "Download" -->
   <div class="modal" id="url-modal" hidden>
@@ -419,53 +499,80 @@ ensure_dirs();
 </div>
 
 <div class="modal" id="clip-modal" hidden>
-  <div class="card m-card" role="dialog" aria-modal="true" aria-labelledby="m-title">
+  <div class="card m-card m-split" role="dialog" aria-modal="true" aria-labelledby="m-title">
+    <!-- Kiri: ringkasan video yang akan di-clip -->
+    <aside class="m-side" id="m-side">
+      <div class="ms-thumb"><img id="ms-img" alt=""><span class="ms-dur" id="ms-dur"></span></div>
+      <h4 class="ms-title" id="m-video"></h4>
+      <div class="ms-ch" id="ms-ch"></div>
+      <dl class="ms-meta" id="ms-meta"></dl>
+      <div class="ms-link"><a id="ms-url" target="_blank" rel="noopener"></a>
+        <button type="button" class="ms-copy" id="ms-copy" title="Salin link" aria-label="Salin link"><?= icon('copy') ?></button></div>
+      <div class="estimate" id="estimate"></div>
+    </aside>
+    <!-- Kanan: pengaturan clip -->
+    <div class="m-main" id="m-main">
     <div class="m-head">
-      <div class="grow"><h3 id="m-title">Atur clip</h3><p id="m-video"></p></div>
+      <div class="grow"><h3 id="m-title">Atur clip</h3></div>
       <button class="btn sm ghost" id="m-close" title="Tutup (Esc)"><?= icon('x') ?></button>
     </div>
-    <div class="m-label"><span>Akun tujuan</span><a href="accounts.php">Kelola akun</a></div>
-    <div class="accs" id="accs"></div>
-    <div class="acc-new" id="acc-new" hidden>
-      <input class="input" id="an-name" placeholder="Nama akun, mis. Mindset Harian" maxlength="40" autocomplete="off">
-      <input class="input" id="an-niche" placeholder="Niche (opsional), mis. Self development" maxlength="60" autocomplete="off">
-      <div class="row"><span class="hint" id="an-hint">Clip dari video ini akan masuk ke akun ini.</span>
-        <span><button class="btn sm ghost" id="an-cancel" type="button">Batal</button> <button class="btn sm primary" id="an-save" type="button">Simpan akun</button></span></div>
-    </div>
-    <div class="m-label"><span>Style clip</span></div>
-    <div class="styles" id="styles">
-      <button class="style-opt" data-style="podcast"><span class="lay"><i></i></span>
-        <span><b>Podcast</b><small>Kamera mengikuti orang yang bicara</small></span></button>
-      <button class="style-opt" data-style="gaming"><span class="lay game"><i></i><i></i></span>
-        <span><b>Streaming game</b><small>Game 70% di atas, webcam 30% di bawah</small></span></button>
-    </div>
-    <div class="m-label"><span>Konsep clip</span><span>boleh pilih lebih dari satu</span></div>
-    <div class="concepts" id="concepts"></div>
-    <input class="input concept-note" id="concept-note" maxlength="200" autocomplete="off"
-      placeholder="Konteks tambahan (opsional), mis. fokus saat bahas bisnis &amp; uang">
-    <div class="m-label"><span>Gaya caption</span><span id="cap-hint"></span></div>
-    <div class="capstyles" id="capstyles"></div>
-    <div class="m-label"><span>Bahasa judul &amp; caption</span><span id="lang-hint"></span></div>
-    <div class="presets langs" id="langs"></div>
-    <div class="m-label"><span>Durasi tiap clip</span></div>
-    <div class="presets" id="presets"></div>
-    <div class="custom" id="custom" hidden>
-      <input class="input" type="number" id="c-min" min="10" max="170" step="5"> –
-      <input class="input" type="number" id="c-max" min="20" max="180" step="5"> detik
-    </div>
-    <div class="m-sec">
-      <div class="m-label"><span>Jumlah clip maksimal</span><span id="count-hint"></span></div>
+    <section class="m-group"><div class="m-label"><span>Konsep clip</span></div>
+      <div class="concepts" id="concepts"></div>
+      <input class="input concept-note" id="concept-note" maxlength="200" autocomplete="off" placeholder="Konteks tambahan (opsional)"></section>
+    <section class="m-group"><div class="m-label"><span>Gaya caption</span></div>
+      <div class="capstyles" id="capstyles"></div></section>
+    <section class="m-group"><div class="m-label"><span>Bahasa</span><span id="lang-hint"></span></div>
+      <div class="presets langs" id="langs"></div></section>
+    <section class="m-group"><div class="m-label"><span>Durasi tiap clip</span></div>
+      <div class="presets" id="presets"></div>
+      <div class="custom" id="custom" hidden>
+        <input class="input" type="number" id="c-min" min="10" max="170" step="5"> –
+        <input class="input" type="number" id="c-max" min="20" max="180" step="5"> detik
+      </div></section>
+    <div class="m-row"><span class="m-rl">Jumlah clip <small id="count-hint"></small></span>
       <div class="counter">
+        <span class="muted" id="cnt-auto"></span>
         <button class="btn" id="cnt-dec" aria-label="Kurangi">−</button>
         <output id="cnt">0</output>
         <button class="btn" id="cnt-inc" aria-label="Tambah">+</button>
-        <span class="muted" id="cnt-auto"></span>
       </div>
     </div>
-    <div class="estimate" id="estimate"></div>
+    <div class="m-row brand-h"><span class="m-rl">Campaign brand</span>
+      <button type="button" class="tgl" id="br-on" aria-pressed="false" aria-label="Aktifkan clip campaign brand"><i></i></button></div>
+    <div class="brand-box" id="brand" hidden>
+      <div class="bf">
+        <div class="lbl"><span>Brand / produk</span><button type="button" class="lnk-btn" id="br-save"><?= icon('save') ?> Simpan preset</button></div>
+        <div class="row2"><input class="input" id="br-name" maxlength="60" autocomplete="off" placeholder="mis. Somethinc Serum">
+          <select class="input" id="br-preset" aria-label="Preset brand"></select></div>
+      </div>
+      <div class="bf"><div class="lbl"><span>Kategori</span></div><div class="chips" id="br-cats"></div></div>
+      <div class="bf">
+        <div class="lbl"><span>Topik terkait</span><button type="button" class="lnk-btn" id="br-suggest"><?= icon('sparkles') ?> Sarankan AI</button></div>
+        <div class="chips tags" id="br-topics"></div>
+      </div>
+      <div class="bf"><div class="lbl"><span>Jenis clip brand</span></div><div class="br-opts" id="br-modes"></div></div>
+      <div class="bf">
+        <div class="lbl"><span>Porsi clip brand</span></div>
+        <div class="br-mix">
+          <label class="br-opt"><input type="radio" name="br-all" value="0" id="br-min-r"><span class="br-t">Minimal</span>
+            <span class="counter"><button type="button" class="btn" id="br-dec" aria-label="Kurangi">−</button><output id="br-min">2</output>
+              <button type="button" class="btn" id="br-inc" aria-label="Tambah">+</button></span><span class="br-t">clip</span></label>
+          <label class="br-opt"><input type="radio" name="br-all" value="1" id="br-all-r"><span class="br-t">Semua clip</span></label>
+        </div>
+      </div>
+      <div class="bf">
+        <div class="lbl"><span>Brief <em>opsional</em></span></div>
+        <textarea class="input" id="br-brief" maxlength="1500" placeholder="Paste aturan campaign"></textarea>
+      </div>
+      <div class="bf">
+        <div class="lbl"><span>Hashtag wajib <em>opsional</em></span></div>
+        <input class="input" id="br-tags" maxlength="200" autocomplete="off" placeholder="#somethincid @somethinc #ad">
+      </div>
+    </div>
     <div class="m-foot">
       <button class="btn ghost" id="m-cancel">Batal</button>
       <button class="btn primary" id="m-start"><?= icon('scissors') ?> Mulai buat clip</button>
+    </div>
     </div>
   </div>
 </div>
@@ -474,9 +581,6 @@ ensure_dirs();
 <script>
 
 let video = null, height = 0, mode = 'edit_h264', polling = null;
-let accounts = [], accFilter = store.get('room-filter') ?? 'all';
-const avatar = a => accAvatar(a);
-async function loadAccounts() { try { accounts = (await api('accounts')).accounts; } catch { accounts = []; } }
 let tab = ['downloads', 'projects'].includes(store.get('tab')) ? store.get('tab') : 'studio';
 
 /* ---------- Modal link YouTube: mode "clip" (lanjut atur clip) atau "download" ---------- */
@@ -607,14 +711,14 @@ const PRESETS = [
   { min: 90, max: 180, label: 'Pembahasan dalam' },
   { custom: true, label: 'Atur sendiri' },
 ];
-const clipCfg = { preset: 2, min: <?= CLIP_MIN_SEC ?>, max: <?= CLIP_MAX_SEC ?>, count: 0, touched: false, account: store.get('clip-account') || '',
-  style: store.get('clip-style') === 'gaming' ? 'gaming' : 'podcast', lang: ['id', 'en'].includes(store.get('clip-lang')) ? store.get('clip-lang') : 'auto' };
+const clipCfg = { preset: 2, min: <?= CLIP_MIN_SEC ?>, max: <?= CLIP_MAX_SEC ?>, count: 0, touched: false,
+  style: 'podcast', lang: ['id', 'en'].includes(store.get('clip-lang')) ? store.get('clip-lang') : 'auto' };
 const CONCEPTS = <?= json_encode(array_map(fn($g) => array_map(fn($c) => ['n' => $c[0], 'd' => $c[1]], $g), CLIP_CONCEPTS), JSON_UNESCAPED_UNICODE) ?>;
 // Konsep terpilih diingat per style (podcast / game); kosong = AI bebas memilih momen terbaik
 const conceptPick = style => { try { const v = JSON.parse(store.get('clip-concepts-' + style) || '[]'); return Array.isArray(v) ? v.filter(k => CONCEPTS[style][k]) : []; } catch { return []; } };
 const CAP_STYLES = <?= json_encode(array_map(fn($c) => ['n' => $c[0], 'd' => $c[1]], CAPTION_STYLES), JSON_UNESCAPED_UNICODE) ?>;
-// Gaya caption diingat per akun tujuan (tiap akun biasanya punya "suara" sendiri)
-const capStylePick = () => { const v = store.get('cap-style-' + (clipCfg.account || 'all')); return CAP_STYLES[v] ? v : 'auto'; };
+// Gaya caption terakhir diingat di browser
+const capStylePick = () => { const v = store.get('cap-style-all'); return CAP_STYLES[v] ? v : 'auto'; };
 const LANG_NAMES = { en: 'English', id: 'Indonesia', ja: 'Jepang', ko: 'Korea', es: 'Spanyol', ar: 'Arab', zh: 'Mandarin', hi: 'Hindi', ms: 'Melayu' };
 
 // Perkiraan jumlah clip dari durasi video: kira-kira 1 clip tiap 3x panjang clip, dibatasi supaya
@@ -626,44 +730,25 @@ function clipLimits() {
   return { est: Math.max(1, Math.min(max, 15, Math.ceil(dur / (avg * 3)))), max };
 }
 
-// Akun tujuan wajib dipilih; kalau belum punya akun, form akun baru langsung dibuka
-const accOk = () => accounts.some(a => a.id === clipCfg.account);
-function renderAccounts() {
-  $('accs').innerHTML = accounts.map(a => `<button class="acc-opt ${a.id === clipCfg.account ? 'on' : ''}" data-acc="${a.id}" type="button">
-      ${avatar(a)}<span><b>${esc(a.name)}</b><small>${esc(a.niche || (a.handle ? '@' + a.handle : 'Tanpa niche'))}</small></span></button>`).join('')
-    + `<button class="acc-opt add" data-acc-new type="button"><span class="av">+</span><span><b>Akun baru</b></span></button>`;
-  if (!accounts.length) {
-    $('acc-new').hidden = false;
-    $('an-hint').textContent = 'Buat akun dulu, mis. akun self development atau akun clip game.';
-  }
-}
 function renderModal() {
   const dur = video?.duration || 0;
-  renderAccounts();
-  document.querySelectorAll('#styles [data-style]').forEach(b => {
-    b.classList.toggle('on', b.dataset.style === clipCfg.style);
-    b.setAttribute('aria-pressed', b.dataset.style === clipCfg.style);
-  });
   // Konsep clip sesuai style yang dipilih
   const picked = conceptPick(clipCfg.style), C = CONCEPTS[clipCfg.style];
-  $('concepts').innerHTML = `<button type="button" class="all ${picked.length ? '' : 'on'}" data-concept=""><b><span class="ck">✓</span>Semua momen</b><small>AI pilih yang terbaik</small></button>`
+  $('concepts').innerHTML = `<button type="button" class="all ${picked.length ? '' : 'on'}" data-concept="" title="AI pilih momen terbaik"><b><span class="ck">✓</span>Semua momen</b></button>`
     + Object.entries(C).map(([k, c]) => `<button type="button" class="${picked.includes(k) ? 'on' : ''}" data-concept="${k}" title="${esc(c.d)}">
-      <b><span class="ck">✓</span>${esc(c.n)}</b><small>${esc(c.d)}</small></button>`).join('');
+      <b><span class="ck">✓</span>${esc(c.n)}</b></button>`).join('');
   // Gaya caption (satu pilihan)
   const cs = capStylePick();
   $('capstyles').innerHTML = Object.entries(CAP_STYLES).map(([k, c]) =>
-    `<button type="button" class="${cs === k ? 'on' : ''}" data-capstyle="${k}"><b>${esc(c.n)}</b><small>${esc(c.d)}</small></button>`).join('');
-  const acc = accounts.find(a => a.id === clipCfg.account);
-  $('cap-hint').textContent = acc ? `diingat untuk ${acc.name.length > 22 ? acc.name.slice(0, 22) + '…' : acc.name}` : '';
+    `<button type="button" class="${cs === k ? 'on' : ''}" data-capstyle="${k}" title="${esc(c.d)}"><b>${esc(c.n)}</b></button>`).join('');
   // Bahasa judul, hook layar, caption & hashtag. Otomatis: video English -> English, lainnya -> Indonesia
   const vl = video?.language || '', auto = vl ? (vl === 'en' ? 'en' : 'id') : '';
-  $('lang-hint').textContent = vl ? `Bahasa video: ${LANG_NAMES[vl] || vl.toUpperCase()}` : '';
-  $('langs').innerHTML = [['auto', 'Otomatis', auto ? `Ikuti video · ${auto === 'en' ? 'English' : 'Indonesia'}` : 'Ikuti bahasa video'],
-    ['id', 'Indonesia', 'Selalu Indonesia'], ['en', 'English', 'Always in English']].map(([k, n, d]) =>
-    `<button class="preset ${clipCfg.lang === k ? 'on' : ''}" data-lang="${k}" type="button"><b>${n}</b><small>${d}</small></button>`).join('');
-  $('presets').innerHTML = PRESETS.map((p, i) => `<button class="preset ${i === clipCfg.preset ? 'on' : ''}" data-p="${i}"
-      ${!p.custom && dur && p.min > dur ? 'disabled' : ''}>
-      <b>${p.custom ? 'Kustom' : `${p.min}–${p.max} dtk`}</b><small>${p.label}</small></button>`).join('');
+  $('lang-hint').textContent = vl ? `video: ${LANG_NAMES[vl] || vl.toUpperCase()}` : '';
+  $('langs').innerHTML = [['auto', 'Otomatis', auto ? `Ikuti video (${auto === 'en' ? 'English' : 'Indonesia'})` : 'Ikuti bahasa video'],
+    ['id', 'Indonesia', 'Selalu Indonesia'], ['en', 'English', 'Selalu English']].map(([k, n, d]) =>
+    `<button class="preset ${clipCfg.lang === k ? 'on' : ''}" data-lang="${k}" type="button" title="${d}"><b>${n}</b></button>`).join('');
+  $('presets').innerHTML = PRESETS.map((p, i) => `<button class="preset ${i === clipCfg.preset ? 'on' : ''}" data-p="${i}" title="${p.label}"
+      ${!p.custom && dur && p.min > dur ? 'disabled' : ''}><b>${p.custom ? 'Kustom' : `${p.min}–${p.max} dtk`}</b></button>`).join('');
   $('custom').hidden = !PRESETS[clipCfg.preset].custom;
   const lim = clipLimits();
   if (!clipCfg.touched) clipCfg.count = lim.est;
@@ -672,21 +757,32 @@ function renderModal() {
   $('cnt-dec').disabled = clipCfg.count <= 1;
   $('cnt-inc').disabled = clipCfg.count >= lim.max;
   $('count-hint').textContent = `maks. ${lim.max}`;
-  $('cnt-auto').innerHTML = clipCfg.count === lim.est ? 'sesuai rekomendasi' : `<a href="#" id="cnt-reset" style="color:var(--accent-fg)">kembali ke rekomendasi (${lim.est})</a>`;
-  const avg = (clipCfg.min + clipCfg.max) / 2;
-  const total = clipCfg.count * avg;
-  $('estimate').innerHTML = `<div class="big">Perkiraan hasil: <em>hingga ${clipCfg.count} clip</em> × ${clipCfg.min}–${clipCfg.max} detik</div>
-    <p>Total ±${fmtDur(total)} dari video ${dur ? fmtDur(dur) : '(durasi tidak diketahui)'}${dur ? ` (±${Math.round(total / dur * 100)}% isi video)` : ''}.
-      AI hanya memilih momen yang benar-benar layak, jadi jumlah akhirnya bisa lebih sedikit.</p>`;
-  $('m-start').disabled = !(clipCfg.min >= 10 && clipCfg.max <= 180 && clipCfg.max - clipCfg.min >= 10) || !accOk();
-  $('m-start').title = accOk() ? '' : 'Pilih akun tujuan dulu';
+  $('cnt-auto').innerHTML = clipCfg.count === lim.est ? '' : `<a href="#" id="cnt-reset" style="color:var(--accent-fg)">reset (${lim.est})</a>`;
+  $('estimate').innerHTML = `<div class="big">Hingga <em>${clipCfg.count} clip</em> × ${clipCfg.min}–${clipCfg.max} detik</div>`;
+  $('m-start').disabled = !(clipCfg.min >= 10 && clipCfg.max <= 180 && clipCfg.max - clipCfg.min >= 10);
+  if (brandCfg.enabled) renderBrand(); // batas porsi clip brand mengikuti jumlah clip maksimal
 }
 
+// Panel kiri: ringkasan video yang akan di-clip
+function renderSide() {
+  const v = video, q = v.qualities?.[0];
+  $('ms-img').src = v.thumbnail || '';
+  $('ms-dur').textContent = v.duration ? fmtDur(v.duration) : '';
+  $('m-video').textContent = v.title || 'Video';
+  $('ms-ch').textContent = v.uploader || '';
+  const rows = [['Durasi', v.duration ? fmtDur(v.duration) : '–'], ['Bahasa', v.language ? LANG_NAMES[v.language] || v.language.toUpperCase() : 'Otomatis'],
+    q ? ['Kualitas', qName(q.height) + (q.fps > 30 ? q.fps : '')] : null, v.is_live ? ['Status', 'Live'] : null].filter(Boolean);
+  $('ms-meta').innerHTML = rows.map(([k, val]) => `<dt>${k}</dt><dd>${esc(val)}</dd>`).join('');
+  $('ms-url').href = v.url;
+  $('ms-url').textContent = v.url.replace(/^https?:\/\/(www\.)?/, '');
+  $('ms-url').title = v.url;
+}
+$('ms-copy').onclick = async () => {
+  try { await navigator.clipboard.writeText(video.url); toast('Link disalin'); } catch { toast('Gagal menyalin link'); }
+};
+
 async function openModal() {
-  await loadAccounts();
-  if (!accOk()) clipCfg.account = accounts.length === 1 ? accounts[0].id : '';
-  $('acc-new').hidden = true;
-  $('m-video').textContent = `${video.title}${video.duration ? ' · ' + fmtDur(video.duration) : ''}`;
+  renderSide();
   clipCfg.touched = false;
   // Video lebih pendek dari preset terpilih: pindah ke preset terpanjang yang muat
   const dur = video.duration || 0;
@@ -696,6 +792,7 @@ async function openModal() {
   }
   $('c-min').value = clipCfg.min; $('c-max').value = clipCfg.max;
   renderModal();
+  loadBrands();
   $('clip-modal').hidden = false;
   $('m-start').focus();
 }
@@ -705,45 +802,6 @@ $('go-analyze').onclick = openModal;
 $('m-close').onclick = $('m-cancel').onclick = closeModal;
 $('clip-modal').addEventListener('click', e => { if (e.target === $('clip-modal')) closeModal(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('clip-modal').hidden) closeModal(); });
-function pickAccount(id) {
-  clipCfg.account = id;
-  store.set('clip-account', id);
-  const a = accounts.find(x => x.id === id);
-  if (a?.style) { clipCfg.style = a.style; store.set('clip-style', a.style); } // akun clip game → otomatis streaming game
-  renderModal();
-}
-$('accs').onclick = e => {
-  if (e.target.closest('[data-acc-new]')) {
-    $('acc-new').hidden = false;
-    $('an-name').focus();
-    return;
-  }
-  const b = e.target.closest('[data-acc]');
-  if (b) { $('acc-new').hidden = true; pickAccount(b.dataset.acc); }
-};
-$('an-cancel').onclick = () => { $('acc-new').hidden = !accounts.length ? false : true; };
-$('an-save').onclick = async () => {
-  const name = $('an-name').value.trim();
-  if (!name) return $('an-name').focus();
-  $('an-save').disabled = true;
-  try {
-    const { account } = await api('account_save', { name, niche: $('an-niche').value.trim() });
-    accounts.push(account);
-    $('an-name').value = $('an-niche').value = '';
-    $('acc-new').hidden = true;
-    pickAccount(account.id);
-    toast(`Akun "${account.name}" dibuat`);
-  } catch (err) { toast(err.message); }
-  finally { $('an-save').disabled = false; }
-};
-$('acc-new').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); $('an-save').click(); } });
-$('styles').onclick = e => {
-  const b = e.target.closest('[data-style]');
-  if (!b) return;
-  clipCfg.style = b.dataset.style;
-  store.set('clip-style', clipCfg.style);
-  renderModal();
-};
 $('concepts').onclick = e => {
   const b = e.target.closest('[data-concept]');
   if (!b) return;
@@ -755,7 +813,7 @@ $('concepts').onclick = e => {
 $('capstyles').onclick = e => {
   const b = e.target.closest('[data-capstyle]');
   if (!b) return;
-  store.set('cap-style-' + (clipCfg.account || 'all'), b.dataset.capstyle);
+  store.set('cap-style-all', b.dataset.capstyle);
   renderModal();
 };
 $('langs').onclick = e => {
@@ -786,12 +844,126 @@ $('cnt-dec').onclick = () => { clipCfg.count--; clipCfg.touched = true; renderMo
 $('cnt-inc').onclick = () => { clipCfg.count++; clipCfg.touched = true; renderModal(); };
 $('cnt-auto').onclick = e => { if (e.target.id === 'cnt-reset') { e.preventDefault(); clipCfg.touched = false; renderModal(); } };
 
+/* ---------- Clip campaign brand ---------- */
+const BRAND_CATS = <?= json_encode(array_map(fn($c) => ['n' => $c[0], 't' => $c[1]], BRAND_CATEGORIES), JSON_UNESCAPED_UNICODE) ?>;
+const BRAND_MODES = <?= json_encode(BRAND_MODES, JSON_UNESCAPED_UNICODE) ?>;
+const BRAND_BLANK = { enabled: false, name: '', category: 'other', topics: [], modes: ['hard', 'soft'], all: false, min: 2, brief: '', tags: '' };
+// Pengaturan brand terakhir diingat di browser; preset brand disimpan di server
+let brandCfg = (() => { try { return { ...BRAND_BLANK, ...JSON.parse(store.get('clip-brand') || '{}') }; } catch { return { ...BRAND_BLANK }; } })();
+let brandPresets = [];
+const saveBrandCfg = () => store.set('clip-brand', JSON.stringify(brandCfg));
+const tagStr = t => Array.isArray(t) ? t.join(' ') : String(t || '');
+
+async function loadBrands() {
+  try { brandPresets = (await api('brands')).brands || []; } catch { brandPresets = []; }
+  renderBrand();
+}
+function renderBrand() {
+  const b = brandCfg;
+  $('br-on').setAttribute('aria-pressed', b.enabled);
+  $('brand').hidden = !b.enabled;
+  if (!b.enabled) return;
+  $('br-name').value = b.name;
+  $('br-brief').value = b.brief;
+  $('br-tags').value = tagStr(b.tags);
+  const cur = brandPresets.find(p => p.name.toLowerCase() === b.name.trim().toLowerCase());
+  $('br-preset').innerHTML = `<option value="">${brandPresets.length ? 'Pilih preset' : 'Belum ada preset'}</option>`
+    + brandPresets.map((p, i) => `<option value="${i}" ${p === cur ? 'selected' : ''}>${esc(p.name)}</option>`).join('');
+  $('br-preset').disabled = !brandPresets.length;
+  $('br-cats').innerHTML = Object.entries(BRAND_CATS).map(([k, c]) => `<button type="button" class="${b.category === k ? 'on' : ''}" data-cat="${k}">${esc(c.n)}</button>`).join('');
+  $('br-topics').innerHTML = b.topics.map((t, i) => `<span class="tag"><span>${esc(t)}</span><b data-rm="${i}" title="Hapus">×</b></span>`).join('')
+    + `<input id="br-topic-in" maxlength="40" placeholder="+ tambah topik, Enter">`;
+  $('br-topics').querySelectorAll('.tag').forEach(t => t.classList.add('on'));
+  $('br-modes').innerHTML = Object.entries(BRAND_MODES).map(([k, n]) => {
+    const [t, sub] = n.split(/\s*\((.+)\)\s*$/); // "Sebut brand langsung (hard sell)" → judul + keterangan
+    return `<button type="button" class="br-mode ${b.modes.includes(k) ? 'on' : ''}" data-mode="${k}"><span class="ck">${ic('check')}</span><b>${esc(t)}</b>${sub ? `<small>${esc(sub)}</small>` : ''}</button>`;
+  }).join('');
+  b.min = Math.max(1, Math.min(clipCfg.count || 1, b.min));
+  $('br-min').textContent = b.min;
+  $('br-dec').disabled = b.min <= 1;
+  $('br-inc').disabled = b.min >= (clipCfg.count || 1);
+  $('br-min-r').checked = !b.all;
+  $('br-all-r').checked = b.all;
+  $('br-suggest').disabled = !b.name.trim();
+}
+const brandChanged = () => { saveBrandCfg(); renderBrand(); };
+$('br-on').onclick = () => { brandCfg.enabled = !brandCfg.enabled; brandChanged(); if (brandCfg.enabled && !brandCfg.name) $('br-name').focus(); };
+$('br-name').oninput = () => { brandCfg.name = $('br-name').value; saveBrandCfg(); $('br-suggest').disabled = !brandCfg.name.trim(); };
+$('br-brief').oninput = () => { brandCfg.brief = $('br-brief').value; saveBrandCfg(); };
+$('br-tags').oninput = () => { brandCfg.tags = $('br-tags').value; saveBrandCfg(); };
+$('br-preset').onchange = () => {
+  const p = brandPresets[+$('br-preset').value];
+  if (!p) return;
+  brandCfg = { ...BRAND_BLANK, ...p, tags: tagStr(p.tags), enabled: true };
+  brandChanged();
+};
+$('br-cats').onclick = e => {
+  const k = e.target.closest('[data-cat]')?.dataset.cat;
+  if (!k) return;
+  // Ganti kategori: topik bawaan kategori lama diganti topik bawaan kategori baru, topik tambahan user tetap
+  const old = BRAND_CATS[brandCfg.category]?.t || [];
+  brandCfg.topics = [...new Set([...BRAND_CATS[k].t, ...brandCfg.topics.filter(t => !old.includes(t))])];
+  brandCfg.category = k;
+  brandChanged();
+};
+$('br-topics').onclick = e => {
+  const i = e.target.dataset.rm;
+  if (i === undefined) return $('br-topic-in')?.focus();
+  brandCfg.topics.splice(+i, 1);
+  brandChanged();
+};
+$('br-topics').addEventListener('keydown', e => {
+  if (e.target.id !== 'br-topic-in') return;
+  const v = e.target.value.trim();
+  if (e.key === 'Enter' || e.key === ',') {
+    e.preventDefault();
+    if (v && !brandCfg.topics.some(t => t.toLowerCase() === v.toLowerCase())) brandCfg.topics.push(v);
+    brandChanged();
+    $('br-topic-in').focus();
+  } else if (e.key === 'Backspace' && !v && brandCfg.topics.length) { brandCfg.topics.pop(); brandChanged(); $('br-topic-in').focus(); }
+});
+$('br-modes').onclick = e => {
+  const k = e.target.closest('[data-mode]')?.dataset.mode;
+  if (!k) return;
+  const next = brandCfg.modes.includes(k) ? brandCfg.modes.filter(x => x !== k) : [...brandCfg.modes, k];
+  if (!next.length) return toast('Pilih minimal satu jenis clip brand.');
+  brandCfg.modes = next;
+  brandChanged();
+};
+$('br-dec').onclick = () => { brandCfg.min--; brandCfg.all = false; brandChanged(); };
+$('br-inc').onclick = () => { brandCfg.min++; brandCfg.all = false; brandChanged(); };
+document.querySelectorAll('[name="br-all"]').forEach(r => { r.onchange = () => { brandCfg.all = r.value === '1' && r.checked; brandChanged(); }; });
+$('br-suggest').onclick = async () => {
+  const btn = $('br-suggest');
+  btn.disabled = true;
+  btn.textContent = 'AI sedang berpikir…';
+  try {
+    const { topics } = await api('brand_suggest', { name: brandCfg.name, category: brandCfg.category, brief: brandCfg.brief });
+    const have = brandCfg.topics.map(t => t.toLowerCase());
+    const add = topics.filter(t => !have.includes(t.toLowerCase()));
+    brandCfg.topics.push(...add);
+    toast(add.length ? `${add.length} topik ditambahkan` : 'Tidak ada topik baru');
+  } catch (err) { toast(err.message); }
+  btn.textContent = '✨ Sarankan dengan AI';
+  brandChanged();
+};
+$('br-save').onclick = async () => {
+  if (!brandCfg.name.trim()) { toast('Isi nama brand dulu.'); return $('br-name').focus(); }
+  try {
+    brandPresets = (await api('brand_save', { brand: brandCfg })).brands || [];
+    renderBrand();
+    toast(`Preset "${brandCfg.name.trim()}" disimpan`);
+  } catch (err) { toast(err.message); }
+};
+
 $('m-start').onclick = async () => {
+  if (brandCfg.enabled && !brandCfg.name.trim()) { toast('Isi nama brand, atau matikan clip campaign brand.'); return $('br-name').focus(); }
   $('m-start').disabled = true;
   try {
     const { id } = await api('analyze', { url: video.url, title: video.title, thumbnail: video.thumbnail,
-      clip_min: clipCfg.min, clip_max: clipCfg.max, max_clips: clipCfg.count, style: clipCfg.style, account_id: clipCfg.account, out_lang: clipCfg.lang,
-      concepts: conceptPick(clipCfg.style), concept_note: $('concept-note').value.trim(), caption_style: capStylePick() });
+      clip_min: clipCfg.min, clip_max: clipCfg.max, max_clips: clipCfg.count, style: clipCfg.style, out_lang: clipCfg.lang,
+      concepts: conceptPick(clipCfg.style), concept_note: $('concept-note').value.trim(), caption_style: capStylePick(),
+      brand: brandCfg.enabled ? { ...brandCfg, name: brandCfg.name.trim() } : null });
     $('m-start').disabled = false;
     closeModal();
     openFlow(id);
@@ -975,10 +1147,8 @@ function studioCard(j, p) {
     foot = `<span class="err-text">${j.status === 'cancelled' ? 'Dibatalkan' : 'Analisa gagal'}</span>`;
   }
   const x = p || j, key = roomKey(j, p);
-  const acc = accounts.find(a => a.id === j?.account_id);
   return `<a class="card room${picked.has(key) ? ' picked' : ''}" href="studio.php?id=${x.id}" data-room="${key}">
-    <div class="room-thumb">${x.thumbnail ? `<img src="${esc(x.thumbnail)}" alt="" loading="lazy" onerror="this.remove()">` : ''}${badge}<span class="pick">${ic('check')}</span>
-      ${acc ? `<span class="acc-tag">${avatar(acc)}<span>${esc(acc.name)}</span></span>` : ''}</div>
+    <div class="room-thumb">${x.thumbnail ? `<img src="${esc(x.thumbnail)}" alt="" loading="lazy" onerror="this.remove()">` : ''}${badge}<span class="pick">${ic('check')}</span></div>
     <div class="room-body">
       <div class="room-title">${esc(x.title || x.url)}</div>
       <div class="room-meta">${foot}</div>
@@ -1008,24 +1178,14 @@ async function loadJobs() {
   $('sel-toggle').hidden = tab !== 'studio' || (!studio.length && !selecting);
   $('c-downloads').textContent = downloads.length || '';
 
-  // Filter room per akun (hanya tampil kalau sudah ada akun)
-  const accOf = ([r]) => accounts.some(a => a.id === r?.account_id) ? r.account_id : '';
-  if (accFilter !== 'all' && accFilter !== '' && !accounts.some(a => a.id === accFilter)) accFilter = 'all';
-  const shown = accFilter === 'all' ? studio : studio.filter(x => accOf(x) === accFilter);
-  const nOf = id => studio.filter(x => accOf(x) === id).length;
-  const filter = accounts.length ? `<div class="acc-filter" id="acc-filter">
-      <button class="${accFilter === 'all' ? 'on' : ''}" data-filter="all">Semua <span class="n">${studio.length}</span></button>
-      ${accounts.map(a => `<button class="${accFilter === a.id ? 'on' : ''}" data-filter="${a.id}">${avatar(a)}${esc(a.name)} <span class="n">${nOf(a.id)}</span></button>`).join('')}
-      ${nOf('') ? `<button class="${accFilter === '' ? 'on' : ''}" data-filter="">Tanpa akun <span class="n">${nOf('')}</span></button>` : ''}
-    </div>` : '';
+  const shown = studio;
   // Room yang sudah diselesaikan dipisah ke bagian bawah (terbaru diselesaikan di atas)
   const active = shown.filter(([, p]) => !p?.finished);
   const finished = shown.filter(([, p]) => p?.finished).sort((a, b) => b[1].finished - a[1].finished);
   const doneOpen = store.get('rooms-done-open') !== '0';
   setHTML($('p-studio'), studio.length
-    ? `${filter}${active.length ? `<div class="rooms">${active.map(([r, p]) => studioCard(r, p)).join('')}</div>` : ''}
-       ${!shown.length ? '<div class="empty"><b>Belum ada room di akun ini</b>Buat clip baru lalu pilih akun ini di "Atur clip".</div>'
-         : !active.length ? '<div class="empty"><b>Semua room sudah selesai</b>Buat clip baru untuk memulai room berikutnya.</div>' : ''}
+    ? `${active.length ? `<div class="rooms">${active.map(([r, p]) => studioCard(r, p)).join('')}</div>` : ''}
+       ${!active.length ? '<div class="empty"><b>Semua room sudah selesai</b>Buat clip baru untuk memulai room berikutnya.</div>' : ''}
        ${finished.length ? `<section class="rooms-done${doneOpen ? '' : ' shut'}" id="rooms-done">
          <button type="button" class="rooms-done-h" data-a="done-toggle" aria-expanded="${doneOpen}">${ic('chevron-down')} Room selesai <span class="n">${finished.length}</span>
            <span class="hint">${doneOpen ? 'Sembunyikan' : 'Tampilkan'}</span></button>
@@ -1049,13 +1209,8 @@ $('p-studio').addEventListener('click', e => {
     store.set('rooms-done-open', open ? '1' : '0');
     return loadJobs();
   }
-  const b = e.target.closest('[data-filter]');
-  if (!b) return;
-  accFilter = b.dataset.filter;
-  store.set('room-filter', accFilter);
-  loadJobs();
 });
-loadAccounts().then(loadJobs);
+loadJobs();
 loadProjects();
 // Sorotan hover mengikuti kursor (posisi relatif kartu sebagai variabel CSS --mx / --my)
 document.querySelectorAll('.act3, .camp-cta').forEach(el => el.addEventListener('pointermove', e => {

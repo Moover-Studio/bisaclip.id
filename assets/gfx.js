@@ -8,6 +8,8 @@ const GFX = {
     c1: '#FFFFFF', c2: '#111318', c3: '#FFFFFF', cn: [null, 'Kotak', 'Teks'], noLabel: true },
   hook_yellow: { name: 'Kuning', cat: 'Teks hook', label: '', text: 'Kalimat pembuka yang bikin penasaran',
     c1: '#FFFFFF', c2: '#FFD43B', c3: '#111111', cn: [null, 'Kotak', 'Teks'], noLabel: true },
+  hook_red: { name: 'Merah', cat: 'Teks hook', label: '', text: 'Kalimat pembuka yang bikin penasaran',
+    c1: '#FFFFFF', c2: '#E3262E', c3: '#FFFFFF', cn: [null, 'Kotak', 'Teks'], noLabel: true },
   hook_grad: { name: 'Gradasi', cat: 'Teks hook', label: '', text: 'Kalimat pembuka yang bikin penasaran',
     c1: '#003A8C', c2: '#2F7BF0', c3: '#FFFFFF', cn: ['Gradasi', 'Kotak', 'Teks'], noLabel: true },
   hook_outline: { name: 'Outline', cat: 'Teks hook', label: '', text: 'Kalimat pembuka yang bikin penasaran',

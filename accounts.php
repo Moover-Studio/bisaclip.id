@@ -2,6 +2,9 @@
 require __DIR__ . '/config.php';
 require_local();
 ensure_dirs();
+// Fitur akun sudah dihapus dari aplikasi; halaman ini dialihkan ke Beranda (data akun lama tetap tersimpan)
+header('Location: index.php');
+exit;
 ?>
 <!doctype html>
 <html lang="id">

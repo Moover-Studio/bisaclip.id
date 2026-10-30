@@ -237,3 +237,34 @@ function gemini_upload(string $path, string $mime, string $cancelFlag): string
     }
     return $file['uri'];
 }
+
+/**
+ * Permintaan Gemini singkat yang ditunggu user (mis. merapikan naskah suara): model lite dulu (paling cepat),
+ * tiap model dibatasi 20 dtk, total ±40 dtk. Mengembalikan JSON hasil, atau null kalau semua gagal (pemanggil memakai cadangan).
+ */
+function gemini_quick(string $prompt, array $schema): ?array
+{
+    $payload = json_encode(['contents' => [['role' => 'user', 'parts' => [['text' => $prompt]]]], 'generationConfig' => [
+        'responseMimeType' => 'application/json', 'responseSchema' => $schema, 'temperature' => 0.4,
+    ]], JSON_UNESCAPED_UNICODE);
+    $started = time();
+    $blocked = gemini_quota_blocked();
+    foreach (array_unique(['gemini-3.1-flash-lite', ...GEMINI_MODELS]) as $model) {
+        if (isset($blocked[$model]) || time() - $started > 40) {
+            continue;
+        }
+        try {
+            [$code, $body] = gemini_http('POST', GEMINI_BASE . "/v1beta/models/$model:generateContent", ['Content-Type: application/json'], $payload, '', 20);
+        } catch (Throwable $e) {
+            continue;
+        }
+        $text = '';
+        foreach (json_decode($body, true)['candidates'][0]['content']['parts'] ?? [] as $p) {
+            $text .= empty($p['thought']) ? ($p['text'] ?? '') : '';
+        }
+        if ($code === 200 && is_array($res = json_decode($text, true))) {
+            return $res;
+        }
+    }
+    return null;
+}

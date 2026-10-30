@@ -2,6 +2,9 @@
 require __DIR__ . '/config.php';
 require_local();
 ensure_dirs();
+// Fitur akun sudah dihapus dari aplikasi; halaman ini dialihkan ke Beranda (data akun lama tetap tersimpan)
+header('Location: index.php');
+exit;
 $id = preg_match('/^[a-f0-9]{12}$/', (string) ($_GET['id'] ?? '')) ? $_GET['id'] : '';
 ?>
 <!doctype html>

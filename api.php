@@ -64,6 +64,21 @@ function write_accounts(array $list): void
     @chmod(ACCOUNTS_FILE, 0666);
 }
 
+/* ---------- Preset campaign brand (modal "Atur clip"): brand yang sering dipakai, disimpan per nama ---------- */
+define('BRANDS_FILE', STORAGE_DIR . '/brands.json');
+
+function read_brands(): array
+{
+    $list = json_decode((string) @file_get_contents(BRANDS_FILE), true);
+    return is_array($list) ? $list : [];
+}
+
+function write_brands(array $list): void
+{
+    file_put_contents(BRANDS_FILE, json_encode(array_values($list), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), LOCK_EX);
+    @chmod(BRANDS_FILE, 0666);
+}
+
 function find_account(string $id): ?array
 {
     foreach (read_accounts() as $a) {
@@ -681,6 +696,8 @@ function new_project_item(array $project, array $an, int $idx): array
         'end' => $c['end'],
         'hook_text' => $c['on_screen_text'],
         'concept' => (string) ($c['concept'] ?? ''),
+        'brand_fit' => (string) ($c['brand_fit'] ?? ''),     // campaign brand: hard | soft | '' (clip biasa)
+        'brand_angle' => (string) ($c['brand_angle'] ?? ''),
         'subtitles' => true,
         // Style dari modal "Atur clip": streaming game = game atas 70% + webcam bawah 30%
         'layout' => ($an['style'] ?? '') === 'gaming' ? 'gaming' : 'speaker',
@@ -996,6 +1013,7 @@ switch ($action) {
         $concepts = clip_concepts_pick($style, array_map('strval', (array) ($in['concepts'] ?? [])));
         $conceptNote = mb_substr(trim((string) ($in['concept_note'] ?? '')), 0, 200);
         $capStyle = isset(CAPTION_STYLES[$in['caption_style'] ?? '']) ? $in['caption_style'] : 'auto';
+        $brand = brand_clean((array) ($in['brand'] ?? []));
         $accountId = (string) ($in['account_id'] ?? '');
         if ($accountId !== '' && !find_account($accountId)) {
             respond(['error' => 'Akun tidak ditemukan. Pilih akun lain.'], 400);
@@ -1016,6 +1034,7 @@ switch ($action) {
             'concepts' => $concepts,
             'concept_note' => $conceptNote,
             'caption_style' => $capStyle, // gaya judul/hook/caption: auto = ikuti jenis clip
+            'brand' => $brand,             // campaign brand: null = clip biasa
             'account_id' => $accountId,
             'title' => mb_substr((string) ($in['title'] ?? ''), 0, 300),
             'thumbnail' => (string) ($in['thumbnail'] ?? ''),
@@ -1071,6 +1090,7 @@ switch ($action) {
             'concepts' => $an['concepts'] ?? [],      // clip tambahan memakai konsep yang sama dengan analisa awal
             'concept_note' => $an['concept_note'] ?? '',
             'caption_style' => $an['caption_style'] ?? 'auto',
+            'brand' => $an['brand'] ?? null,          // clip tambahan juga mengikuti campaign brand yang sama
             'title' => $an['title'] ?? '',
             'thumbnail' => $an['thumbnail'] ?? '',
             'status' => 'queued',
@@ -1085,6 +1105,74 @@ switch ($action) {
         update_job($aid, ['more_job' => $id]);
         spawn_worker($id);
         respond(['id' => $id]);
+
+    case 'brands':
+        respond(['brands' => read_brands(), 'categories' => BRAND_CATEGORIES]);
+
+    case 'brand_save':
+        // Simpan preset brand (ditimpa kalau namanya sama)
+        $b = brand_clean(['enabled' => true] + (array) (input()['brand'] ?? []));
+        if (!$b) {
+            respond(['error' => 'Isi nama brand dulu.'], 400);
+        }
+        $list = array_values(array_filter(read_brands(), fn($x) => mb_strtolower($x['name']) !== mb_strtolower($b['name'])));
+        array_unshift($list, $b + ['updated_at' => time()]);
+        write_brands(array_slice($list, 0, 50));
+        respond(['ok' => true, 'brands' => read_brands()]);
+
+    case 'brand_delete':
+        $name = mb_strtolower(trim((string) (input()['name'] ?? '')));
+        write_brands(array_filter(read_brands(), fn($x) => mb_strtolower($x['name']) !== $name));
+        respond(['ok' => true, 'brands' => read_brands()]);
+
+    case 'brand_suggest':
+        // AI menyarankan topik pembicaraan yang relevan dengan brand (untuk soft sell)
+        $in = input();
+        $name = mb_substr(trim((string) ($in['name'] ?? '')), 0, 60);
+        if ($name === '') {
+            respond(['error' => 'Isi nama brand dulu.'], 400);
+        }
+        if (trim((string) @file_get_contents(STORAGE_DIR . '/gemini.key')) === '') {
+            respond(['error' => 'Layanan AI belum dikonfigurasi.'], 400);
+        }
+        require_once __DIR__ . '/gemini.php';
+        $cat = BRAND_CATEGORIES[$in['category'] ?? ''][0] ?? '';
+        $brief = mb_substr(trim((string) ($in['brief'] ?? '')), 0, 1500);
+        $prompt = "Kamu membantu clipper podcast Indonesia ikut campaign clip untuk brand \"$name\"" . ($cat ? " (kategori: $cat)" : '') . ".\n"
+            . ($brief !== '' ? "Brief campaign:\n\"\"\"\n$brief\n\"\"\"\n" : '')
+            . "Sebutkan 10 topik obrolan yang sering muncul di podcast dan relevan dengan brand ini (untuk soft sell),\n"
+            . "misalnya brand skincare → kulit, jerawat, percaya diri, kurang tidur. Tiap topik 1–3 kata, Bahasa Indonesia, huruf kecil,\n"
+            . "konkret (bukan nama brand), urut dari yang paling relevan.";
+        // Permintaan ringan & ditunggu user: model lite dulu (paling cepat), tiap model dibatasi 40 dtk
+        $payload = json_encode(['contents' => [['role' => 'user', 'parts' => [['text' => $prompt]]]], 'generationConfig' => [
+            'responseMimeType' => 'application/json', 'temperature' => 0.7,
+            'responseSchema' => ['type' => 'OBJECT', 'properties' => ['topics' => ['type' => 'ARRAY', 'items' => ['type' => 'STRING']]], 'required' => ['topics']],
+        ]], JSON_UNESCAPED_UNICODE);
+        $res = null;
+        $started = time();
+        foreach (array_unique(['gemini-3.1-flash-lite', ...GEMINI_MODELS]) as $model) {
+            if (isset(gemini_quota_blocked()[$model]) || time() - $started > 80) {
+                continue;
+            }
+            try {
+                [$code, $body] = gemini_http('POST', GEMINI_BASE . "/v1beta/models/$model:generateContent", ['Content-Type: application/json'], $payload, '', 40);
+            } catch (Throwable $e) {
+                continue;
+            }
+            $text = '';
+            foreach (json_decode($body, true)['candidates'][0]['content']['parts'] ?? [] as $p) {
+                $text .= empty($p['thought']) ? ($p['text'] ?? '') : '';
+            }
+            if ($code === 200 && is_array($res = json_decode($text, true))) {
+                break;
+            }
+            $res = null;
+        }
+        if (!$res) {
+            respond(['error' => 'AI sedang sibuk, coba lagi sebentar atau isi topik manual.'], 502);
+        }
+        $topics = array_slice(array_values(array_filter(array_map(fn($t) => mb_substr(trim((string) $t), 0, 40), (array) ($res['topics'] ?? [])))), 0, 12);
+        respond(['topics' => $topics]);
 
     case 'source_retry':
         $aid = (string) (input()['id'] ?? '');
@@ -1263,7 +1351,14 @@ switch ($action) {
             $e = read_edit($project['id'], $item['iid']);
             $edited[$item['iid']] = $e !== null && (!empty($e['edited']) || isset($e['split']));
         }
-        respond(['project' => $project, 'jobs' => $jobs, 'edited' => $edited]);
+        // Skor viral AI (0–100) tiap clip, dari analisa
+        $an = read_analysis($project['analysis_id']);
+        $scores = [];
+        foreach ($project['items'] as $item) {
+            $sc = $an['clips'][$item['scene'] ?? -1] ?? null;
+            $scores[$item['iid']] = $sc && isset($sc['overall']) ? (int) $sc['overall'] : null;
+        }
+        respond(['project' => $project, 'jobs' => $jobs, 'edited' => $edited, 'scores' => $scores]);
 
     case 'project_item':
         // Simpan hasil edit satu clip lalu render ulang
@@ -1549,6 +1644,99 @@ switch ($action) {
         usort($rooms, fn($a, $b) => $b['created_at'] <=> $a['created_at']);
         respond(['account' => $acc, 'rooms' => $rooms, 'posts' => $posts, 'queue' => $queue, 'clips' => $clipCount, 'colors' => ACCOUNT_COLORS]);
 
+    case 'hook_voice':
+        // Editor → Intro hook: buat (atau ambil dari cache) voice over teks hook, untuk didengar sebelum render
+        $in = input();
+        [$project] = project_item_or_fail($in);
+        $text = mb_substr(trim((string) ($in['text'] ?? '')), 0, 120);
+        $voice = (string) ($in['voice'] ?? 'Puck');
+        if ($text === '') {
+            respond(['error' => 'Isi teks hook dulu.'], 400);
+        }
+        if (!hook_voice_ok($voice)) {
+            respond(['error' => 'Suara tidak dikenal.'], 400);
+        }
+        $style = (string) ($in['style'] ?? 'auto');
+        $script = mb_substr(trim((string) ($in['script'] ?? '')), 0, 300);
+        try {
+            [$file, $dur, $said] = hook_tts($text, $voice, hook_voice_dir($project['id']), '', $style, $script);
+        } catch (Throwable $e) {
+            respond(['error' => $e->getMessage()], 502);
+        }
+        respond(['file' => basename($file), 'dur' => round($dur, 2), 'said' => $said]);
+
+    case 'tts_script':
+        // Menu Intro: naskah suara dirapikan AI (disiapkan lebih dulu supaya Dengar / Generate tidak menunggu lama)
+        $in = input();
+        [$project] = project_item_or_fail($in);
+        $text = mb_substr(trim((string) ($in['text'] ?? '')), 0, 120);
+        if ($text === '') {
+            respond(['error' => 'Isi teks hook dulu.'], 400);
+        }
+        $dir = hook_voice_dir($project['id']);
+        @mkdir($dir, 0777, true);
+        @chmod($dir, 0777);
+        [$script, $tag] = tts_script($text, (string) ($in['style'] ?? 'auto'), '', $dir);
+        respond(['script' => $script, 'tag' => $tag]);
+
+    case 'intro_frame':
+        // Menu Intro di editor: frame resolusi penuh dari video sumber di detik t (waktu video asli).
+        // Dibingkai di editor dengan rumus preview yang sama (ikuti pembicara, split, blur, bingkai) lalu ditimpa grafik hook.
+        [$project, $key] = project_item_or_fail($_GET);
+        $item = $project['items'][$key];
+        $edit = read_edit($project['id'], $item['iid']);
+        if (!$edit) {
+            respond(['error' => 'Editor clip ini belum siap.'], 409);
+        }
+        [$p0, $p1] = $edit['pad'];
+        $t = round(max($p0, min($p1 - 0.05, (float) ($_GET['t'] ?? $p0))), 2);
+        $dir = edit_dir($project['id']) . '/intro';
+        @mkdir($dir, 0777, true);
+        @chmod($dir, 0777);
+        // Sumber lokal 1080p; kalau belum/tidak ada, pakai video preview editor (resolusi rendah). Jenis sumber ikut kunci cache.
+        $src = local_source($project['analysis_id'], $t, $t + 0.1);
+        $out = "$dir/frame_" . md5($item['iid'] . '|' . $t . '|' . ($src ? 'src' : 'proxy')) . '.jpg';
+        if (!is_file($out)) {
+            [$file, $at] = $src ? [$src['path'], $t - $src['shift']] : [APP_DIR . '/' . proxy_rel($project['id'], $item['iid']), $t - $p0];
+            exec(escapeshellarg(FFMPEG) . ' -hide_banner -nostdin -y -loglevel error -ss ' . number_format(max(0, $at), 3, '.', '') . ' -i ' . escapeshellarg($file)
+                . ' -frames:v 1 -q:v 2 ' . escapeshellarg($out) . ' 2>&1', $tail, $code);
+            if ($code !== 0 || !is_file($out)) {
+                respond(['error' => 'Gagal mengambil frame clip.'], 500);
+            }
+            @chmod($out, 0666);
+        }
+        header('Content-Type: image/jpeg');
+        header('Content-Length: ' . filesize($out));
+        header('Cache-Control: private, max-age=86400');
+        readfile($out);
+        exit;
+
+    case 'tts_voices':
+        respond(tts_voices());
+
+    case 'hook_voice_file':
+        [$project] = project_item_or_fail($_GET);
+        $name = (string) ($_GET['f'] ?? '');
+        $path = hook_voice_dir($project['id']) . '/' . $name;
+        if (!preg_match('/^hookvo_[a-f0-9]{32}\.wav$/', $name) || !is_file($path)) {
+            respond(['error' => 'Suara tidak ditemukan.'], 404);
+        }
+        header('Content-Type: audio/wav');
+        header('Content-Length: ' . filesize($path));
+        header('Cache-Control: private, max-age=86400');
+        readfile($path);
+        exit;
+
+    case 'edit_proxy_hd':
+        // Preview editor lama (480p) dibuat ulang 720p dari video sumber lokal; resep edit tidak berubah
+        $in = input();
+        [$project, $key] = project_item_or_fail($in);
+        $item = $project['items'][$key];
+        @set_time_limit(320);
+        $done = upgrade_proxy($project, $item['iid']);
+        $file = APP_DIR . '/' . proxy_rel($project['id'], $item['iid']);
+        respond(['upgraded' => $done, 'proxy' => proxy_rel($project['id'], $item['iid']) . '?v=' . (is_file($file) ? filemtime($file) : 0)]);
+
     case 'edit_get':
         [$project, $key] = project_item_or_fail($_GET);
         $item = $project['items'][$key];
@@ -1659,6 +1847,69 @@ switch ($action) {
         [$name, $dur] = save_music_upload();
         $title = trim(preg_replace('/\.\w+$/', '', basename((string) ($_FILES['file']['name'] ?? 'Musik'))));
         respond(['music' => music_library_put($name, $title, $dur, 'upload')]);
+
+    case 'sfx_list':
+        respond(['sfx' => sfx_library(), 'ai' => elevenlabs_key() !== '']);
+
+    case 'sfx_generate':
+        // Menu Sound effect → Buat dengan AI (ElevenLabs Sound Effects). Hasilnya masuk pustaka SFX semua proyek.
+        $in = input();
+        $text = mb_substr(trim((string) ($in['text'] ?? '')), 0, 450);
+        if ($text === '') {
+            respond(['error' => 'Tulis deskripsi suaranya dulu.'], 400);
+        }
+        $dur = is_numeric($in['dur'] ?? null) && (float) $in['dur'] > 0 ? (float) $in['dur'] : null;
+        $name = mb_substr(trim((string) ($in['name'] ?? '')), 0, 80) ?: mb_substr($text, 0, 40);
+        $tag = ($in['tag'] ?? '') === 'paper' ? 'paper' : '';
+        try {
+            $item = sfx_generate_ai($text, $dur, $name, $tag);
+        } catch (Throwable $e) {
+            respond(['error' => $e->getMessage()], 502);
+        }
+        respond(['sfx' => sfx_library(), 'item' => $item]);
+
+    case 'sfx_upload':
+        // SFX unggahan user: audio pendek (maks. 60 dtk), disimpan di pustaka SFX untuk semua proyek
+        $f = $_FILES['file'] ?? null;
+        if (!$f || $f['error'] !== UPLOAD_ERR_OK) {
+            respond(['error' => 'Sound effect gagal diunggah.'], 400);
+        }
+        $ext = strtolower(pathinfo((string) $f['name'], PATHINFO_EXTENSION));
+        $ext = ['mpeg' => 'mp3', 'mpga' => 'mp3'][$ext] ?? $ext;
+        if (!in_array($ext, ['mp3', 'm4a', 'aac', 'wav', 'ogg', 'flac'], true)) {
+            respond(['error' => 'Format sound effect harus MP3, M4A, AAC, WAV, OGG, atau FLAC.'], 400);
+        }
+        $info = json_decode((string) shell_exec(escapeshellarg(FFPROBE) . ' -v error -select_streams a:0 -show_entries stream=codec_type'
+            . ' -show_entries format=duration -of json ' . escapeshellarg($f['tmp_name'])), true) ?: [];
+        $dur = round((float) ($info['format']['duration'] ?? 0), 3);
+        if (($info['streams'][0]['codec_type'] ?? '') !== 'audio' || $dur < 0.02) {
+            respond(['error' => 'File sound effect tidak bisa dibaca.'], 400);
+        }
+        if ($dur > 60) {
+            respond(['error' => 'Durasi sound effect maksimal 60 detik. Untuk lagu, pakai menu Musik.'], 400);
+        }
+        sfx_library(); // pastikan folder & SFX bawaan ada
+        $name = sha1_file($f['tmp_name']) . ".$ext";
+        if (!is_file(SFX_DIR . "/$name") && !move_uploaded_file($f['tmp_name'], SFX_DIR . "/$name")) {
+            respond(['error' => 'Sound effect gagal disimpan.'], 500);
+        }
+        @chmod(SFX_DIR . "/$name", 0666);
+        $user = json_decode((string) @file_get_contents(STORAGE_DIR . '/sfx.json'), true) ?: [];
+        $user = array_values(array_filter($user, fn($x) => ($x['file'] ?? '') !== $name));
+        $user[] = ['file' => $name, 'name' => mb_substr(trim(preg_replace('/\.\w+$/', '', basename((string) $f['name']))) ?: 'Sound effect', 0, 80), 'dur' => $dur];
+        write_sfx_uploads($user);
+        respond(['sfx' => sfx_library()]);
+
+    case 'sfx_delete':
+        // Hanya SFX unggahan yang bisa dihapus; SFX bawaan tetap
+        $file = (string) (input()['file'] ?? '');
+        $user = json_decode((string) @file_get_contents(STORAGE_DIR . '/sfx.json'), true) ?: [];
+        if (!in_array($file, array_column($user, 'file'), true)) {
+            respond(['error' => 'Sound effect bawaan tidak bisa dihapus.'], 400);
+        }
+        write_sfx_uploads(array_filter($user, fn($x) => $x['file'] !== $file));
+        @unlink(SFX_DIR . '/' . basename($file));
+        respond(['sfx' => sfx_library()]);
 
     case 'music_rename':
         $in = input();

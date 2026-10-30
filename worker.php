@@ -122,6 +122,52 @@ function probe(string $file): array
     return $info;
 }
 
+/**
+ * Gabung manual video + audio hasil unduhan yt-dlp (source.fXXX.*) kalau Merger yt-dlp gagal ("Conversion failed").
+ * Penyebab umum: video format HLS tersimpan sebagai MPEG-TS (berekstensi .mp4) yang tidak bisa langsung digabung
+ * ke MKV oleh ffmpeg baru. Video di-remux dulu ke MP4 (timestamp dibuat ulang), lalu digabung dengan audio tanpa encode ulang.
+ */
+function merge_parts(string $dir): ?string
+{
+    $video = $audio = null;
+    foreach (glob($dir . '/source.f*') as $f) {
+        if (preg_match('/\.(part|ytdl|temp)(\.\w+)?$/', $f) || str_contains(basename($f), '.temp.')) {
+            continue;
+        }
+        $p = probe($f);
+        if ($p['vcodec'] && !$video) {
+            $video = $f;
+        } elseif (!$p['vcodec'] && $p['acodec'] && !$audio) {
+            $audio = $f;
+        }
+    }
+    if (!$video || !$audio) {
+        return null;
+    }
+    $ff = escapeshellarg(FFMPEG) . ' -hide_banner -nostdin -y -loglevel error';
+    $fixed = "$dir/vfix.mp4";
+    exec("$ff -fflags +genpts -i " . escapeshellarg($video) . ' -map 0:v:0 -c copy ' . escapeshellarg($fixed) . ' 2>&1', $o, $code);
+    if ($code !== 0) {
+        @unlink($fixed);
+        $fixed = $video;
+    }
+    // MKV menerima semua codec (VP9/AV1/Opus); MP4 sebagai cadangan
+    foreach (['mkv', 'mp4'] as $ext) {
+        $out = "$dir/source.$ext";
+        exec("$ff -i " . escapeshellarg($fixed) . ' -i ' . escapeshellarg($audio) . ' -map 0:v:0 -map 1:a:0 -c copy ' . escapeshellarg($out) . ' 2>&1', $o, $code);
+        if ($code === 0 && filesize($out) > 0) {
+            foreach (glob($dir . '/*') as $f) {
+                if ($f !== $out) {
+                    @unlink($f);
+                }
+            }
+            return $out;
+        }
+        @unlink($out);
+    }
+    return null;
+}
+
 function quality_tag(array $p): string
 {
     // Label resolusi berdasarkan sisi pendek, supaya video vertikal (Shorts) tetap benar
@@ -412,6 +458,13 @@ try {
         break;
     }
     $error = error_from($tail);
+    // Unduhan selesai tapi penggabungan yt-dlp gagal: gabungkan sendiri dari potongan yang sudah ada
+    if (!$isAudio && preg_match('/Postprocessing|Conversion failed|Merg/i', $error)) {
+        update_job($id, ['status' => 'downloading', 'stage' => 'Menggabungkan video + audio…', 'progress' => 100, 'speed' => '', 'eta' => '']);
+        if (merge_parts($tmpDir)) {
+            break;
+        }
+    }
     $blocked = (bool) preg_match('/HTTP Error (403|429|5\d\d)|unable to download video data|Got error|timed out|Connection reset/i', $error);
     if (!$blocked || $attempt >= 3) {
         throw new RuntimeException($blocked

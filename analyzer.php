@@ -164,6 +164,41 @@ function snap(float $t, array $cands, float $window = 2.0): array
     return $best ?? [$t, 0];
 }
 
+/** Kata pembuka yang menandakan clip butuh konteks dari kalimat sebelumnya (kata penghubung/rujukan). */
+const CONTEXT_OPENERS = ['jadi', 'nah', 'terus', 'trus', 'tros', 'makanya', 'karena', 'soalnya', 'tapi', 'tetapi', 'dan',
+    'atau', 'dia', 'mereka', 'tadi', 'juga', 'yang', 'bahwa', 'sehingga', 'lalu', 'kemudian', 'abis', 'habis',
+    'padahal', 'gitu', 'begitu', 'kayak', 'kaya', 'sama', 'itulah', 'pokoknya', 'and', 'so', 'but', 'because',
+    'cause', "'cause", 'which', 'then', 'also', 'or', 'he', 'she', 'they', 'it', "it's", "that's", 'that', 'like'];
+
+/**
+ * Mundurkan awal clip ke awal kalimat sebelumnya bila clip dimulai di tengah alur bicara
+ * (jeda sebelum awal clip sangat pendek) atau diawali kata penghubung/rujukan.
+ * $starts = titik awal bicara [waktu, panjang jeda sebelumnya].
+ */
+function context_start(float $t, float $gap, string $firstText, array $starts, float $maxBack = 8.0): float
+{
+    $first = mb_strtolower(preg_replace('/^[^\p{L}\']+/u', '', $firstText));
+    $word = preg_split('/[^\p{L}\']+/u', $first, 2)[0] ?? '';
+    if ($gap >= 0.25 && !in_array($word, CONTEXT_OPENERS, true)) {
+        return $t;
+    }
+    $best = null;
+    $fallback = null;
+    foreach ($starts as [$time, $g]) {
+        if ($time < $t - $maxBack || $time > $t - 0.5) {
+            continue;
+        }
+        // Jeda jelas = batas kalimat; ambil yang paling dekat dengan awal clip
+        if ($g >= 0.6 && ($best === null || $time > $best)) {
+            $best = $time;
+        }
+        if ($g >= 0.35 && ($fallback === null || $g > $fallback[1])) {
+            $fallback = [$time, $g];
+        }
+    }
+    return $best ?? $fallback[0] ?? $t;
+}
+
 function heatmap_score(array $heatmap, float $start, float $end): ?float
 {
     if (!$heatmap) {
@@ -193,7 +228,7 @@ function resolve_out_lang(string $pick, string $videoLang): string
     return $v === '' ? 'auto' : ($v === 'en' ? 'en' : 'id');
 }
 
-function clip_schema(string $style = 'podcast', string $outLang = 'id', array $concepts = []): array
+function clip_schema(string $style = 'podcast', string $outLang = 'id', array $concepts = [], ?array $brand = null): array
 {
     // Bahasa field yang tampil ke penonton (judul, hook layar, caption) mengikuti $outLang
     $L = ['id' => 'Bahasa Indonesia', 'en' => 'Bahasa Inggris (English)', 'auto' => 'bahasa sesuai aturan BAHASA'][$outLang] ?? 'Bahasa Indonesia';
@@ -217,7 +252,7 @@ function clip_schema(string $style = 'podcast', string $outLang = 'id', array $c
                         'start_seconds' => ['type' => 'NUMBER'],
                         'end_seconds' => ['type' => 'NUMBER'],
                         'title' => ['type' => 'STRING', 'description' => "Judul clip yang menarik, $L, maks 70 karakter"],
-                        'hook' => ['type' => 'STRING', 'description' => 'Kalimat pertama yang diucapkan di clip, persis seperti di transkrip/audio'],
+                        'hook' => ['type' => 'STRING', 'description' => 'Kalimat paling memancing di awal clip (dalam 5 detik pertama), persis seperti di transkrip/audio'],
                         'quote' => ['type' => 'STRING', 'description' => 'Kalimat paling kuat/quotable di clip, persis seperti diucapkan'],
                         'quote_translation' => ['type' => 'STRING', 'description' => $outLang === 'en'
                             ? 'String kosong (konten ditulis dalam bahasa Inggris)'
@@ -227,6 +262,10 @@ function clip_schema(string $style = 'podcast', string $outLang = 'id', array $c
                     ] + ($concepts ? [
                         'concept' => ['type' => 'STRING', 'enum' => array_merge(array_map(fn($k) => CLIP_CONCEPTS[$style === 'gaming' ? 'gaming' : 'podcast'][$k][0], $concepts), ['Lainnya']),
                             'description' => 'Konsep clip pilihan user yang paling cocok dengan momen ini'],
+                    ] : []) + ($brand ? [
+                        'brand_fit' => ['type' => 'STRING', 'enum' => ['hard', 'soft', 'none'],
+                            'description' => 'hard = brand/produknya disebut langsung, soft = membahas topik terkait brand, none = tidak terkait'],
+                        'brand_angle' => ['type' => 'STRING', 'description' => 'Kenapa clip ini nyambung ke brand, Bahasa Indonesia, 1 kalimat (string kosong kalau brand_fit none)'],
                     ] : []) + [
                         'why' => ['type' => 'STRING', 'description' => 'Alasan clip ini layak diposting, Bahasa Indonesia, 1-2 kalimat'],
                         'on_screen_text' => ['type' => 'STRING', 'description' => "Teks hook untuk overlay di awal video, $L, maks 8 kata"],
@@ -239,7 +278,7 @@ function clip_schema(string $style = 'podcast', string $outLang = 'id', array $c
                         'score_quotability' => $int,
                         'overall_score' => $int,
                     ],
-                    'required' => [...($concepts ? ['concept'] : []), 'start_seconds', 'end_seconds', 'title', 'hook', 'quote', 'category', 'why',
+                    'required' => [...($concepts ? ['concept'] : []), ...($brand ? ['brand_fit', 'brand_angle'] : []), 'start_seconds', 'end_seconds', 'title', 'hook', 'quote', 'category', 'why',
                         'on_screen_text', 'caption', 'hashtags', 'score_hook', 'score_insight', 'score_standalone',
                         'score_emotion', 'score_quotability', 'overall_score'],
                 ],
@@ -249,7 +288,38 @@ function clip_schema(string $style = 'podcast', string $outLang = 'id', array $c
     ];
 }
 
-function build_prompt(array $info, string $source, int $maxClips, string $transcript, array $heatmap, int $min = CLIP_MIN_SEC, int $max = CLIP_MAX_SEC, string $style = 'podcast', array $taken = [], string $outLang = 'id', array $concepts = [], string $note = '', string $capStyle = 'auto'): string
+/** Aturan prompt untuk clip campaign brand: momen yang menyebut brand (hard) atau membahas topik terkait (soft). */
+function brand_rule(array $b, int $maxClips): string
+{
+    $cat = BRAND_CATEGORIES[$b['category']][0] ?? 'Lainnya';
+    $topics = $b['topics'] ? implode(', ', $b['topics']) : '(tidak ditentukan — simpulkan sendiri dari brand & kategorinya)';
+    $modes = implode("\n", array_map(fn($k) => '- ' . ['hard' => 'HARD SELL (brand_fit "hard"): pembicara menyebut brand/produk ini secara langsung.',
+        'soft' => 'SOFT SELL (brand_fit "soft"): pembicara membahas topik yang relevan dengan brand/kategorinya, walau brand tidak disebut.'][$k], $b['modes']));
+    $porsi = $b['all']
+        ? "SEMUA clip harus terkait brand (hard/soft). Lebih baik sedikit clip daripada memasukkan clip yang tidak terkait."
+        : 'Usahakan MINIMAL ' . min($b['min'], $maxClips) . " clip terkait brand (hard/soft); sisanya boleh momen terbaik biasa (brand_fit \"none\").";
+    $brief = $b['brief'] !== '' ? "Brief campaign dari brand (WAJIB dipatuhi untuk clip terkait brand):\n\"\"\"\n{$b['brief']}\n\"\"\"\n" : '';
+    $tags = $b['tags'] ? 'Hashtag/mention wajib (' . implode(' ', $b['tags']) . ") ditambahkan otomatis oleh sistem, jangan ditulis ulang di caption.\n" : '';
+    return <<<TXT
+=== CAMPAIGN BRAND (PRIORITAS TINGGI) ===
+User sedang ikut campaign clip untuk brand "{$b['name']}" (kategori: {$cat}).
+Topik yang dianggap terkait brand: {$topics}.
+Jenis clip brand yang diterima:
+{$modes}
+{$porsi}
+ATURAN:
+- Clip brand tetap harus memenuhi semua kriteria kualitas di atas (utuh, berdiri sendiri, ada hook & payoff).
+- Pilih momen yang topiknya memang dibahas cukup panjang, bukan sekadar satu kata yang lewat.
+- JANGAN memaksakan relevansi. Kalau video tidak membahas brand/topik terkait, isi brand_fit "none" dan jujur;
+  jangan mengarang hubungan yang tidak ada.
+- Untuk clip brand: title, on_screen_text, dan caption mengarah ke topik terkait secara natural (soft) atau
+  menyebut brand dengan positif (hard), tanpa terdengar seperti iklan kaku. Isi brand_angle dengan alasannya.
+- Jangan menyebut atau memuji brand pesaing di clip brand.
+{$brief}{$tags}
+TXT;
+}
+
+function build_prompt(array $info, string $source, int $maxClips, string $transcript, array $heatmap, int $min = CLIP_MIN_SEC, int $max = CLIP_MAX_SEC, string $style = 'podcast', array $taken = [], string $outLang = 'id', array $concepts = [], string $note = '', string $capStyle = 'auto', ?array $brand = null): string
 {
     // Konsep clip pilihan user di modal "Atur clip": jadi prioritas utama pencarian momen
     $conceptRule = '';
@@ -265,6 +335,7 @@ function build_prompt(array $info, string $source, int $maxClips, string $transc
             . ($note !== '' ? "Konteks tambahan dari user (wajib diperhatikan): \"$note\"\n" : '')
             . "Kalau momen yang cocok sedikit, berikan lebih sedikit clip daripada memasukkan momen yang tidak sesuai.\n";
     }
+    $brandRule = $brand ? brand_rule($brand, $maxClips) : '';
     $duration = (int) ($info['duration'] ?? 0);
     $chapters = '';
     foreach ($info['chapters'] ?? [] as $c) {
@@ -315,6 +386,7 @@ KRITERIA CLIP YANG BAGUS (wajib diperhatikan semuanya):
 3. HOOK KUAT di 3–5 detik pertama: langsung masuk ke situasi tegang/lucu/kacau. Jangan mulai dari menu,
    loading, atau obrolan basa-basi.
 4. BERDIRI SENDIRI: penonton yang tidak menonton stream-nya tetap paham apa yang terjadi dan kenapa seru.
+   Sertakan build-up secukupnya (ucapan streamer yang menjelaskan situasinya), jangan mulai di tengah kalimat.
 5. PAYOFF: berakhir tepat setelah puncak (punchline, tawa pecah, clutch berhasil/gagal), jangan dibiarkan
    menggantung terlalu lama sesudahnya.
 6. start_seconds tepat di awal build-up, end_seconds tepat setelah reaksi/kalimat penutup selesai.
@@ -360,15 +432,21 @@ KRITERIA CLIP YANG BAGUS (wajib diperhatikan semuanya):
    untuk konteks. Jangan memotong saat pembicara masih menjelaskan, memberi contoh, atau saat lawan
    bicara sedang menanggapi.
 3. HOOK KUAT di 3–5 detik pertama: pernyataan tegas, pertanyaan yang memancing, fakta mengejutkan,
-   atau kalimat yang langsung bikin penasaran. Jangan mulai dengan basa-basi.
+   atau kalimat yang langsung bikin penasaran. Jangan mulai dengan basa-basi. TAPI hook tidak harus kalimat
+   pertama: kalau kalimat hook merujuk ke hal yang disebut sebelumnya, mulai clip 1–2 kalimat lebih awal
+   (misalnya dari pertanyaan host atau kalimat yang menyebut topiknya) supaya penonton langsung paham.
 4. BERDIRI SENDIRI: penonton yang tidak menonton video aslinya tetap paham. Hindari clip yang
-   dimulai dengan kata penghubung/rujukan ("jadi", "nah itu", "seperti tadi", "and", "so", "that's why")
-   atau yang bergantung pada konteks sebelumnya.
+   dimulai dengan kata penghubung/rujukan ("jadi", "nah itu", "seperti tadi", "dia", "itu", "and", "so",
+   "that's why") atau yang bergantung pada konteks sebelumnya. Tes: kalau kalimat PERTAMA clip dibaca sendirian,
+   penonton harus tahu siapa/apa yang dibicarakan. Kalau tidak, majukan start_seconds ke kalimat yang
+   memperkenalkan topiknya.
 5. PAYOFF/PENUTUP: clip berakhir pada kesimpulan, punchline, atau kalimat yang "kena" — setelah
    pembicara benar-benar selesai menyampaikan poinnya. Jangan berhenti di tengah kalimat.
 6. NILAI: ada pelajaran, insight, sudut pandang baru, atau kalimat yang layak dijadikan quote.
 7. EMOSI & RELATABLE: menyentuh, menampar, menginspirasi, atau sangat relate dengan kehidupan sehari-hari.
-8. start_seconds tepat di AWAL kalimat pembuka, end_seconds tepat SETELAH kalimat penutup selesai diucapkan.
+8. start_seconds tepat di AWAL kalimat pembuka (bukan di tengah kalimat atau di tengah baris transkrip —
+   kalau kalimat dimulai di baris sebelumnya, pakai detik baris itu), end_seconds tepat SETELAH kalimat
+   penutup selesai diucapkan.
 
 HINDARI: intro/pembukaan acara, sponsor/iklan, ajakan subscribe/follow, bagian yang hanya bisa dipahami
 dengan melihat visual, obrolan ringan tanpa isi, dan clip yang saling tumpang tindih.
@@ -456,6 +534,7 @@ TXT_CAP;
     return <<<PROMPT
 {$brief}
 {$conceptRule}
+{$brandRule}
 {$toneRule}
 
 {$langRule}
@@ -538,7 +617,8 @@ function run_analysis(string $id, array $job, string $tmpDir, string $cancelFlag
     $concepts = clip_concepts_pick($style, (array) ($job['concepts'] ?? []));
     $note = mb_substr(trim((string) ($job['concept_note'] ?? '')), 0, 200);
     $capStyle = isset(CAPTION_STYLES[$job['caption_style'] ?? '']) ? $job['caption_style'] : 'auto';
-    $schema = clip_schema($style, $outLang, $concepts);
+    $brand = !empty($job['brand']) ? $job['brand'] : null;
+    $schema = clip_schema($style, $outLang, $concepts, $brand);
     $onModel = fn($text) => update_job($id, ['stage' => $text]);
 
     if ($textUnits) {
@@ -548,7 +628,7 @@ function run_analysis(string $id, array $job, string $tmpDir, string $cancelFlag
             $transcript .= '[' . number_format($l['start'], 1, '.', '') . '] ' . $l['text'] . "\n";
         }
         update_job($id, ['stage' => 'AI sedang mencari momen terbaik…', 'progress' => 35]);
-        $prompt = build_prompt($info, 'subtitle', $maxClips, $transcript, $heatmap, $clipMin, $clipMax, $style, $taken, $outLang, $concepts, $note, $capStyle);
+        $prompt = build_prompt($info, 'subtitle', $maxClips, $transcript, $heatmap, $clipMin, $clipMax, $style, $taken, $outLang, $concepts, $note, $capStyle, $brand);
         [$result, $model, $usage] = gemini_generate([['text' => $prompt]], $schema, $cancelFlag, $onModel);
         [$starts, $ends] = boundaries_from_units($timingUnits);
         $source = 'subtitle';
@@ -570,7 +650,7 @@ function run_analysis(string $id, array $job, string $tmpDir, string $cancelFlag
         update_job($id, ['stage' => 'Menyiapkan audio untuk AI…', 'progress' => 30]);
         $uri = gemini_upload($audio, 'audio/mpeg', $cancelFlag);
         update_job($id, ['stage' => 'AI sedang mendengarkan audio…', 'progress' => 40]);
-        $prompt = build_prompt($info, 'audio', $maxClips, '(tidak ada — gunakan audio terlampir)', $heatmap, $clipMin, $clipMax, $style, $taken, $outLang, $concepts, $note, $capStyle);
+        $prompt = build_prompt($info, 'audio', $maxClips, '(tidak ada — gunakan audio terlampir)', $heatmap, $clipMin, $clipMax, $style, $taken, $outLang, $concepts, $note, $capStyle, $brand);
         [$result, $model, $usage] = gemini_generate([
             ['file_data' => ['mime_type' => 'audio/mpeg', 'file_uri' => $uri]],
             ['text' => $prompt],
@@ -597,6 +677,15 @@ function run_analysis(string $id, array $job, string $tmpDir, string $cancelFlag
         if ($ee - $ss < $clipMin / 2) {
             [$ss, $ee, $sGap, $eGap] = [$s, $e, 0, 0];
         }
+        // Clip yang dimulai di tengah alur bicara dimundurkan ke awal kalimat supaya penonton tidak bingung
+        $opening = $source === 'subtitle'
+            ? implode(' ', array_column(array_slice(array_values(array_filter($textUnits, fn($u) => $u[0] >= $ss - 0.3)), 0, 3), 2))
+            : (($c['transcript'] ?? '') ?: ($c['hook'] ?? ''));
+        $cs = context_start($ss, $sGap, $opening, $starts);
+        if ($cs < $ss && $ee - $cs <= $clipMax + 10) {
+            $sGap = (float) (array_values(array_filter($starts, fn($b) => $b[0] === $cs))[0][1] ?? 0);
+            $ss = $cs;
+        }
         // Sedikit ruang napas di awal dan akhir clip
         $ss = max(0, $ss - min(0.15, $sGap / 2));
         $ee = min($duration ?: INF, $ee + min(0.35, $eGap / 2));
@@ -607,6 +696,12 @@ function run_analysis(string $id, array $job, string $tmpDir, string $cancelFlag
             $text = implode(' ', array_column($words, 2));
         }
         $heat = heatmap_score($heatmap, $ss, $ee);
+        $fit = $brand && in_array($c['brand_fit'] ?? '', $brand['modes'], true) ? $c['brand_fit'] : '';
+        $tags = array_values(array_filter((array) ($c['hashtags'] ?? [])));
+        if ($fit) {
+            // Hashtag/mention wajib campaign hanya di clip yang terkait brand
+            $tags = array_values(array_unique(array_merge($brand['tags'], $tags)));
+        }
         $clips[] = [
             'start' => round($ss, 2),
             'end' => round($ee, 2),
@@ -620,7 +715,9 @@ function run_analysis(string $id, array $job, string $tmpDir, string $cancelFlag
             'why' => $c['why'] ?? '',
             'on_screen_text' => $c['on_screen_text'] ?? '',
             'caption' => trim(preg_replace('/(\s*#[\p{L}\p{N}_]+)+\s*$/u', '', (string) ($c['caption'] ?? ''))),
-            'hashtags' => array_values(array_filter((array) ($c['hashtags'] ?? []))),
+            'hashtags' => $tags,
+            'brand_fit' => $fit,
+            'brand_angle' => $fit ? (string) ($c['brand_angle'] ?? '') : '',
             'scores' => [
                 'hook' => (int) ($c['score_hook'] ?? 0),
                 'insight' => (int) ($c['score_insight'] ?? 0),
@@ -633,8 +730,9 @@ function run_analysis(string $id, array $job, string $tmpDir, string $cancelFlag
         ];
     }
 
-    // Buang clip yang tumpang tindih >40% dengan clip yang skornya lebih tinggi
-    usort($clips, fn($a, $b) => $b['overall'] <=> $a['overall']);
+    // Buang clip yang tumpang tindih >40% dengan clip yang skornya lebih tinggi.
+    // Mode campaign: clip brand didahulukan supaya tidak terbuang oleh clip biasa yang tumpang tindih.
+    usort($clips, fn($a, $b) => [$b['brand_fit'] !== '', $b['overall']] <=> [$a['brand_fit'] !== '', $a['overall']]);
     $kept = [];
     foreach ($clips as $c) {
         foreach ($kept as $k) {
@@ -644,6 +742,17 @@ function run_analysis(string $id, array $job, string $tmpDir, string $cancelFlag
             }
         }
         $kept[] = $c;
+    }
+    usort($kept, fn($a, $b) => $b['overall'] <=> $a['overall']);
+    $brandInfo = null;
+    if ($brand) {
+        $found = count(array_filter($kept, fn($c) => $c['brand_fit'] !== ''));
+        // "Semua clip terkait brand": clip biasa dibuang, kecuali tidak ada satu pun clip brand
+        if ($brand['all'] && $found) {
+            $kept = array_values(array_filter($kept, fn($c) => $c['brand_fit'] !== ''));
+        }
+        $want = $brand['all'] ? count($kept) : min($brand['min'], $maxClips);
+        $brandInfo = ['name' => $brand['name'], 'found' => $found, 'want' => $brand['all'] ? max(1, $want) : $want];
     }
 
     if ($moreOf) {
@@ -662,7 +771,7 @@ function run_analysis(string $id, array $job, string $tmpDir, string $cancelFlag
         $prev['clips'] = array_merge($prev['clips'], $kept);
         file_put_contents(ANALYSES_DIR . "/$moreOf.json", json_encode($prev, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
         update_job($moreOf, ['clip_count' => count($prev['clips'])]);
-        update_job($id, ['status' => 'done', 'stage' => 'Selesai', 'progress' => 100, 'clip_count' => count($kept),
+        update_job($id, ['status' => 'done', 'stage' => 'Selesai', 'progress' => 100, 'clip_count' => count($kept), 'brand_result' => $brandInfo,
             'new_scenes' => $kept ? range($first, $first + count($kept) - 1) : []]);
         return;
     }
@@ -698,5 +807,6 @@ function run_analysis(string $id, array $job, string $tmpDir, string $cancelFlag
         'progress' => 100,
         'clip_count' => count($kept),
         'source_label' => $sourceLabel,
+        'brand_result' => $brandInfo, // jumlah clip terkait brand yang ditemukan vs diminta
     ]);
 }

@@ -221,16 +221,16 @@ function speaker_crop(array $seg, int $W, int $H, float $aspect = 9 / 16): array
     return [$cw, $ch, $x, $y];
 }
 
-/** Area crop untuk separuh layar split screen (1080x960, rasio 9:8): wajah di tengah, tinggi wajah ±32% separuh layar. */
-function half_crop(array $p, int $W, int $H): array
+/** Area crop untuk satu panel split screen (bawaan 1080x960, rasio 9:8): wajah di tengah, tinggi wajah ±32% panel. */
+function half_crop(array $p, int $W, int $H, float $aspect = 9 / 8): array
 {
     $minH = min($H, max($H * 0.35, 400));
     $ch = $p['fh'] > 0 ? $p['fh'] * $H / 0.32 : $H;
     $ch = max($minH, min($H, $ch));
-    $cw = $ch * 9 / 8;
+    $cw = $ch * $aspect;
     if ($cw > $W) {
         $cw = $W;
-        $ch = min($H, $W * 8 / 9);
+        $ch = min($H, $W / $aspect);
     }
     $cw = (int) (floor($cw / 2) * 2);
     $ch = (int) (floor($ch / 2) * 2);
@@ -239,7 +239,7 @@ function half_crop(array $p, int $W, int $H): array
     return [$cw, $ch, $x, $y];
 }
 
-/** Tinggi area game di layout streaming game (70% layar); 30% sisanya untuk webcam streamer. */
+/** Tinggi bawaan area game di layout streaming game (70% layar); sisanya untuk webcam streamer. Bisa diatur lewat rasio split. */
 const GAMING_TOP_H = 1344;
 
 /**
@@ -247,17 +247,17 @@ const GAMING_TOP_H = 1344;
  * Game = crop tengah setinggi video (rasio 1080x1344). Webcam = area di sekitar wajah streamer
  * (rasio 1080x576, tinggi wajah ±35% panel) supaya sebisa mungkin tetap di dalam kotak webcam.
  */
-function gaming_crops(array $cam, int $W, int $H): array
+function gaming_crops(array $cam, int $W, int $H, int $topH = GAMING_TOP_H): array
 {
     $even = fn($v) => (int) (floor($v / 2) * 2);
-    $ga = 1080 / GAMING_TOP_H;
+    $ga = 1080 / $topH;
     $gh = $H;
     $gw = $gh * $ga;
     if ($gw > $W) {
         [$gw, $gh] = [$W, $W / $ga];
     }
     $game = [$even($gw), $even($gh), $even(($W - $gw) / 2), $even(($H - $gh) / 2)];
-    $ca = 1080 / (1920 - GAMING_TOP_H);
+    $ca = 1080 / (1920 - $topH);
     $ch = max($cam['fh'] * $H / 0.35, $H * 0.12);
     $cw = $ch * $ca;
     if ($cw > $W) {
@@ -271,21 +271,31 @@ function gaming_crops(array $cam, int $W, int $H): array
     return [$game, [$even($cw), $even($ch), $even($x), $even($y)]];
 }
 
-/** Filter layout streaming game: game di atas (70%), webcam di bawah (30%), ditumpuk jadi 1080x1920. */
-function gaming_filter(array $cam, int $W, int $H): string
+/**
+ * Skala potongan ke panel w x h tanpa gepeng: diperbesar sampai menutupi panel dengan rasio asli, kelebihannya dipotong di tengah.
+ * (Area crop sudah serasio panel; ini menghapus selisih kecil akibat pembulatan ukuran crop ke angka genap.)
+ */
+function fit_panel(int $w, int $h): string
 {
-    [[$gw, $gh, $gx, $gy], [$cw, $ch, $cx, $cy]] = gaming_crops($cam, $W, $H);
-    $camH = 1920 - GAMING_TOP_H;
-    return "split[gmA][gmB];[gmA]crop=$gw:$gh:$gx:$gy,scale=1080:" . GAMING_TOP_H . ':flags=lanczos,setsar=1[gmT];'
-        . "[gmB]crop=$cw:$ch:$cx:$cy,scale=1080:$camH:flags=lanczos,setsar=1[gmW];[gmT][gmW]vstack=inputs=2";
+    return "scale=$w:$h:force_original_aspect_ratio=increase:flags=lanczos,crop=$w:$h,setsar=1";
+}
+
+/** Filter layout streaming game: game di atas (topH px), webcam di bawah (sisanya), ditumpuk jadi 1080x1920. */
+function gaming_filter(array $cam, int $W, int $H, int $topH = GAMING_TOP_H): string
+{
+    [[$gw, $gh, $gx, $gy], [$cw, $ch, $cx, $cy]] = gaming_crops($cam, $W, $H, $topH);
+    $camH = 1920 - $topH;
+    return "split[gmA][gmB];[gmA]crop=$gw:$gh:$gx:$gy," . fit_panel(1080, $topH) . '[gmT];'
+        . "[gmB]crop=$cw:$ch:$cx:$cy," . fit_panel(1080, $camH) . '[gmW];[gmT][gmW]vstack=inputs=2';
 }
 
 /**
  * Filtergraph split screen: per potongan, shot 2 orang = atas/bawah (vstack), selain itu satu orang penuh.
  * Semua potongan digabung lagi → [cv].
  */
-function split_graph(array $items, int $W, int $H, int $vi, float $dur): string
+function split_graph(array $items, int $W, int $H, int $vi, float $dur, int $topH = 960): string
 {
+    $botH = 1920 - $topH;
     $n = count($items);
     $fmt = fn($t) => number_format(max(0, $t), 3, '.', '');
     $parts = ["[$vi:v]split=$n" . implode('', array_map(fn($i) => "[s$i]", range(0, $n - 1)))];
@@ -294,11 +304,11 @@ function split_graph(array $items, int $W, int $H, int $vi, float $dur): string
         $b = $i === $n - 1 ? $dur + 1 : $it['end'];
         $cut = "[s$i]trim=start={$fmt($a)}:end={$fmt($b)},setpts=PTS-STARTPTS";
         if ($it['mode'] === 'split') {
-            [$aw, $ah, $ax, $ay] = half_crop($it['a'], $W, $H);
-            [$bw, $bh, $bx, $by] = half_crop($it['b'], $W, $H);
+            [$aw, $ah, $ax, $ay] = half_crop($it['a'], $W, $H, 1080 / $topH);
+            [$bw, $bh, $bx, $by] = half_crop($it['b'], $W, $H, 1080 / $botH);
             $parts[] = "$cut,split[u$i][d$i]";
-            $parts[] = "[u$i]crop=$aw:$ah:$ax:$ay,scale=1080:960:flags=lanczos,setsar=1[ta$i]";
-            $parts[] = "[d$i]crop=$bw:$bh:$bx:$by,scale=1080:960:flags=lanczos,setsar=1[tb$i]";
+            $parts[] = "[u$i]crop=$aw:$ah:$ax:$ay," . fit_panel(1080, $topH) . "[ta$i]";
+            $parts[] = "[d$i]crop=$bw:$bh:$bx:$by," . fit_panel(1080, $botH) . "[tb$i]";
             $parts[] = "[ta$i][tb$i]vstack=inputs=2[c$i]";
         } elseif ($it['mode'] === 'blur') {
             $parts[] = "$cut,split[bg$i][fg$i]";
@@ -311,7 +321,7 @@ function split_graph(array $items, int $W, int $H, int $vi, float $dur): string
             if ($it['mode'] !== 'single') {
                 $y = (int) (floor(($H - $ch) / 4) * 2);
             }
-            $parts[] = "$cut,crop=$cw:$ch:$x:$y,scale=1080:1920:flags=lanczos,setsar=1[c$i]";
+            $parts[] = "$cut,crop=$cw:$ch:$x:$y," . fit_panel(1080, 1920) . "[c$i]";
         }
     }
     $parts[] = implode('', array_map(fn($i) => "[c$i]", range(0, $n - 1))) . "concat=n=$n:v=1:a=0[cv]";
@@ -325,6 +335,34 @@ const CAM_HOLD = 1.0;       // pembicara yang tampil kurang dari ini tidak membu
 // Perpindahan lebih jauh dari 18% lebar/tinggi video (mis. dari pembicara kiri ke kanan di shot lebar) dibuat
 // cut langsung seperti ganti kamera — geseran kilat sejauh itu terlihat seperti glitch.
 const CAM_JUMP = 0.18;
+// Batas pergantian pembicara dari deteksi wajah (sampel 10 fps) bisa meleset ±0,5 dtk dari cut kamera di video sumber.
+// Batas yang sedekat ini ke sebuah cut ditarik tepat ke cut itu, supaya crop pindah di frame yang sama dengan pergantian
+// kamera sumber (tanpa itu, sepersekian detik shot baru tampil dengan crop shot lama = terlihat glitch).
+const CAM_SNAP = 0.6;
+
+/** Tarik batas segmen pembicara ke cut kamera sumber terdekat (≤ CAM_SNAP detik). Sama dengan snapSegs() di editor. */
+function snap_segments(array $segs, ?array $cuts): array
+{
+    $segs = array_values($segs);
+    if (!$cuts) {
+        return $segs;
+    }
+    for ($i = 1; $i < count($segs); $i++) {
+        $st = $segs[$i]['start'];
+        $best = null;
+        foreach ($cuts as $c) {
+            if (abs($c - $st) <= CAM_SNAP && $c > $segs[$i - 1]['start'] + 0.05 && $c < $segs[$i]['end'] - 0.05
+                && ($best === null || abs($c - $st) < abs($best - $st))) {
+                $best = (float) $c;
+            }
+        }
+        if ($best !== null) {
+            $segs[$i]['start'] = $best;
+            $segs[$i - 1]['end'] = $best;
+        }
+    }
+    return $segs;
+}
 
 /** Posisi crop (x, y) untuk wajah di segmen dengan ukuran crop tetap cw x ch (sama dengan speaker_crop). */
 function speaker_xy(array $seg, int $cw, int $ch, int $W, int $H): array
@@ -343,6 +381,7 @@ function speaker_xy(array $seg, int $cw, int $ch, int $W, int $H): array
  */
 function camera_runs(array $segs, ?array $cuts, int $W, int $H, float $aspect): array
 {
+    $segs = snap_segments($segs, $cuts);
     $runs = [];
     $prev = null;
     foreach (array_values($segs) as $i => $seg) {
@@ -393,6 +432,11 @@ function camera_runs(array $segs, ?array $cuts, int $W, int $H, float $aspect): 
         // Selaan singkat (< CAM_HOLD detik) tidak menggerakkan kamera bolak-balik
         $keys = array_values(array_filter($keys, fn($kv, $k) => $k === 0 || (($keys[$k + 1][0] ?? $r['end']) - $kv[0]) >= CAM_HOLD,
             ARRAY_FILTER_USE_BOTH));
+        // Awal shot yang singkat (deteksi wajah belum stabil) juga tidak dipakai: shot langsung dibuka di posisi berikutnya
+        while (count($keys) > 1 && $keys[1][0] - $keys[0][0] < CAM_HOLD) {
+            [$keys[0][1], $keys[0][2]] = [$keys[1][1], $keys[1][2]];
+            array_splice($keys, 1, 1);
+        }
         // Setelah selaan dibuang, jenis perpindahan dihitung ulang dari posisi kamera sebelumnya
         foreach ($keys as $k => $kv) {
             $keys[$k][3] = $k > 0 && (abs($kv[1] - $keys[$k - 1][1]) > $W * CAM_JUMP || abs($kv[2] - $keys[$k - 1][2]) > $H * CAM_JUMP);
@@ -453,7 +497,7 @@ function speaker_graph(array $segs, int $W, int $H, int $vi, float $dur, float $
  * Transisi (xfade) berpusat di sambungan: kedua sisi diperpanjang setengah durasi transisi dengan frame diam,
  * jadi total durasi tetap sama dengan jumlah durasi semua potongan (sama seperti timeline editor).
  */
-function footage_concat(string $id, string $output, array $seq, array $encoders, string $cancelFlag, array $trans = [], array $tracks = [], ?array $opening = null): void
+function footage_concat(string $id, string $output, array $seq, array $encoders, string $cancelFlag, array $trans = [], array $tracks = [], ?array $opening = null, string $voiceDir = ''): void
 {
     $hideVideo = !empty($tracks['video']['hide']);
     $mute = !empty($tracks['video']['mute']);
@@ -478,12 +522,23 @@ function footage_concat(string $id, string $output, array $seq, array $encoders,
         $lens[$n] = $d;
         $hasAudio[$n] = !$isImg && !$mute && !empty($info['acodec']);
     }
+    // Input tambahan dipasang setelah semua potongan: suara AI footage intro, frame matte & kertas transisi kertas robek
+    $extra = count($seq);
+    $voIn = [];
+    foreach ($seq as $n => $it) {
+        $vo = $it !== 'main' && !empty($it['vo']) && $voiceDir !== '' ? "$voiceDir/{$it['vo']}" : '';
+        if ($vo !== '' && is_file($vo) && !$mute) {
+            $inputs .= ' -i ' . escapeshellarg($vo);
+            $voIn[$n] = $extra++;
+        }
+    }
     // Transisi masuk ke potongan n (n ≥ 1): [nama xfade, durasi], durasi dibatasi panjang kedua sisi
     $tin = [];
     foreach ($seq as $n => $it) {
         $tr = $n > 0 ? ($trans[$it === 'main' ? 'main' : $it['id']] ?? null) : null;
         if ($tr && isset(TRANSITION_PRESETS[$tr['type'] ?? ''])) {
-            $tin[$n] = [TRANSITION_PRESETS[$tr['type']]['xf'], round(min((float) $tr['dur'], $lens[$n - 1], $lens[$n]), 3)];
+            $xf = TRANSITION_PRESETS[$tr['type']]['xf'];
+            $tin[$n] = [$xf, round(min((float) $tr['dur'], $lens[$n - 1], $lens[$n]), 3)];
         }
     }
     $parts = [];
@@ -497,16 +552,41 @@ function footage_concat(string $id, string $output, array $seq, array $encoders,
         $tpad = $padIn || $padOut
             ? sprintf(',tpad=start_mode=clone:start_duration=%.3f:stop_mode=clone:stop_duration=%.3f', $padIn, $padOut) : '';
         $parts[] = "[$n:v]{$fits[$n]},setsar=1,fps=$fps,format=yuv420p,trim=0:$d,setpts=PTS-STARTPTS{$tpad}[v$n]";
-        $parts[] = $hasAudio[$n]
-            ? "[$n:a]aformat=sample_rates=48000:channel_layouts=stereo,apad,atrim=0:$d,asetpts=PTS-STARTPTS[a$n]"
-            : "anullsrc=r=48000:cl=stereo,atrim=0:$d,asetpts=PTS-STARTPTS[a$n]";
+        $parts[] = isset($voIn[$n])
+            ? "[{$voIn[$n]}:a]aformat=sample_rates=48000:channel_layouts=stereo,apad,atrim=0:$d,asetpts=PTS-STARTPTS[a$n]"
+            : ($hasAudio[$n]
+                ? "[$n:a]aformat=sample_rates=48000:channel_layouts=stereo,apad,atrim=0:$d,asetpts=PTS-STARTPTS[a$n]"
+                : "anullsrc=r=48000:cl=stereo,atrim=0:$d,asetpts=PTS-STARTPTS[a$n]");
         $alabels .= "[a$n]";
         $len = $padIn + $d + $padOut;
         if ($n === 0) {
             [$cur, $curLen] = ['v0', $len];
             continue;
         }
-        if (isset($tin[$n])) {
+        if (isset($tin[$n]) && $tin[$n][0] === 'paper') {
+            // Kertas robek: ekor potongan sebelumnya & awal potongan ini digabung lewat matte, lalu lapisan kertas di atasnya.
+            // Frame aset diputar dengan kecepatan yang pas untuk durasi transisi pilihan user (lebih pendek = lebih cepat).
+            [, $td] = $tin[$n];
+            [$pdir, $frames] = paper_assets($cancelFlag);
+            $rate = number_format($frames / max(0.1, $td), 4, '.', '');
+            $inputs .= " -framerate $rate -i " . escapeshellarg("$pdir/mask_%02d.png") . " -framerate $rate -i " . escapeshellarg("$pdir/paper_%02d.png");
+            [$mi, $pi] = [$extra, $extra + 1];
+            $extra += 2;
+            $cut = round($curLen - $td, 3);
+            array_push($parts,
+                "[$cur]split[pa$n][pb$n]",
+                "[pa$n]trim=0:$cut,setpts=PTS-STARTPTS[pA$n]",
+                "[pb$n]trim=$cut,setpts=PTS-STARTPTS,format=gbrp[pB$n]",
+                "[v$n]split[pc$n][pd$n]",
+                "[pc$n]trim=0:$td,setpts=PTS-STARTPTS,format=gbrp[pC$n]",
+                "[pd$n]trim=$td,setpts=PTS-STARTPTS[pD$n]",
+                "[$mi:v]scale=$W:$H,fps=$fps,trim=0:$td,setpts=PTS-STARTPTS,format=gbrp[mk$n]",
+                "[pB$n][pC$n][mk$n]maskedmerge,format=yuv420p[pm$n]",
+                "[$pi:v]scale=$W:$H,fps=$fps,trim=0:$td,setpts=PTS-STARTPTS,format=rgba[pp$n]",
+                "[pm$n][pp$n]overlay=format=auto:eof_action=pass,format=yuv420p,setsar=1[pt$n]",
+                "[pA$n][pt$n][pD$n]concat=n=3:v=1:a=0[x$n]");
+            $curLen += $len - $td;
+        } elseif (isset($tin[$n])) {
             [$xf, $td] = $tin[$n];
             $parts[] = sprintf("[$cur][v$n]xfade=transition=$xf:duration=%.3f:offset=%.3f[x$n]", $td, $curLen - $td);
             $curLen += $len - $td;
@@ -653,9 +733,67 @@ function ai_upscale(string $id, string $base, string $output, array $edit, array
  * Campur musik latar (hasil edit_music_relative) ke audio $output. Video disalin apa adanya (tanpa encode ulang),
  * audio asli tetap di volumenya; tiap potongan musik dipotong, diberi volume & fade, lalu digeser ke posisinya.
  */
-function mix_music(string $id, string $output, array $music, string $cancelFlag): void
+/** Ukuran 1080x1920 di filtergraph efek (overlay_graph) diganti ukuran video sebenarnya (mis. 2K hasil AI upscale). */
+function graph_resize(string $g, int $W, int $H): string
 {
-    update_job($id, ['status' => 'converting', 'stage' => 'Menambahkan musik…', 'progress' => 0]);
+    return str_replace(['s=1080x1920', 'crop=1080:1920', 'scale=1080:1920', 'trunc(1080*', 'trunc(1920*'],
+        ["s={$W}x{$H}", "crop=$W:$H", "scale=$W:$H", "trunc($W*", "trunc($H*"], $g);
+}
+
+/**
+ * Lapisan untuk item yang menempel ke footage / intro (bisa berlanjut ke clip): efek, media & grafik, teks tambahan.
+ * $g = resep "video akhir" dari edit_ref_output() (waktu = detik video akhir). Dipasang di atas semua lapisan lain.
+ */
+function ref_layers_pass(string $id, string $file, array $g, array $encoders, string $cancelFlag, string $ver = ''): void
+{
+    if (!$g['media'] && !$g['texts'] && !$g['effects']) {
+        return;
+    }
+    update_job($id, ['status' => 'converting', 'stage' => 'Memasang media & teks di bagian intro / footage…' . $ver, 'progress' => 0]);
+    $info = probe($file);
+    $W = $info['width'] ?: 1080;
+    $H = $info['height'] ?: 1920;
+    $total = max(0.1, (float) $info['duration']);
+    $g['trim'] = [0.0, $total];
+    $g['tracks']['video']['hide'] = false; // track video disembunyikan hanya berlaku untuk clip
+    $ass = ['sub' => null, 'text' => null];
+    if ($texts = edit_texts_relative($g)) {
+        $ass['text'] = TMP_DIR . "/$id/reftext.ass";
+        file_put_contents($ass['text'], build_ass_lines([], $g['style'], $g['layout'], $g['hook'], $total, $texts));
+    }
+    $parts = ['[0:v]null[rv0]'];
+    $cur = 'rv0';
+    $fx = overlay_graph($g, 'rv0', 'rfx', false);
+    if ($fx !== '') {
+        $parts[] = $W !== 1080 ? graph_resize($fx, $W, $H) : $fx;
+        $cur = 'rfx';
+    }
+    $parts[] = layers_chain($g, $cur, 'v', $ass, $W / 1080);
+    $graphFile = TMP_DIR . "/$id/reflayers.txt";
+    file_put_contents($graphFile, implode(";\n", $parts));
+    $out = TMP_DIR . "/$id/reflayers.mp4";
+    $lastError = '';
+    foreach ($encoders as $enc) {
+        $cmd = escapeshellarg(FFMPEG_FULL) . ' -hide_banner -nostdin -y -loglevel error -nostats -progress pipe:1 -i ' . escapeshellarg($file)
+            . ' -/filter_complex ' . escapeshellarg($graphFile) . " -map '[v]' -map '0:a?' $enc -c:a copy -movflags +faststart " . escapeshellarg($out);
+        [$code, $tail] = run($cmd, function (string $line) use ($id, $total) {
+            if (str_starts_with($line, 'out_time_us=')) {
+                update_job($id, ['progress' => round(min(99.9, ((int) substr($line, 12)) / 1e6 / $total * 100), 1)]);
+            }
+        }, $cancelFlag);
+        clearstatcache();
+        if ($code === 0 && is_file($out) && filesize($out) > 0 && rename($out, $file)) {
+            return;
+        }
+        $lastError = error_from($tail);
+    }
+    @unlink($out);
+    throw new RuntimeException('Gagal memasang media di bagian intro / footage: ' . $lastError);
+}
+
+function mix_music(string $id, string $output, array $music, string $cancelFlag, string $stage = 'Menambahkan musik…'): void
+{
+    update_job($id, ['status' => 'converting', 'stage' => $stage, 'progress' => 0]);
     $info = probe($output);
     $dur = max(0.1, (float) $info['duration']);
     $inputs = ' -i ' . escapeshellarg($output);
@@ -713,6 +851,9 @@ function run_clip(string $id, array $job, string $cancelFlag): void
         // Kalau job persiapan clip ini sedang/akan berjalan, tunggu saja (jangan ikut menyiapkan bersamaan)
         wait_prepare_job((string) ($job['prepare_job'] ?? ''), $id, $cancelFlag);
         $edit = ensure_edit($id, $job, $cancelFlag);
+        // Item yang menempel ke footage / intro dirender terpisah di video akhir (lihat ref_layers_pass); sisanya seperti biasa di clip
+        [$edit, $refItems] = edit_split_ref($edit);
+        $refOut = edit_ref_output($edit, $refItems);
         $job['start'] = $edit['trim'][0];
         $job['end'] = $edit['trim'][1];
         $splitOn = split_cfg($edit)['enabled'];
@@ -846,8 +987,9 @@ function run_clip(string $id, array $job, string $cancelFlag): void
             }
             $camChecked = true;
             if (!empty($edit['cam'])) {
-                $filter = gaming_filter($edit['cam'], (int) $video['width'], (int) $video['height']);
-                $layoutNote = 'Game 70% di atas, webcam streamer 30% di bawah.';
+                $topH = split_top($edit);
+                $filter = gaming_filter($edit['cam'], (int) $video['width'], (int) $video['height'], $topH);
+                $layoutNote = 'Game ' . round($topH / 19.2) . '% di atas, webcam streamer ' . round(100 - $topH / 19.2) . '% di bawah.';
             } else {
                 $layout = 'crop_center';
                 $filter = $clipFilter($layout);
@@ -883,7 +1025,8 @@ function run_clip(string $id, array $job, string $cancelFlag): void
         } . ($aiMode ? ' 2K' : '') . ($assPath && !empty($job['subtitles']) ? ' sub' : '');
         // Render dengan musik diberi penanda di nama file; render ulang selalu dapat nama baru (riwayat render tidak tertimpa)
         // Mode "keduanya": file utama tanpa musik, versi musik dibuat terpisah (lihat di bawah)
-        $withMusic = $edit && empty($job['no_music']) && empty($job['both_music']) && edit_music_relative($edit);
+        $withMusic = $edit && empty($job['no_music']) && empty($job['both_music'])
+            && (edit_music_relative($edit) || (!empty($refOut) && edit_music_relative($refOut)));
         $outName = "$title [clip $range $tag";
         $output ??= unique_path(DOWNLOAD_DIR, $outName . ($withMusic ? ' musik' : '') . ']', 'mp4');
 
@@ -899,12 +1042,16 @@ function run_clip(string $id, array $job, string $cancelFlag): void
             : "[$from]" . ($ass ? "$ass," : '') . 'format=yuv420p[v]';
         $overlay = $layered ? overlay_graph($edit, 'cv', 'co', false) : '';
         // Masker bingkai (bar hitam & sudut membulat) di atas video + efek, di bawah media & teks
-        $masked = fn(string $from) => $frameMask
-            ? "movie=$frameMask,format=rgba[fmk];\n[$from][fmk]overlay=0:0:format=auto[fmo];\n"
-            : "[$from]null[fmo];\n";
+        // Background blur: area video yang sama diperbesar memenuhi layar & diblur, tampil di luar bingkai (alpha masker)
+        $frameBlur = $frameMask && $fH < 1920 && ($edit['frame']['bg'] ?? '') === 'blur';
+        $masked = fn(string $from) => !$frameMask ? "[$from]null[fmo];\n" : ($frameBlur
+            ? "[$from]split[fga][fgb];\n[fgb]crop=1080:$fH:0:$fY0,scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,"
+                . "boxblur=25:3,eq=brightness=-0.08,format=rgba[fbg];\nmovie=$frameMask,format=rgba,alphaextract[fma];\n"
+                . "[fbg][fma]alphamerge[fbm];\n[fga][fbm]overlay=0:0:format=auto[fmo];\n"
+            : "movie=$frameMask,format=rgba[fmk];\n[$from][fmk]overlay=0:0:format=auto[fmo];\n");
         if (($layout === 'speaker' || $layout === 'split') && $segments) {
             $graph = ($layout === 'split'
-                ? split_graph($segments, (int) $video['width'], (int) $video['height'], $vi, $dur)
+                ? split_graph($segments, (int) $video['width'], (int) $video['height'], $vi, $dur, $edit ? split_top($edit) : 960)
                 : speaker_graph($segments, (int) $video['width'], (int) $video['height'], $vi, $dur, $fAspect, $fH, $edit ? edit_cut_times($edit) : null))
                 . ";\n[cv]unsharp=5:5:0.5[cv0]";
             $graph .= $overlay ? ";\n" . overlay_graph($edit, 'cv0', 'co', false) : '';
@@ -994,16 +1141,20 @@ function run_clip(string $id, array $job, string $cancelFlag): void
 
     // Musik latar dari editor dicampur ke audio clip (sebelum bagian terhapus dibuang, supaya ikut terpotong sinkron)
     $music = $edit && empty($job['no_music']) ? edit_music_relative($edit) : [];
+    // Musik yang menempel ke footage / intro dicampur di video akhir (setelah footage disambung)
+    $refMusic = !empty($refOut) && empty($job['no_music']) ? edit_music_relative($refOut) : [];
     // Render dengan & tanpa musik sekaligus: salinan video yang sama (tanpa encode ulang) diberi musik, jadi gambarnya identik
     $musicOut = null;
-    if ($music && !empty($job['both_music'])) {
+    if (($music || $refMusic) && !empty($job['both_music'])) {
         $musicOut = unique_path(DOWNLOAD_DIR, ($outName ?? pathinfo($output, PATHINFO_FILENAME)) . ' musik]', 'mp4');
         if (!copy($output, $musicOut)) {
             @unlink($musicOut);
             throw new RuntimeException('Gagal menyiapkan versi dengan musik.');
         }
         try {
-            mix_music($id, $musicOut, $music, $cancelFlag);
+            if ($music) {
+                mix_music($id, $musicOut, $music, $cancelFlag);
+            }
         } catch (Throwable $e) {
             @unlink($musicOut);
             throw $e;
@@ -1056,7 +1207,19 @@ function run_clip(string $id, array $job, string $cancelFlag): void
         $seq = $edit ? edit_footage_sequence($edit) : [];
         if ($seq) {
             footage_concat($id, $file, $seq, $encoders, $cancelFlag, (array) ($edit['transitions'] ?? []), (array) ($edit['tracks'] ?? []),
-                $openingAt === 'footage' ? $opening : null);
+                $openingAt === 'footage' ? $opening : null, hook_voice_dir((string) $job['project_id']));
+        }
+        // Media, grafik, teks & efek yang menempel ke footage / intro: dipasang di video akhir
+        if (!empty($refOut)) {
+            ref_layers_pass($id, $file, $refOut, $encoders, $cancelFlag, $ver);
+            // Musiknya hanya untuk file dengan musik (mode "keduanya": file tanpa musik dilewati)
+            if ($refMusic && (!$musicOut || $file === $musicOut)) {
+                mix_music($id, $file, $refMusic, $cancelFlag, 'Menambahkan musik…' . $ver);
+            }
+        }
+        // Sound effect (track SFX): dicampur paling akhir karena posisinya mengikuti video akhir (termasuk footage & intro)
+        if ($edit && ($sfx = edit_sfx_output($edit))) {
+            mix_music($id, $file, $sfx, $cancelFlag, 'Menambahkan sound effect…' . $ver);
         }
     }
 

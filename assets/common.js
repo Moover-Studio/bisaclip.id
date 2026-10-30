@@ -33,7 +33,7 @@ const store = {
 };
 
 // Ikon tombol dari sprite assets/icons.svg, mis. `${ic('download')} Simpan`
-const ICON_V = '2026-10-19a';  // naikkan saat assets/icons.svg berubah supaya cache browser diperbarui
+const ICON_V = '2026-10-28-lucide';  // naikkan saat assets/icons.svg berubah supaya cache browser diperbarui
 const ic = n => `<svg class="i" aria-hidden="true"><use href="assets/icons.svg?v=${ICON_V}#${n}"/></svg>`;
 // Avatar akun: foto profil kalau ada, selain itu inisial berwarna (class .av diatur tiap halaman)
 const accAvatar = (a, style = '') => a.avatar
@@ -60,7 +60,7 @@ const FORMATS = [
 const qName = h => ({ 4320: '8K', 2160: '4K', 1440: '2K' }[h] || h + 'p');
 
 // Batas waktu per aksi (detik), supaya tampilan tidak berputar tanpa akhir
-const API_TIMEOUT = { info: 90, preview: 150, captions_en: 180, room_cleanup: 120, room_slim: 300, storage_slim_all: 1800, storage_purge_renders: 300, storage_info: 60, campaign_plan: 300, campaign_get: 60 };
+const API_TIMEOUT = { info: 90, preview: 150, captions_en: 180, room_cleanup: 120, room_slim: 300, storage_slim_all: 1800, storage_purge_renders: 300, storage_info: 60, campaign_plan: 300, campaign_get: 60, brand_suggest: 130, hook_voice: 90, sfx_generate: 150, tts_script: 60 };
 
 async function api(action, body, query = '') {
   const ctrl = new AbortController();
@@ -207,12 +207,12 @@ async function checkUploadReminder() {
     try { remindData = await api('upload_today', null, '&date=' + date); remindAt = Date.now(); } catch { return; }
   }
   const D = remindData, info = dayInfo(date, D.holiday ? { [date]: D.holiday } : {}, D.override ? { [date]: D.override } : {});
-  const accs = D.accounts.length ? D.accounts : [null];
+  const accs = [null]; // fitur akun dihapus: satu jadwal umum
   const hits = [];
   for (const a of accs) {
     for (const s of uploadSlots(info, a)) {
       const key = `remind-${date}-${a?.id || 'all'}-${s.time}`;
-      if (mins >= s.min - REMIND_BEFORE && mins <= s.min + REMIND_AFTER && !store.get(key)) hits.push({ a, s, key, ready: D.ready[a?.id ?? ''] || 0 });
+      if (mins >= s.min - REMIND_BEFORE && mins <= s.min + REMIND_AFTER && !store.get(key)) hits.push({ a, s, key, ready: Object.values(D.ready || {}).reduce((n, v) => n + v, 0) });
     }
   }
   let box = document.querySelector('.reminder');
@@ -230,7 +230,7 @@ async function checkUploadReminder() {
         <span>${esc(h.s.label)} · ${esc(info.label)}${info.holiday ? ' (' + esc(info.holiday.name) + ')' : ''}</span></div>
       <button class="rm-x" data-rm-x title="Tutup pengingat ini">${ic('x')}</button></div>
     <div class="rm-list">${hits.filter((x, k) => hits.findIndex(y => (y.a?.id || '') === (x.a?.id || '')) === k).map(x => `<div class="rm-acc">${x.a ? accAvatar(x.a, 'width:20px;height:20px;font-size:10px') : ''}
-      <span>${x.a ? esc(x.a.name) : 'Semua akun'}</span><small>${x.ready ? `${x.ready} clip siap upload` : 'belum ada clip siap'}</small></div>`).join('')}</div>
+      <span>${x.a ? esc(x.a.name) : 'Waktunya upload'}</span><small>${x.ready ? `${x.ready} clip siap upload` : 'belum ada clip siap'}</small></div>`).join('')}</div>
     <a class="btn sm primary" href="calendar.php">${ic('calendar')} Lihat jadwal upload</a>`);
   // Notifikasi sistem (kalau diizinkan di halaman kalender), sekali per slot
   if ('Notification' in window && Notification.permission === 'granted') {

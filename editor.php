@@ -35,12 +35,13 @@ if (!valid_job_id($pid) || !preg_match('/^[a-f0-9]{8}$/', $iid)) {
   /* Editor memenuhi satu layar: bar, preview + properti, lalu daftar clip proyek selalu terlihat tanpa scroll halaman */
   html, body { height: 100%; }
   body { overflow: hidden; }
-  .wrap { max-width: 1680px; height: 100vh; display: flex; flex-direction: column; padding-bottom: 12px; }
+  /* Selebar layar di monitor sebesar apa pun (tanpa batas lebar) */
+  .wrap { max-width: none; height: 100vh; display: flex; flex-direction: column; padding: 0 16px 12px; }
   .bar { display: flex; align-items: center; gap: 12px; padding: 10px 0; flex: none; }
   /* Grid: panel clip kiri + editor (preview & properti) di atas, timeline selebar layar di bawah.
      #main memakai display: contents supaya isinya (pending, .ed, .tlbar, .prep) langsung jadi item grid. */
   #app { flex: 1; min-height: 0; display: grid; grid-template-columns: 300px minmax(0, 1fr);
-    grid-template-rows: auto minmax(0, 1fr) auto; grid-template-areas: "clips pend" "clips ed" "tl tl"; column-gap: 12px; }
+    grid-template-rows: auto minmax(0, 1fr) auto auto; grid-template-areas: "clips pend" "clips ed" "tl tl" "rv rv"; column-gap: 12px; }
   #main { display: contents; }
   #main > .pending { grid-area: pend; }
   #main > .ed, #main > .prep { grid-area: ed; }
@@ -54,7 +55,7 @@ if (!valid_job_id($pid) || !preg_match('/^[a-f0-9]{8}$/', $iid)) {
   .ed { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 12px; }
   .stage { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 12px; min-height: 0; }
   /* Tinggi preview mengikuti ruang yang tersedia; lebarnya dihitung dari rasio 9:16 */
-  .phone { position: relative; flex: 1 1 0; min-height: 280px; max-height: 760px; width: auto; max-width: 100%; aspect-ratio: 9/16; background: #000; border-radius: 14px; overflow: hidden;
+  .phone { position: relative; flex: 1 1 0; min-height: 280px; width: auto; max-width: 100%; aspect-ratio: 9/16; background: #000; border-radius: 14px; overflow: hidden;
     box-shadow: none; }
   .phone canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
   .kbox { position: absolute; z-index: 18; pointer-events: auto; cursor: move; border: 1.5px dashed transparent; border-radius: 6px; transition: border-color .12s; }
@@ -76,7 +77,7 @@ if (!valid_job_id($pid) || !preg_match('/^[a-f0-9]{8}$/', $iid)) {
   /* Kontrol putar di bawah preview: durasi di atas, tombol ke awal / putar / ke akhir di bawahnya */
   /* Area preview bisa di-zoom & di-scroll */
   .pv-view { flex: 1 1 0; min-height: 0; width: 100%; overflow: auto; display: flex; scrollbar-width: thin; }
-  .pv-view .phone { margin: auto; flex: none; height: min(100%, 760px); }
+  .pv-view .phone { margin: auto; flex: none; height: 100%; } /* preview mengikuti tinggi area yang tersedia */
   .pv-view .phone.zoomed { height: var(--ph); max-height: none; min-height: 0; }
   /* Baris kontrol di bawah preview: durasi (kiri) · putar (tengah) · zoom (kanan) */
   .pv-zoom { grid-column: 3; grid-row: 1; justify-self: end; display: flex; align-items: center; gap: 1px; padding: 2px;
@@ -142,28 +143,6 @@ if (!valid_job_id($pid) || !preg_match('/^[a-f0-9]{8}$/', $iid)) {
   input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border: 0; border-radius: 50%; background: #d9e1eb; box-shadow: none; }
   input[type=range]:disabled { opacity: .35; cursor: default; }
   .vol-row { display: flex; align-items: center; gap: 10px; }
-  /* Keyframe volume: daftar titik (waktu, volume, transisi) + diamond di timeline */
-  .kf-box { margin-top: 10px; padding: 10px; border-radius: 12px; background: rgba(255, 255, 255, .035); border: 1px solid var(--line); }
-  .kf-hd { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; font-size: 12px; font-weight: 700; }
-  .kf-hd .muted { font-weight: 500; }
-  .kf-row { display: grid; grid-template-columns: auto minmax(0, 64px) minmax(0, 1fr) auto; align-items: center; gap: 6px; padding: 6px; border-radius: 9px; margin-top: 4px; }
-  .kf-row.on { background: rgba(255, 196, 0, .1); box-shadow: inset 0 0 0 1px rgba(255, 196, 0, .35); }
-  .kf-row .kf-go, .kf-row .kf-del { background: none; border: 0; padding: 0; }
-  .kf-row .kf-go { width: 24px; height: 24px; display: grid; place-items: center; border-radius: 6px; color: #FFC400; font-size: 12px; cursor: pointer; }
-  .kf-row .kf-go:hover { background: rgba(255, 196, 0, .15); }
-  .kf-row .kf-tm { width: 100%; min-width: 0; padding: 4px 6px; font-size: 12px; font-variant-numeric: tabular-nums; }
-  .kf-row select { min-width: 0; width: 100%; padding: 4px 6px; font-size: 12px; }
-  .kf-row .kf-del { width: 24px; height: 24px; border-radius: 6px; color: var(--muted); font-size: 16px; line-height: 1; cursor: pointer; }
-  .kf-row .kf-del:hover { color: #ff6b6b; background: rgba(255, 107, 107, .12); }
-  .kf-row .kf-vol { grid-column: 2 / -1; display: flex; align-items: center; gap: 8px; }
-  .kf-row .kf-vol input { flex: 1; min-width: 0; }
-  .kf-row .kf-vol .val { width: 38px; text-align: right; font-size: 12px; font-variant-numeric: tabular-nums; }
-  .kf-empty { margin: 0; font-size: 12px; }
-  .kf-dot { position: absolute; width: 11px; height: 11px; margin-left: -6px; transform: rotate(45deg); background: #FFC400; border: 1.5px solid #1a1405;
-    border-radius: 2px; z-index: 7; cursor: ew-resize; box-shadow: 0 1px 3px rgba(0, 0, 0, .5); }
-  .kf-dot:hover, .kf-dot.on { background: #fff; }
-  .kf-curve { position: absolute; pointer-events: none; z-index: 6; overflow: visible; }
-  .sc-inner.l-music .kf-dot.mu { pointer-events: none; opacity: .5; }
   .vol-row > .i { width: 18px; height: 18px; flex: none; color: var(--muted); }
   .vol-row .p-range { flex: 1; }
   .vol-row .btn { flex: none; font-variant-numeric: tabular-nums; }
@@ -219,6 +198,34 @@ if (!valid_job_id($pid) || !preg_match('/^[a-f0-9]{8}$/', $iid)) {
   .switch input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .framings { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
   .framings.two { grid-template-columns: repeat(2, 1fr); }
+  /* Background bingkai: Solid / Blur dengan contoh kecil */
+  .ratios.six { grid-template-columns: repeat(6, 1fr); }
+  /* Bagian animasi di bawah setelan item terpilih */
+  .anim-head { display: flex; align-items: center; gap: 7px; padding: 14px 18px 0; font-size: 12px; font-weight: 700; letter-spacing: .04em;
+    text-transform: uppercase; color: var(--accent-fg); }
+  .anim-head .i { width: 14px; height: 14px; }
+  .ratio .shape.split { display: flex; flex-direction: column; justify-content: center; gap: 2px; background: none; }
+  .ratio .shape.split i { width: 18px; height: 15px; }
+  .split-opts { margin-top: 10px; padding: 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); }
+  .split-lbl { margin-bottom: 8px; font-size: 11.5px; font-weight: 600; color: var(--muted); }
+  .splits { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+  .spl { display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 7px 2px 6px; border: 1px solid var(--border-strong); border-radius: 8px;
+    background: var(--surface); color: var(--text-2); font: inherit; font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums; cursor: pointer; }
+  .spl .shape { display: flex; flex-direction: column; gap: 2px; width: 16px; height: 28px; }
+  .spl .shape i { display: block; min-height: 3px; border-radius: 2px; background: var(--muted); }
+  .spl:hover { border-color: var(--muted); }
+  .spl.on { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-fg); }
+  .spl.on .shape i { background: var(--accent-fg); }
+  .split-opts .p-row { margin-top: 8px; }
+  .bgs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .bgopt { display: flex; align-items: center; gap: 9px; height: 40px; padding: 0 10px; border: 1px solid var(--border-strong); border-radius: 10px;
+    background: var(--surface); color: var(--text); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; transition: border-color .15s, background .15s; }
+  .bgopt:hover:not(:disabled) { border-color: var(--muted); }
+  .bgopt.on { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-fg); }
+  .bgopt:disabled { opacity: .45; cursor: default; }
+  .bgopt span { width: 16px; height: 24px; border-radius: 4px; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .18); }
+  .bgopt .sw-solid { background: #000; }
+  .bgopt .sw-blur { background: linear-gradient(160deg, #5b8fd8, #2a3d63 55%, #c48a5a); filter: blur(1.5px); }
   .ratios { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
   .ratio { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 9px 4px 7px; border: 1px solid var(--border); border-radius: 9px;
     background: none; color: var(--text-2); font: inherit; font-size: 11.5px; font-weight: 600; cursor: pointer; transition: border-color .15s, background .15s, color .15s; }
@@ -248,11 +255,26 @@ if (!valid_job_id($pid) || !preg_match('/^[a-f0-9]{8}$/', $iid)) {
   .ts-f:focus-within { border-color: var(--accent); box-shadow: var(--ring); }
   .ts-f.grow { flex: 1; }
   .ts-f.w-size { flex: 0 0 76px; }
-  .ts-f.w-wt { flex: 0 0 104px; }
+  .ts-f.w-wt { flex: 0 0 116px; }
   button.ts-f { justify-content: center; color: var(--text-2); cursor: pointer; font: inherit; font-size: 12.5px; white-space: nowrap; flex: 0 0 auto; }
   button.ts-f:hover { color: var(--text); border-color: var(--border-strong); }
   .ts-f select, .ts-f input { min-width: 0; width: 100%; border: 0; outline: 0; background: none; color: var(--text); font: inherit; padding: 0; }
   .ts-f select { appearance: none; -webkit-appearance: none; cursor: pointer; padding-right: 16px; }
+  /* Pemilih font: tombol bertuliskan nama font dalam font itu; daftar pilihan dengan contoh teks */
+  button.ts-f.fpk-btn { justify-content: space-between; flex: 1; padding-right: 28px; font-size: 14px; font-weight: 400; color: var(--text); text-align: left; }
+  .fpk-btn span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .fpk-btn .chev { transition: transform .15s; }
+  .fpk-btn.on { border-color: var(--accent); }
+  .fpk-btn.on .chev { transform: rotate(180deg); }
+  .fpk-list { max-height: 300px; overflow-y: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 8px; margin-top: 2px;
+    border: 1px solid var(--border-strong); border-radius: 10px; background: var(--surface-2); scrollbar-width: thin; }
+  .fpk-cat { grid-column: 1 / -1; padding: 6px 2px 0; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+  .fpk-cat:first-child { padding-top: 0; }
+  .fpk-opt { display: flex; align-items: center; min-width: 0; min-height: 44px; padding: 8px 10px; border: 1px solid var(--border);
+    border-radius: 8px; background: var(--surface); color: var(--text); font: inherit; cursor: pointer; text-align: left; transition: border-color .15s, background .15s; }
+  .fpk-opt:hover { border-color: var(--border-strong); background: var(--surface-3); }
+  .fpk-opt.on { border-color: var(--accent); background: var(--accent-soft); }
+  .fpk-s { width: 100%; font-size: 17px; font-weight: 400; line-height: 1.25; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .ts-f select option, .ts-f select optgroup { background: var(--surface-2); color: var(--text); }
   .ts-f input { font-variant-numeric: tabular-nums; -moz-appearance: textfield; }
   .ts-f input::-webkit-inner-spin-button, .ts-f input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
@@ -296,7 +318,7 @@ if (!valid_job_id($pid) || !preg_match('/^[a-f0-9]{8}$/', $iid)) {
   .back-link:hover { color: var(--text); }
 
   /* Bar seek & trim di bawah preview: seluruh rentang rekomendasi AI, bagian berwarna = clip */
-  .phone, .scrub, .transport, .clips { -webkit-user-select: none; user-select: none; }
+  .phone, .scrub, .transport, .clips, .reels { -webkit-user-select: none; user-select: none; }
   body.dragging, body.dragging * { cursor: ew-resize !important; -webkit-user-select: none; user-select: none; }
   .scrub { width: 100%; flex: none; display: flex; gap: 10px; padding: 0 6px 0 0; }
   /* Area timeline bisa di-scroll horizontal saat diperbesar (zoom > 100%) */
@@ -329,6 +351,7 @@ if (!valid_job_id($pid) || !preg_match('/^[a-f0-9]{8}$/', $iid)) {
   .tl-gut .t-video { top: 106px; height: 36px; }
   .tl-gut .t-sub { top: 148px; height: 22px; }
   .tl-gut .t-music { top: 176px; height: 24px; }
+  .tl-gut .t-sfx { top: 206px; height: 22px; }
   /* Track disembunyikan: item pudar; dikunci: item tidak bisa dipilih / digeser (klik = pindah playhead) */
   .sc-inner.h-media .sc-media, .sc-inner.h-text .sc-text, .sc-inner.h-fx .sc-fx, .sc-inner.h-sub .sc-lbl,
   .sc-inner.h-video .film, .sc-inner.h-video .sc-foot { opacity: .3; }
@@ -337,7 +360,7 @@ if (!valid_job_id($pid) || !preg_match('/^[a-f0-9]{8}$/', $iid)) {
   .sc-inner.l-media .sc-media, .sc-inner.l-text .sc-text, .sc-inner.l-fx .sc-fx, .sc-inner.l-sub .sc-lbl, .sc-inner.l-video .sc-foot {
     background-image: repeating-linear-gradient(135deg, rgba(0, 0, 0, .28) 0 4px, transparent 4px 8px); }
   .phone.l-media .mimg, .phone.l-text .tbox, .phone.l-sub .sub { pointer-events: none; }
-  .sc-inner { position: relative; height: 202px; cursor: pointer; touch-action: none; overflow: visible; }
+  .sc-inner { position: relative; height: 232px; cursor: pointer; touch-action: none; overflow: visible; }
   /* Penggaris waktu di atas track */
   .ruler { position: absolute; left: 0; right: 0; top: 0; height: 20px; pointer-events: none; }
   .ruler i { position: absolute; bottom: 2px; width: 1px; height: 4px; background: var(--border-strong); }
@@ -399,6 +422,41 @@ if (!valid_job_id($pid) || !preg_match('/^[a-f0-9]{8}$/', $iid)) {
   .sc-tr.on { box-shadow: 0 0 0 2px #fff; }
   /* Panel Animasi: pilihan animasi masuk / keluar dengan contoh gerak kecil */
   .anims { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  /* Contoh kecil efek teks: ketik, kata per kata, sorot per kata */
+  .tfxv { display: grid; place-items: center; width: 44px; height: 22px; border-radius: 5px; background: rgba(255, 255, 255, .05);
+    font-size: 11px; font-weight: 800; color: var(--text); white-space: nowrap; }
+  .tfxv i { font-style: normal; }
+  .tfxv.tfx-type, .tfxv.tfx-word, .tfxv.tfx-karaoke { display: flex; justify-content: center; align-items: center; gap: 0; }
+  .tfxv.tfx-word, .tfxv.tfx-karaoke { gap: 3px; }
+  .tfx-type i { animation: tfxType 1.6s steps(1) infinite; }
+  .tfx-type i:nth-child(2) { animation-name: tfxType2; } .tfx-type i:nth-child(3) { animation-name: tfxType3; }
+  .tfx-word i { animation: tfxWord 1.6s ease infinite; } .tfx-word i:nth-child(2) { animation-name: tfxWord2; }
+  .tfx-karaoke i { animation: tfxKar 1.6s steps(1) infinite; } .tfx-karaoke i:nth-child(2) { animation-name: tfxKar2; }
+  @keyframes tfxType { 0% { opacity: 0; } 10%, 100% { opacity: 1; } }
+  @keyframes tfxType2 { 0% { opacity: 0; } 30%, 100% { opacity: 1; } }
+  @keyframes tfxType3 { 0% { opacity: 0; } 50%, 100% { opacity: 1; } }
+  @keyframes tfxWord { 0% { opacity: 0; } 15%, 100% { opacity: 1; } }
+  @keyframes tfxWord2 { 0%, 40% { opacity: 0; } 55%, 100% { opacity: 1; } }
+  @keyframes tfxKar { 0% { color: #FFD400; } 50%, 100% { color: inherit; } }
+  @keyframes tfxKar2 { 0% { color: inherit; } 50% { color: #FFD400; } 100% { color: inherit; } }
+  .anims.three { grid-template-columns: repeat(3, 1fr); }
+  /* Kartu template subtitle: contoh mini di atas latar gelap + nama */
+  .tpls { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .tpl { display: flex; flex-direction: column; gap: 6px; padding: 6px 6px 8px; border: 1px solid var(--border); border-radius: 11px; background: var(--surface-2);
+    color: var(--text-2); font: inherit; cursor: pointer; text-align: left; transition: border-color .15s, background .15s; }
+  .tpl:hover { border-color: var(--border-strong); color: var(--text); }
+  .tpl.on { border-color: var(--accent); background: var(--accent-soft); color: #fff; }
+  .tpl-pv { height: 54px; display: grid; place-items: center; overflow: hidden; border-radius: 7px;
+    background: radial-gradient(120% 90% at 30% 20%, #3a4252, #14171c 70%); }
+  .tpd { white-space: nowrap; line-height: 1.1; }
+  .tpd i { font-style: inherit; }
+  .tpl b { padding: 0 2px; font-size: 12px; font-weight: 600; }
+  .sw-row { display: flex; align-items: center; justify-content: space-between; }
+  .sw-row > label:first-child { width: auto; flex: 1; white-space: nowrap; }
+  .p-field > .fpk-btn { width: 100%; height: 38px; }
+  .p-field > .fpk-list { margin-top: 6px; }
+  .fpk-same { grid-column: 1 / -1; } .fpk-same .fpk-s { font-size: 13px; font-weight: 600; }
+  .tfx-hl { width: 34px; height: 24px; padding: 0; border: 1px solid var(--border-strong); border-radius: 6px; background: none; cursor: pointer; }
   .anim { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 8px 4px 7px; border: 1px solid var(--border); border-radius: 9px;
     background: var(--surface-2); color: var(--text-2); font: inherit; font-size: 11px; cursor: pointer; transition: border-color .15s, background .15s; }
   .anim:hover { border-color: var(--border-strong); background: var(--surface-3); }
@@ -432,6 +490,30 @@ if (!valid_job_id($pid) || !preg_match('/^[a-f0-9]{8}$/', $iid)) {
   .tr-wipeleft .b { animation-name: trWipe; }
   .tr-circleopen .b { animation-name: trCircle; }
   .tr-zoomin .a { z-index: 1; animation-name: trZoom; }
+  .tr-paper .b { animation-name: trCircle; }
+  .tr-paper::after { animation-name: trPaper; background: radial-gradient(circle, transparent 30%, #f4f3ef 32%, #d9d8d2 46%, transparent 49%); }
+  @keyframes trPaper { 0%, 25% { opacity: 0; transform: scale(.2); } 45% { opacity: 1; transform: scale(.6); } 85% { opacity: 1; transform: scale(2.4); } 100% { opacity: 0; transform: scale(2.6); } }
+  /* Menu Intro video: screenshot clip + grafik hook + suara AI → footage awal */
+  .it-body { flex: 1; min-height: 0; overflow-y: auto; padding: 4px 12px 14px; display: grid; gap: 12px; align-content: start; }
+  .it-acts { display: grid; grid-template-columns: 1fr auto; gap: 6px; }
+  .it-acts .btn { justify-content: center; }
+  /* Ukuran tetap (bukan aspect-ratio) supaya tinggi baris grid tepat & tidak menumpuk pilihan di bawahnya */
+  .it-prev { width: 153px; height: 272px; justify-self: center; border-radius: 10px; overflow: hidden; background: #000; position: relative; }
+  .it-prev canvas { width: 100%; height: 100%; display: block; }
+  .it-prev .ld { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-size: 11.5px; }
+  .it-lbl { font-size: 11.5px; font-weight: 600; color: var(--muted); display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
+  .it-row { display: flex; gap: 6px; align-items: center; }
+  .it-row .input { flex: 1; min-width: 0; padding: 7px 10px; font-size: 12.5px; }
+  .it-text { width: 100%; min-height: 64px; resize: vertical; padding: 8px 10px; font: inherit; font-size: 12.5px; line-height: 1.4; }
+  .it-seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+  .it-seg button { font: inherit; font-size: 12px; padding: 6px 0; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text-2); cursor: pointer; }
+  .it-seg button.on { border-color: rgba(30, 112, 240, .75); background: rgba(30, 112, 240, .15); color: var(--text); }
+  .it-note { margin: 0; font-size: 11.5px; color: var(--muted); line-height: 1.5; }
+  .it-script { display: flex; gap: 8px; align-items: flex-start; justify-content: space-between; padding: 8px 10px; border-radius: 8px; border: 1px dashed var(--border-strong);
+    font-size: 12.5px; line-height: 1.45; color: var(--text); }
+  .it-gfx-link { justify-self: center; display: inline-flex; align-items: center; gap: 5px; margin-top: -4px; }
+  .it-gfx-link .i { width: 14px; height: 14px; }
+  .it-script .lnk-btn, .it-lbl .lnk-btn, .it-gfx-link { flex: none; font: inherit; font-size: 11.5px; font-weight: 600; border: 0; background: none; color: var(--accent-fg); cursor: pointer; padding: 0; }
   @keyframes trFade { 0%, 15% { opacity: 0; } 85%, 100% { opacity: 1; } }
   /* Template opening: video (biru) muncul dengan bar hitam / zoom out / fade, berjalan saat hover / dipilih */
   .ops { position: relative; display: block; height: 54px; border-radius: 7px; overflow: hidden; background: #000; }
@@ -504,21 +586,6 @@ if (!valid_job_id($pid) || !preg_match('/^[a-f0-9]{8}$/', $iid)) {
   .pr-line.full { display: none; }
   /* Panel Layer: grup & item bisa diseret untuk mengubah urutan tumpuk */
   .layers { display: flex; flex-direction: column; gap: 8px; }
-  .ly-group { border: 1px solid var(--border); border-radius: 12px; background: var(--surface-2); overflow: hidden; }
-  .ly-head, .ly-item, .ly-fixed { display: flex; align-items: center; gap: 8px; padding: 9px 10px; font-size: 13px; }
-  .ly-head { font-weight: 600; cursor: grab; }
-  .ly-head .i, .ly-fixed .i { width: 15px; height: 15px; color: var(--text-2); }
-  .ly-head .cnt { margin-left: auto; font-size: 11.5px; font-weight: 600; color: var(--muted); }
-  .ly-item { padding: 7px 10px 7px 30px; border-top: 1px solid var(--border); color: var(--text-2); cursor: grab; }
-  .ly-item .nm { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .ly-item:hover { background: var(--surface-3); }
-  .ly-item.on { background: var(--accent-soft); color: var(--text); }
-  .ly-item .th { flex: none; width: 22px; height: 16px; border-radius: 3px; background: transparent center / contain no-repeat; }
-  .grip { flex: none; display: grid; place-items: center; color: var(--muted); }
-  .grip .i { width: 14px; height: 14px; }
-  .ly-fixed { border: 1px dashed var(--border-strong); border-radius: 12px; color: var(--muted); }
-  .ly-fixed small { margin-left: auto; font-size: 11px; }
-  .ly-drag { opacity: .45; }
   .drop-before { box-shadow: inset 0 2px 0 var(--accent); }
   .drop-after { box-shadow: inset 0 -2px 0 var(--accent); }
   /* Skala timeline: 100% = pas selebar timeline, 50% = rentang 2x durasi total */
@@ -585,6 +652,53 @@ if (!valid_job_id($pid) || !preg_match('/^[a-f0-9]{8}$/', $iid)) {
     color: #fff; font-size: 10.5px; font-weight: 700; cursor: grab; z-index: 3; overflow: hidden;
     box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .16); transition: filter .12s; }
   .sc-music:hover { filter: brightness(1.1); }
+  /* Track SFX: blok pendek selebar durasi suaranya, bisa digeser (juga ke bagian footage / intro) */
+  .sc-sfx { position: absolute; top: 206px; height: 22px; min-width: 14px; z-index: 3; display: flex; align-items: center; gap: 4px; padding: 0 5px; border-radius: 6px;
+    background: #C2410C; color: #fff; font-size: 11px; font-weight: 600; overflow: hidden; cursor: grab; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .18); }
+  .sc-sfx .i { flex: none; width: 11px; height: 11px; pointer-events: none; }
+  .sc-sfx span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
+  .sc-sfx.on { box-shadow: 0 0 0 2px #fff; z-index: 4; }
+  .sc-inner.l-sfx .sc-sfx { pointer-events: none; opacity: .6; }
+  .sc-inner.m-sfx .sc-sfx { opacity: .35; }
+  .sfx-list { flex: 1; min-height: 0; overflow-y: auto; padding: 2px 12px 12px; display: grid; gap: 4px; align-content: start; }
+  .sfx-row { display: grid; grid-template-columns: 26px 1fr auto; gap: 6px; align-items: center; padding: 3px 6px; border-radius: 9px; border: 1px solid var(--border); background: var(--surface-2); }
+  .sfx-row.play { border-color: rgba(194, 65, 12, .7); }
+  .sfx-row b { display: block; font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sfx-row small { display: block; font-size: 10.5px; line-height: 1.3; color: var(--muted); }
+  .sfx-row button { width: 26px; height: 26px; padding: 0; border-radius: 8px; border: 0; background: none; color: var(--text-2); cursor: pointer; display: grid; place-items: center; }
+  .sfx-row button:hover { background: var(--surface-3); color: var(--text); }
+  .sfx-row .sfx-act { display: flex; gap: 0; }
+  .sfx-row .sfx-act button { width: 24px; }
+  .sfx-row .i { width: 15px; height: 15px; pointer-events: none; }
+  /* Buat SFX dengan AI (ElevenLabs): prompt + pilihan cepat + durasi */
+  /* Panel AI ringkas (buka/tutup lewat tombol ✨ di judul) supaya library tetap lega: 1 baris pilihan cepat + prompt + durasi */
+  .sfx-head-btns { display: flex; gap: 6px; }
+  .media-plus.on { border-color: rgba(194, 65, 12, .8); background: rgba(194, 65, 12, .18); color: #fdba74; }
+  .sfx-ai { flex: none; margin: 0 12px 8px; padding: 8px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface-2); display: grid; gap: 6px; }
+  .sfx-ai[hidden] { display: none; }
+  .sfx-ai .input { min-width: 0; padding: 6px 9px; font-size: 12px; }
+  .sfx-ai-row { display: flex; gap: 6px; align-items: center; }
+  .sfx-ai { min-width: 0; overflow: hidden; }
+  .sfx-ai-row { min-width: 0; }
+  .sfx-ai-row .input { flex: 1 1 0; width: auto; min-width: 0; }
+  .sfx-ai-row select.input { flex: 0 0 auto; width: auto; padding-right: 22px; }
+  .sfx-ai-row .sfx-chips { flex: 1 1 0; min-width: 0; }
+  #lp-sfx { overflow-x: hidden; }
+  .sfx-ai-st { font-size: 10.5px; color: #fdba74; line-height: 1.35; }
+  .sfx-ai-st[hidden] { display: none; }
+  .sfx-ai-go { flex: none; width: 32px; height: 30px; padding: 0; justify-content: center; }
+  .sfx-ai-go .i { width: 15px; height: 15px; }
+  .sfx-ai-go .spin { width: 12px; height: 12px; }
+  .sfx-chips { display: flex; flex-wrap: nowrap; gap: 4px; overflow-x: auto; scrollbar-width: none; }
+  .sfx-chips::-webkit-scrollbar { display: none; }
+  .sfx-chips button { flex: none; }
+  .sfx-row.new { animation: sfxNew 2.4s ease-out; }
+  @keyframes sfxNew { 0%, 40% { border-color: rgba(194, 65, 12, .9); background: rgba(194, 65, 12, .18); } }
+  .sfx-list .fx-sec { margin: 6px 2px 0; }
+  .sfx-chips button { font: inherit; font-size: 11px; padding: 3px 8px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--text-2); cursor: pointer; }
+  .sfx-chips button:hover, .sfx-chips button.on { border-color: rgba(194, 65, 12, .8); color: var(--text); }
+  .sfx-ai .it-row .btn { flex: none; }
+  .sfx-row .ai { display: inline-block; margin-left: 4px; padding: 0 5px; border-radius: 4px; background: rgba(194, 65, 12, .25); color: #fdba74; font-size: 9.5px; font-weight: 800; vertical-align: 1px; }
   .sc-music .i { flex: none; width: 13px; height: 13px; pointer-events: none; }
   .sc-music .nm { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; text-shadow: 0 1px 2px rgba(0, 0, 0, .5); }
   .sc-music .mh { display: none; position: absolute; top: 0; bottom: 0; width: 10px; cursor: ew-resize; background: rgba(255, 255, 255, .22); }
@@ -764,10 +878,6 @@ if (!valid_job_id($pid) || !preg_match('/^[a-f0-9]{8}$/', $iid)) {
 
   /* Panel kiri: daftar clip proyek, pindah clip tanpa keluar editor */
   .clips { min-height: 0; display: flex; flex-direction: column; padding: 0; overflow: hidden; }
-  .clips-head { display: flex; align-items: baseline; gap: 8px; padding: 16px 18px 12px; border-bottom: 1px solid var(--border); }
-  .clips-head b { font-size: 15px; font-weight: 700; }
-  .clips-head .cnt { margin-left: auto; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
-  .clips-row { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; padding: 8px; }
   /* Tab panel kiri: Clip | Media */
   /* Sidebar ikon vertikal di kiri panel: Clip | Media | Teks (menu baru tinggal ditambah ke bawah) */
   .clips { flex-direction: row !important; }
@@ -816,35 +926,58 @@ if (!valid_job_id($pid) || !preg_match('/^[a-f0-9]{8}$/', $iid)) {
     border: 1.5px dashed var(--border-strong); border-radius: 12px; color: var(--muted); font-size: 12.5px; line-height: 1.5; cursor: pointer; }
   .media-empty .i { width: 26px; height: 26px; }
   .media-empty:hover { border-color: var(--accent); color: var(--text-2); }
-  /* Satu baris clip: thumbnail 9:16 di kiri, judul + durasi + status di kanan */
-  .cl { position: relative; display: flex; align-items: center; gap: 12px; width: 100%; padding: 8px; border: 1px solid transparent;
-    border-radius: 12px; background: none; cursor: pointer; font: inherit; color: var(--text); text-align: left; transition: background .15s, border-color .15s; }
-  .cl:hover { background: var(--surface-2); }
-  .cl .th { position: relative; flex: none; width: 46px; aspect-ratio: 9 / 16; border-radius: 8px; overflow: hidden; background: #000;
-    outline: 1px solid var(--border); }
-  .cl .th img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-  .cl .th .no { position: absolute; left: 3px; top: 3px; font-size: 9px; font-weight: 800; padding: 0 4px; border-radius: 4px;
-    background: rgba(0, 0, 0, .65); color: #fff; }
-  .cl .info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
-  .cl .info b { font-size: 13px; font-weight: 600; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-  .cl .info small { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
-  .cl .st { font-size: 10.5px; font-weight: 700; padding: 1px 6px; border-radius: 999px; background: var(--surface-3); }
-  .cl .st.ok { color: #7ee2a0; background: rgba(126, 226, 160, .1); }
-  .cl .st.run { color: #ffd166; background: rgba(255, 209, 102, .1); }
-  .cl .st.err { color: #ff8a80; background: rgba(255, 138, 128, .1); }
-  .cl .st.up { display: inline-flex; align-items: center; gap: 2px; margin-left: 4px; color: #8fb8ff; background: rgba(91, 155, 255, .12); }
-  .cl .st.up .i { width: 10px; height: 10px; }
-  /* Pemisah: clip yang sudah diupload ada di bawah, sedikit diredupkan */
-  .cl-sep { display: flex; align-items: center; gap: 6px; margin: 10px 4px 4px; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
-  .cl-sep::after { content: ""; flex: 1; height: 1px; background: var(--border); }
-  .cl-sep span { color: var(--text-2); }
-  .cl-sep ~ .cl:not(.on) { opacity: .62; }
-  .cl-sep ~ .cl:hover { opacity: 1; }
-  /* Clip aktif: latar monokrom, tanpa border */
-  .cl.on, .cl.on:hover { background: var(--surface-3); border-color: transparent; cursor: default; }
-  .cl.on .th { outline-color: rgba(255, 255, 255, .28); }
-  .cl.loading { border-color: transparent; background: var(--surface-2); }
-  .cl.loading .th img { opacity: .5; }
+  /* Daftar clip di bawah: kartu preview vertikal 9:16 (gaya reels), judul & durasi melayang di atas preview */
+  .reels { grid-area: rv; margin-top: -1px; padding: 0; display: flex; flex-direction: column; min-width: 0; }
+  .reels-head { display: flex; align-items: center; gap: 8px; padding: 10px 16px 0; font-size: 13px; }
+  .reels-head b { font-size: 14px; font-weight: 700; }
+  .reels-head .cnt { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .reels-legend { display: inline-flex; align-items: center; gap: 5px; margin-left: 10px; font-size: 11.5px; color: var(--muted); }
+  .reels-legend .rl-chk + .rl-chk, .reels-legend .rl-chk ~ .rl-chk { margin-left: 8px; }
+  .rl-chk { display: inline-grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; border: 1.5px solid rgba(255, 255, 255, .45); color: transparent; }
+  .rl-chk .i { width: 10px; height: 10px; }
+  .rl-chk.on { background: var(--grad); border-color: transparent; color: #fff; }
+  .reels-row { display: flex; gap: 10px; overflow-x: auto; padding: 10px 16px 14px; scrollbar-width: thin; scroll-snap-type: x proximity; }
+  .rc { position: relative; flex: none; width: 116px; aspect-ratio: 9 / 16; padding: 0; border: 0; border-radius: 12px; overflow: hidden; background: #000;
+    cursor: pointer; font: inherit; color: #fff; text-align: left; scroll-snap-align: start; outline: 2px solid transparent; outline-offset: 2px;
+    transition: outline-color .15s, transform .15s, opacity .15s; }
+  .rc:hover { transform: translateY(-2px); }
+  .rc:focus-visible { outline-color: var(--accent-fg); }
+  .rc img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  /* Lapisan gelap atas & bawah supaya label tetap terbaca di atas gambar apa pun */
+  .rc::before { content: ""; position: absolute; inset: 0; z-index: 1;
+    background: linear-gradient(rgba(0, 0, 0, .55), transparent 28%, transparent 45%, rgba(0, 0, 0, .88)); }
+  .rc > span { position: absolute; z-index: 2; }
+  /* Skor viral: makin tinggi makin pekat biru brand (gradasi penuh untuk skor ≥ 80) */
+  .rc .vs { top: 7px; left: 7px; display: inline-flex; align-items: center; gap: 3px; padding: 2px 7px 2px 5px; border-radius: 999px;
+    font-size: 10.5px; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--text-2); background: rgba(11, 14, 20, .72);
+    box-shadow: inset 0 0 0 1px rgba(160, 178, 210, .18); backdrop-filter: blur(4px); }
+  .rc .vs .i { width: 10px; height: 10px; }
+  .rc .vs.mid { color: #fff; background: rgba(0, 88, 211, .72); box-shadow: none; }
+  .rc .vs.hi { color: #fff; background: var(--grad); box-shadow: none; }
+  .rc .ck { top: 7px; right: 7px; width: 20px; height: 20px; display: grid; place-items: center; border-radius: 50%;
+    border: 1.5px solid rgba(255, 255, 255, .7); background: rgba(0, 0, 0, .35); color: transparent; }
+  .rc .ck .i { width: 12px; height: 12px; }
+  .rc .ck.on { border-color: transparent; background: var(--grad); color: #fff; }
+  .rc .cap { left: 8px; right: 8px; bottom: 8px; display: flex; flex-direction: column; gap: 4px; }
+  .rc .cap b { font-size: 11.5px; font-weight: 700; line-height: 1.25; text-shadow: 0 1px 3px rgba(0, 0, 0, .6);
+    display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .rc .cap small { display: flex; align-items: center; gap: 5px; font-size: 10.5px; font-weight: 600; color: rgba(255, 255, 255, .85); font-variant-numeric: tabular-nums; }
+  .rc .cap .du { padding: 1px 5px; border-radius: 4px; background: rgba(0, 0, 0, .55); }
+  .rc .st { padding: 1px 5px; border-radius: 4px; font-size: 10px; font-weight: 700; background: rgba(0, 0, 0, .55); }
+  .rc .st.run { color: var(--warn); }
+  .rc .st.err { color: #ff8a80; }
+  .rc .st.up { display: inline-flex; align-items: center; gap: 2px; color: var(--accent-fg); }
+  .rc .st.up .i { width: 9px; height: 9px; }
+  /* Clip yang sedang diedit: bingkai biru */
+  .rc.on { outline-color: var(--accent-fg); cursor: default; }
+  .rc.on:hover { transform: none; }
+  .rc.loading img { opacity: .45; }
+  .rc.loading::after { content: ""; position: absolute; z-index: 3; left: 50%; top: 50%; width: 24px; height: 24px; margin: -12px; border-radius: 50%;
+    border: 2.5px solid rgba(255, 255, 255, .25); border-top-color: #fff; animation: spin .8s linear infinite; }
+  /* Pemisah vertikal: clip yang sudah diupload di kanan, sedikit diredupkan */
+  .rc-sep { flex: none; align-self: stretch; width: 1px; margin: 0 4px; background: var(--border-strong); }
+  .rc-sep ~ .rc:not(.on) { opacity: .6; }
+  .rc-sep ~ .rc:hover { opacity: 1; }
   .prep { max-width: 460px; width: 100%; margin: auto; padding: 28px 28px 24px; }
   .prep h2 { font-size: 18px; margin: 0 0 4px; }
   .prep .prep-sub { color: var(--muted); font-size: 13.5px; margin: 0 0 20px; }
@@ -1002,7 +1135,8 @@ if (!valid_job_id($pid) || !preg_match('/^[a-f0-9]{8}$/', $iid)) {
     #app { display: flex; flex-direction: column; }
     #main { display: contents; }
     .clips { order: 2; margin-top: 12px; }
-    .clips-row { max-height: 320px; }
+    .reels { order: 3; }
+    .reels-legend { display: none; }
     .ed { grid-template-columns: minmax(0, 1fr); }
     .phone { flex: none; width: min(340px, 100%); min-height: 0; }
     .props { overflow: visible; }
@@ -1041,7 +1175,7 @@ if (!valid_job_id($pid) || !preg_match('/^[a-f0-9]{8}$/', $iid)) {
   #app .clips { border-top-left-radius: var(--radius); }
   #app .props, #main > .prep, #main > .pending { border-top-right-radius: var(--radius); }
   #main:has(> .pending:not([hidden])) .props { border-top-right-radius: 0; }
-  #app .tlbar { border-radius: 0 0 var(--radius) var(--radius); }
+  #app .reels { border-radius: 0 0 var(--radius) var(--radius); }
   @media (max-width: 900px) {
     #main > .ed, #main > .prep, .props { margin-left: 0; }
     .props { margin-top: -1px; }
@@ -1057,35 +1191,186 @@ if (!valid_job_id($pid) || !preg_match('/^[a-f0-9]{8}$/', $iid)) {
     --c-foot: #2B86CC; --c-foot-rgb: 43, 134, 204;
     --c-split: #7C8CFF; --c-split-rgb: 124, 140, 255;
   }
-  :root {
-    --bg: #0b0e14; --surface: #10141c; --surface-2: #161b25; --surface-3: #1d2330;
-    --border: rgba(160, 178, 210, .08); --border-strong: rgba(160, 178, 210, .14);
-    --text: #e4e9f1; --text-2: #a3adbd; --muted: #6f7a8c;
-    --accent-soft: rgba(47, 123, 240, .2); --accent-fg: #6EA8FF;
-    --btn-bg: rgba(47, 123, 240, .16); --btn-fg: #8DBBFF;
-    --shadow: inset 0 1px 0 rgba(148, 172, 214, .04), 0 12px 30px -16px rgba(0, 6, 20, .7);
-  }
+  /* Warna dasar mengikuti token netral app.css, sama dengan editor manual (project.php) */
+  :root { --accent-fg: #8fb8ff; }
   #app .card { background-image: none; }
   .pt-tab.on, .pt-tab.on:hover, .lp-tab.on, .lp-tab.on:hover { background: var(--accent-soft) !important; color: var(--accent-fg) !important; }
   .framing.on, .fontopt.on, .ln.on { background: var(--accent-soft); }
   .tooltip, .tipbox { box-shadow: none; }
-  /* Gelap: label subtitle, area di luar trim, kotak media bernuansa navy */
-  :root .sc-lbl { background: #161b25; color: #c3ccdb; box-shadow: inset 0 0 0 1px rgba(148, 172, 214, .14); }
-  :root .sc-lbl.on { background: #1f2a3e; color: #fff; box-shadow: inset 0 0 0 1px rgba(110, 168, 255, .55); }
+  /* Gelap netral: label subtitle, area di luar trim, kotak media */
+  :root .sc-lbl { background: #1a1d21; color: #c9ced6; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .1); }
+  :root .sc-lbl.on { background: #24282d; color: #fff; box-shadow: inset 0 0 0 1px rgba(143, 184, 255, .55); }
   :root .fxt .sw3 { background-color: var(--surface-2); }
-  :root .sc-dim { background: rgba(11, 14, 20, .74); }
-  :root .sc-gap { background: repeating-linear-gradient(135deg, rgba(11, 14, 20, .85) 0 6px, rgba(11, 14, 20, .62) 6px 12px); }
-  :root .tl-gut .ti { color: #c9d6ec; background: rgba(148, 172, 214, .07); box-shadow: inset 0 0 0 1px rgba(148, 172, 214, .1); }
-  :root .tl-gut .tc { color: rgba(168, 182, 205, .6); }
+  :root .sc-dim { background: rgba(10, 11, 13, .74); }
+  :root .sc-gap { background: repeating-linear-gradient(135deg, rgba(10, 11, 13, .85) 0 6px, rgba(10, 11, 13, .62) 6px 12px); }
+  :root .tl-gut .ti { color: var(--text-2); background: none; box-shadow: none; }
+  :root .tl-gut .tc { color: var(--muted); }
   :root .tl-gut .tc.on { color: var(--accent-fg); background: var(--accent-soft); }
   :root .sc-tr { background: var(--surface-2); }
-  :root .trs .a { background: linear-gradient(135deg, #1d2330, #10141c); }
+  :root .trs .a { background: linear-gradient(135deg, #24282d, #121417); }
   :root input[type=range]::-webkit-slider-runnable-track {
-    background: linear-gradient(to right, rgba(47, 123, 240, .75) var(--p, 50%), rgba(148, 172, 214, .14) var(--p, 50%)); }
+    background: linear-gradient(to right, rgba(47, 123, 240, .75) var(--p, 50%), rgba(255, 255, 255, .12) var(--p, 50%)); }
   :root input[type=range]::-moz-range-progress { background: rgba(47, 123, 240, .75); }
   /* Halaman editor tanpa bayangan (bayangan konten video seperti teks tetap) */
   :root { --shadow: none; --glow: none; }
   .btn.primary, .btn.primary:hover, .toast, .card { box-shadow: none !important; }
+
+  /* ---------- Tata letak seperti editor manual: rail menu di kiri · panel menu (Galeri clip / Media / …) · preview · properti · timeline ----------
+     Aside menu & .ed memakai display: contents supaya rail, isi menu, preview, dan properti langsung jadi item grid #app. */
+  #app { grid-template-columns: 56px 268px minmax(0, 1fr) 380px; grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-areas: "nav gal pend pend" "nav gal stage side" "tl tl tl tl"; }
+  #app > .clips, #main > .ed { display: contents; }
+  /* Rail ikon + label (sama dengan .rail editor manual) */
+  .lp-tabs { grid-area: nav; width: auto; flex-direction: column; align-items: center; justify-content: flex-start; gap: 4px; padding: 8px 0; overflow-y: auto;
+    background: var(--surface); border: 1px solid var(--border); }
+  /* Rail ikon saja: ikon garis, berubah jadi ikon solid saat menu aktif (nama menu di tooltip) */
+  .lp-tab { flex: none; width: 40px; height: 40px; display: grid; place-items: center; padding: 0; border-radius: 11px; }
+  .lp-tab .i { grid-area: 1 / 1; width: 22px; height: 22px; }
+  .lp-tab .ri-on { display: none; }
+  .lp-tab.on .ri { display: none; }
+  .lp-tab.on .ri-on { display: block; }
+  .lp-tab .cnt { position: absolute; top: 3px; right: 4px; min-width: 15px; height: 15px; line-height: 15px; font-size: 9.5px; }
+  .lp-tab.on .cnt { background: var(--accent); color: #fff; }
+  /* Panel kiri: Galeri clip (bawaan) atau isi menu lain, bergantian di tempat yang sama */
+  .reels { grid-area: gal; min-height: 0; overflow: hidden; }
+  body.side-menu .reels { display: none; }
+  .reels-head { padding: 12px 14px 0; }
+  .reels-head .cnt { margin-left: auto; font-size: 11.5px; }
+  .reels-prog { height: 4px; margin: 10px 14px 0; border-radius: 2px; background: var(--surface-3); overflow: hidden; }
+  .reels-prog i { display: block; height: 100%; width: 0; border-radius: 2px; background: var(--grad); transition: width .3s; }
+  .reels-legend { display: flex; align-items: center; gap: 6px; margin: 0; padding: 7px 14px 2px; font-size: 11px; color: var(--muted); }
+  .reels-legend #reels-done { color: var(--text-2); font-weight: 600; }
+  .reels .rl-chk { width: 14px; height: 14px; } .reels .rl-chk .i { width: 9px; height: 9px; }
+  /* Detail kartu: badge lebih kecil, judul 2 baris, nomor clip + durasi */
+  .rc .vs { top: 6px; left: 6px; padding: 1px 6px 1px 4px; font-size: 10px; }
+  .rc .ck { top: 6px; right: 6px; width: 18px; height: 18px; }
+  .rc .ck .i { width: 11px; height: 11px; }
+  .rc .cap { left: 7px; right: 7px; bottom: 7px; gap: 5px; }
+  .rc .cap b { font-size: 11px; line-height: 1.3; -webkit-line-clamp: 2; }
+  .rc .cap small { gap: 4px; font-size: 10px; }
+  .rc .cap .no { color: rgba(255, 255, 255, .7); font-weight: 700; }
+  .rc .cap .du { padding: 0 4px; }
+  .rc.on { outline-color: var(--accent-fg); box-shadow: 0 0 0 4px rgba(47, 123, 240, .18); }
+  .rc:not(.on):hover { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .22); }
+  /* flex-wrap (bukan grid): tinggi kartu mengikuti rasio 9:16 dari lebarnya, tidak dipadatkan oleh tinggi panel */
+  .reels-row { flex: 1; min-height: 0; display: flex; flex-wrap: wrap; align-content: flex-start; gap: 10px 8px; padding: 12px 12px 16px;
+    overflow-x: hidden; overflow-y: auto; scroll-snap-type: none; scrollbar-width: thin; }
+  .rc { width: calc(50% - 4px); border-radius: 10px; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .06); outline-offset: 2px; }
+  .rc:hover { transform: none; filter: brightness(1.08); }
+  .rc-sep { flex: 0 0 100%; width: 100%; height: auto; margin: 4px 0 -2px; display: flex; align-items: center; gap: 6px; background: none;
+    font-size: 10.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+  .rc-sep::after { content: ""; flex: 1; height: 1px; background: var(--border-strong); order: 3; }
+  .rc-sep b { order: 2; min-width: 18px; height: 16px; padding: 0 5px; border-radius: 8px; background: var(--surface-3); color: var(--text-2);
+    font-size: 10px; line-height: 16px; text-align: center; }
+  #main > .pending { grid-area: pend; }
+  .ed > .stage { grid-area: stage; }
+  .ed > .props { grid-area: side; }
+  .lp-body { grid-area: gal; min-height: 0; overflow: hidden; background: var(--surface); border: 1px solid var(--border); }
+  .lp-body .it-body { overflow-y: auto; }
+  #main > .prep { grid-column: 3 / 5; grid-row: 1 / 3; }
+  body:not(.side-menu) .lp-body { display: none; }
+  /* Timeline selalu tampil, sudut bawah membulat */
+  #app .tlbar { margin-top: -1px; padding: 0 16px 12px; border-radius: 0 0 var(--radius) var(--radius); }
+
+  /* ---------- Timeline versi bersih ---------- */
+  .tl-tools { margin: 0 -16px 6px; padding: 4px 10px; min-height: 36px; border-bottom: 1px solid var(--border); background: none; }
+  .tl-tool { border: 0; background: none; color: var(--text-2); }
+  .tl-tool:hover:not(:disabled) { background: var(--surface-2); color: var(--text); }
+  .tl-tool:disabled { opacity: .3; }
+  .tl-hint { font-size: 11.5px; color: var(--muted); opacity: .8; }
+  /* Kolom track: ikon jenis track + tombol sembunyikan / kunci / bisukan (selalu terlihat, menyala saat aktif) */
+  .tl-gut { border-right-color: transparent; }
+  :root .tl-gut .ti { background: none; box-shadow: none; color: var(--muted); }
+  .tl-gut .trk:hover .ti { color: var(--text); }
+  :root .tl-gut .tc { color: rgba(168, 182, 205, .75); }
+  :root .tl-gut .tc:hover { color: var(--text); background: rgba(148, 172, 214, .1); }
+  /* Penggaris lebih tipis */
+  .ruler span { font-size: 10px; opacity: .75; }
+  .ruler i { opacity: .5; }
+  /* Track kosong: garis tipis tanpa teks */
+  .sc-mempty { border: 0 !important; background: rgba(148, 172, 214, .035) !important; border-radius: 6px; height: 22px; }
+  .sc-mempty .st { display: none; }
+  /* Item track: sudut lebih bulat, tanpa garis tepi berat */
+  .sc-media, .sc-text, .sc-music, .sc-fx { border-radius: 7px; box-shadow: none; }
+  /* Label subtitle: lebih kalem, teks kecil */
+  :root .sc-lbl { height: 20px; margin-top: 1px; background: rgba(148, 172, 214, .08); color: var(--text-2); box-shadow: none; font-size: 10.5px; border-radius: 5px; }
+  :root .sc-lbl:hover { background: rgba(148, 172, 214, .14); filter: none; }
+  :root .sc-lbl.on { background: var(--accent-soft); color: #fff; box-shadow: inset 0 0 0 1px rgba(110, 168, 255, .45); }
+  :root .sc-lbl.narrow { color: transparent; }
+  .film, .sc-clip, .sc-foot { border-radius: 7px; }
+  /* Posisi track (dari atas): 4 track utama terlihat langsung — Gambar 22 · Video 52 · Subtitle 96 · Musik 126 —
+     lalu Teks 156 · Efek 186 · SFX 216 (scroll vertikal). Baris 26 px, video 40 px. Dipakai juga oleh area drop
+     (bindTimelineDrop) & track kosong (--top) di JS. */
+  .sc-inner { height: 246px; }
+  /* align-items: flex-start: area track setinggi isinya (tidak dipotong setinggi kotak scroll) supaya semua track ikut ter-scroll */
+  .scrub { max-height: 176px; overflow-y: auto; overflow-x: hidden; scrollbar-width: thin; align-items: flex-start; }
+  .tl-gut .t-media { top: 22px; height: 26px; } .tl-gut .t-video { top: 52px; height: 40px; } .tl-gut .t-sub { top: 96px; height: 26px; }
+  .tl-gut .t-music { top: 126px; height: 26px; } .tl-gut .t-text { top: 156px; height: 26px; } .tl-gut .t-fx { top: 186px; height: 26px; }
+  .tl-gut .t-sfx { top: 216px; height: 26px; }
+  .tl-gut .ti { width: 22px; height: 22px; } .tl-gut .ti .i { width: 14px; height: 14px; }
+  .tl-gut .tc { width: 20px; height: 20px; }
+  .sc-media, .tl-drop.med, .sc-mempty { top: var(--top, 22px); height: 26px; }
+  .sc-media { top: 22px; } .sc-music { top: 126px; height: 26px; } .sc-text { top: 156px; height: 26px; } .sc-fx { top: 186px; height: 26px; }
+  .sc-sfx { top: 216px; height: 26px; }
+  .sc-media, .sc-text, .sc-fx, .sc-music { font-size: 11.5px; border-radius: 8px; }
+  .sc-media .mth { width: 18px; height: 18px; }
+  .film, .sc-foot, .sc-dim, .sc-clip, .sc-seg, .sc-cut, .sc-gap { top: 52px; height: 40px; }
+  .sc-op { top: 52px; height: 15px; }
+  .wave { top: 74px; height: 18px; }
+  .sc-tr { top: 61px; }
+  .tl-drop.foot { top: 48px; height: 48px; }
+  :root .sc-lbl { top: 96px; height: 26px; line-height: 26px; margin-top: 0; font-size: 11px; }
+  .tl-tools { min-height: 32px; margin-bottom: 2px; }
+  #app .tlbar { padding-bottom: 8px; }
+
+  @media (max-width: 900px) {
+    #app { display: flex; }
+    .lp-tabs { order: 0; width: 100%; flex-direction: row; overflow-x: auto; }
+    #main > .pending { order: 1; }
+    .ed > .stage { order: 2; }
+    .reels, .lp-body { order: 3; }
+    .lp-body { max-height: 70vh; }
+    .ed > .props { order: 4; }
+    .tlbar { order: 5; }
+    .reels-row { max-height: 60vh; }
+    .rc { width: calc(33.333% - 6px); }
+  }
+
+  /* ---------- Gaya visual editor manual (project.php): panel kartu terpisah, abu-abu netral, kontrol pill ----------
+     Hanya tampilan; tata letak & fitur clip editor tetap. */
+  .wrap { padding: 0 14px 12px; }
+  .bar { padding: 10px 0; gap: 8px; }
+  .bar .brand { display: none; }
+  .bar .back { width: 34px; height: 34px; border-radius: 9px; border: 1px solid transparent; background: none; color: var(--text-2); }
+  .bar .back:hover { background: var(--surface-2); color: var(--text); }
+  .bar .title { border-left: 0; padding-left: 4px; }
+  .bar .title span { font-size: 12px; }
+  /* row-gap 0: baris banner "pending" yang kosong tidak menambah jarak; jarak vertikal diberi lewat margin */
+  #app { column-gap: 10px; row-gap: 0; }
+  #main > .pending:not([hidden]) { margin-bottom: 10px !important; }
+  #app .tlbar { margin-top: 10px !important; }
+  #app .card, #app .pending, .lp-tabs, .lp-body, .reels, .ed > .stage, .ed > .props, #app .tlbar, #main > .prep {
+    margin: 0 !important; border: 1px solid var(--border); border-radius: 14px !important; background-color: var(--surface); }
+  .ed > .props { overflow-y: auto; }
+  .lp-tabs { padding: 6px; }
+  .lp-tab.on, .lp-tab.on:hover { background: var(--accent-soft) !important; color: #8fb8ff !important; }
+  /* Kontrol putar: tombol play bulat putih seperti editor manual */
+  .tp-btns { gap: 6px; }
+  .tp-skip { border: 0; background: none; color: var(--text-2); }
+  .tp-skip:hover { background: var(--surface-2); color: var(--text); }
+  #play { width: 42px; height: 42px; border-radius: 50%; background: #fff; color: #000; }
+  #play:hover { background: #dfe6f2; color: #000; }
+  #play .i { width: 18px; height: 18px; }
+  .pv-zoom { border: 0; background: none; }
+  /* Pilihan segmen: wadah abu-abu, pilihan aktif = pill lebih terang (seperti .seg editor manual) */
+  .framings { gap: 3px; padding: 3px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); }
+  .framings .framing { height: 30px; padding: 0 6px; border: 0; border-radius: 7px; background: none; color: var(--muted); font-size: 12px; font-weight: 600; }
+  .framings .framing:hover { color: var(--text); }
+  .framings .framing.on, .framings .framing.on:hover { background: var(--surface-3) !important; color: #fff; box-shadow: inset 0 0 0 1px var(--border-strong); }
+  .chunk-seg button.on { background: var(--surface-3); color: #fff; box-shadow: inset 0 0 0 1px var(--border-strong); }
+  /* Timeline kartu: jarak ke kartu di atasnya sama dengan jarak antarpanel (10 px) */
+  #app .tlbar { padding: 0 14px 10px; margin-top: 10px !important; }
+  .tl-tools { margin: 0 -14px 4px; padding: 4px 10px; }
 </style>
 </head>
 <body>
@@ -1101,20 +1386,18 @@ if (!valid_job_id($pid) || !preg_match('/^[a-f0-9]{8}$/', $iid)) {
   <div id="app">
     <aside class="card clips" id="clips">
       <div class="lp-tabs">
-        <button class="lp-tab on" data-lp="clips" title="Clip" aria-label="Clip"><?= icon('film') ?><span class="cnt" id="clips-info"></span></button>
-        <button class="lp-tab" data-lp="media" title="Media" aria-label="Media"><?= icon('image') ?><span class="cnt" id="media-info"></span></button>
-        <button class="lp-tab" data-lp="music" title="Musik" aria-label="Musik"><?= icon('music') ?><span class="cnt" id="music-info"></span></button>
-        <button class="lp-tab" data-lp="text" title="Teks" aria-label="Teks"><?= icon('type') ?><span class="cnt" id="text-info"></span></button>
-        <button class="lp-tab" data-lp="fx" title="Efek & Filter" aria-label="Efek & Filter"><?= icon('sparkles') ?><span class="cnt" id="fx-info"></span></button>
-        <button class="lp-tab" data-lp="tr" title="Transisi" aria-label="Transisi"><?= icon('transition') ?><span class="cnt" id="tr-info"></span></button>
-        <button class="lp-tab" data-lp="gfx" title="Template grafik" aria-label="Template grafik"><?= icon('gfx') ?></button>
-        <button class="lp-tab" data-lp="preset" title="Preset editing" aria-label="Preset editing"><?= icon('preset') ?><span class="cnt" id="preset-info"></span></button>
+        <button class="lp-tab on" data-lp="clips" title="Galeri clip" aria-label="Galeri clip"><svg class="i ri" aria-hidden="true"><use href="assets/icons.svg?v=<?= filemtime(__DIR__ . '/assets/icons.svg') ?>#rail-clips"/></svg><svg class="i ri-on" aria-hidden="true"><use href="assets/icons.svg?v=<?= filemtime(__DIR__ . '/assets/icons.svg') ?>#rail-clips-fill"/></svg></button>
+        <button class="lp-tab" data-lp="media" title="Media" aria-label="Media"><svg class="i ri" aria-hidden="true"><use href="assets/icons.svg?v=<?= filemtime(__DIR__ . '/assets/icons.svg') ?>#rail-media"/></svg><svg class="i ri-on" aria-hidden="true"><use href="assets/icons.svg?v=<?= filemtime(__DIR__ . '/assets/icons.svg') ?>#rail-media-fill"/></svg><span class="cnt" id="media-info"></span></button>
+        <button class="lp-tab" data-lp="music" title="Musik" aria-label="Musik"><svg class="i ri" aria-hidden="true"><use href="assets/icons.svg?v=<?= filemtime(__DIR__ . '/assets/icons.svg') ?>#rail-music"/></svg><svg class="i ri-on" aria-hidden="true"><use href="assets/icons.svg?v=<?= filemtime(__DIR__ . '/assets/icons.svg') ?>#rail-music-fill"/></svg><span class="cnt" id="music-info"></span></button>
+        <button class="lp-tab" data-lp="sfx" title="Sound effect" aria-label="Sound effect"><svg class="i ri" aria-hidden="true"><use href="assets/icons.svg?v=<?= filemtime(__DIR__ . '/assets/icons.svg') ?>#rail-sfx"/></svg><svg class="i ri-on" aria-hidden="true"><use href="assets/icons.svg?v=<?= filemtime(__DIR__ . '/assets/icons.svg') ?>#rail-sfx-fill"/></svg><span class="cnt" id="sfx-info"></span></button>
+        <button class="lp-tab" data-lp="text" title="Teks" aria-label="Teks"><svg class="i ri" aria-hidden="true"><use href="assets/icons.svg?v=<?= filemtime(__DIR__ . '/assets/icons.svg') ?>#rail-text"/></svg><svg class="i ri-on" aria-hidden="true"><use href="assets/icons.svg?v=<?= filemtime(__DIR__ . '/assets/icons.svg') ?>#rail-text-fill"/></svg><span class="cnt" id="text-info"></span></button>
+        <button class="lp-tab" data-lp="fx" title="Efek & Filter" aria-label="Efek & Filter"><svg class="i ri" aria-hidden="true"><use href="assets/icons.svg?v=<?= filemtime(__DIR__ . '/assets/icons.svg') ?>#rail-fx"/></svg><svg class="i ri-on" aria-hidden="true"><use href="assets/icons.svg?v=<?= filemtime(__DIR__ . '/assets/icons.svg') ?>#rail-fx-fill"/></svg><span class="cnt" id="fx-info"></span></button>
+        <button class="lp-tab" data-lp="tr" title="Transisi" aria-label="Transisi"><svg class="i ri" aria-hidden="true"><use href="assets/icons.svg?v=<?= filemtime(__DIR__ . '/assets/icons.svg') ?>#rail-tr"/></svg><svg class="i ri-on" aria-hidden="true"><use href="assets/icons.svg?v=<?= filemtime(__DIR__ . '/assets/icons.svg') ?>#rail-tr-fill"/></svg><span class="cnt" id="tr-info"></span></button>
+        <button class="lp-tab" data-lp="intro" title="Intro video (hook + suara AI)" aria-label="Intro video"><svg class="i ri" aria-hidden="true"><use href="assets/icons.svg?v=<?= filemtime(__DIR__ . '/assets/icons.svg') ?>#rail-intro"/></svg><svg class="i ri-on" aria-hidden="true"><use href="assets/icons.svg?v=<?= filemtime(__DIR__ . '/assets/icons.svg') ?>#rail-intro-fill"/></svg><span class="cnt" id="intro-info"></span></button>
+        <button class="lp-tab" data-lp="gfx" title="Template grafik" aria-label="Template grafik"><svg class="i ri" aria-hidden="true"><use href="assets/icons.svg?v=<?= filemtime(__DIR__ . '/assets/icons.svg') ?>#rail-gfx"/></svg><svg class="i ri-on" aria-hidden="true"><use href="assets/icons.svg?v=<?= filemtime(__DIR__ . '/assets/icons.svg') ?>#rail-gfx-fill"/></svg></button>
+        <button class="lp-tab" data-lp="preset" title="Preset editing" aria-label="Preset editing"><svg class="i ri" aria-hidden="true"><use href="assets/icons.svg?v=<?= filemtime(__DIR__ . '/assets/icons.svg') ?>#rail-preset"/></svg><svg class="i ri-on" aria-hidden="true"><use href="assets/icons.svg?v=<?= filemtime(__DIR__ . '/assets/icons.svg') ?>#rail-preset-fill"/></svg><span class="cnt" id="preset-info"></span></button>
       </div>
       <div class="lp-body">
-      <div class="lp-pane" id="lp-clips">
-        <div class="lp-title">Clip</div>
-        <div class="clips-row" id="clips-row"></div>
-      </div>
       <div class="lp-pane" id="lp-media" hidden>
         <div class="lp-title lp-title-row"><span>Media</span>
           <button class="media-plus" id="media-add" title="Unggah media" aria-label="Unggah media"><?= icon('plus') ?></button>
@@ -1150,6 +1433,27 @@ if (!valid_job_id($pid) || !preg_match('/^[a-f0-9]{8}$/', $iid)) {
         <div class="fx-grid" id="tr-grid"></div>
         <div class="fx-grid" id="op-grid" hidden></div>
       </div>
+      <div class="lp-pane" id="lp-sfx" hidden>
+        <div class="lp-title lp-title-row"><span>Sound effect</span>
+          <span class="sfx-head-btns"><button class="media-plus" id="sfx-ai-toggle" title="Buat sound effect dengan AI (ElevenLabs)" aria-label="Buat sound effect dengan AI" aria-expanded="false" hidden><?= icon('sparkles') ?></button>
+          <button class="media-plus" id="sfx-add" title="Unggah sound effect (MP3, WAV, M4A, OGG)" aria-label="Unggah sound effect"><?= icon('plus') ?></button></span></div>
+        <input type="file" id="sfx-input" accept="audio/*,.mp3,.m4a,.aac,.wav,.ogg,.flac" multiple hidden>
+        <div class="sfx-ai" id="sfx-ai" hidden>
+          <div class="sfx-ai-row"><select class="input" id="sfx-dur" aria-label="Durasi" title="Durasi suara">
+            <option value="">Auto</option><option value="0.5">0,5s</option><option value="1">1s</option><option value="1.5">1,5s</option>
+            <option value="2">2s</option><option value="3">3s</option><option value="5">5s</option></select>
+            <div class="sfx-chips" id="sfx-chips"></div></div>
+          <div class="sfx-ai-row"><input class="input" id="sfx-prompt" maxlength="450" spellcheck="false" autocomplete="off" placeholder="Deskripsi suara (Inggris)…"
+              title="Hasil ElevenLabs otomatis terunduh & masuk library">
+            <button class="btn sm primary sfx-ai-go" id="sfx-gen" type="button" title="Generate dengan ElevenLabs (Enter)" aria-label="Generate"><?= icon('sparkles') ?></button></div>
+          <div class="sfx-ai-st" id="sfx-ai-st" hidden></div>
+        </div>
+        <div class="sfx-list" id="sfx-list"></div>
+      </div>
+      <div class="lp-pane" id="lp-intro" hidden>
+        <div class="lp-title">Intro video</div>
+        <div class="it-body" id="it-body"></div>
+      </div>
       <div class="lp-pane" id="lp-preset" hidden>
         <div class="lp-title lp-title-row"><span>Preset</span>
           <button class="media-plus" id="preset-add" title="Simpan style clip ini sebagai preset" aria-label="Simpan preset"><?= icon('plus') ?></button></div>
@@ -1167,6 +1471,14 @@ if (!valid_job_id($pid) || !preg_match('/^[a-f0-9]{8}$/', $iid)) {
       </div>
     </aside>
     <div id="main"><div class="card prep"><span class="spin"></span></div></div>
+    <section class="card reels" id="reels" aria-label="Galeri clip">
+      <div class="reels-head">
+        <b>Galeri clip</b><span class="cnt" id="reels-cnt"></span>
+      </div>
+      <div class="reels-prog" title="Clip yang sudah diedit"><i id="reels-bar"></i></div>
+      <div class="reels-legend"><span class="rl-chk on"><?= icon('check') ?></span> <span id="reels-done"></span> sudah diedit</div>
+      <div class="reels-row" id="reels-row"></div>
+    </section>
     <div class="sty" id="rmod" hidden>
       <div class="card rm-card" role="dialog" aria-modal="true" aria-labelledby="rm-title">
         <h3 id="rm-title">Render</h3>
@@ -1216,13 +1528,48 @@ const UPLOAD_MAX = <?= (function () { $b = fn($v) => (int) $v * (['K' => 1 << 10
   return min($b(ini_get('upload_max_filesize')), $b(ini_get('post_max_size'))); })() ?>;
 let IID = <?= json_encode($iid) ?>;  // clip yang sedang diedit; bisa berganti lewat daftar clip
 let vid = $('vid');       // video proxy clip aktif (diganti saat pindah clip)
+let itCfg = null, itFrame = null, itBusy = false, itAudio = null; // menu Intro: pengaturan form, screenshot, status generate, suara
 const FONTS = <?= json_encode($fonts, JSON_UNESCAPED_UNICODE) ?>;
 const EFFECTS = <?= json_encode(EFFECT_PRESETS, JSON_UNESCAPED_UNICODE) ?>;
 const TRANSITIONS = <?= json_encode(TRANSITION_PRESETS, JSON_UNESCAPED_UNICODE) ?>;
 const OPENINGS = <?= json_encode(OPENING_PRESETS, JSON_UNESCAPED_UNICODE) ?>;
+// Suara AI intro (Gemini TTS)
+const ttsVoices = <?= json_encode(tts_voices()['voices'], JSON_UNESCAPED_UNICODE) ?>;
+const voiceInfo = id => ttsVoices.find(v => v.id === id);
+const voiceName = id => voiceInfo(id)?.name || id;
+const TTS_STYLES = <?= json_encode(array_map(fn($x) => $x[0], TTS_STYLES), JSON_UNESCAPED_UNICODE) ?>;
+// Bawaan: suara terakhir dipakai, kalau tidak ada Puck (pria ceria)
+function defaultVoice() {
+  let v = '';
+  try { v = localStorage.getItem('ed-intro-voice') || ''; } catch {}
+  return voiceInfo(v) ? v : 'Puck';
+}
+const PAPER_DUR = 0.63; // transisi kertas robek: 19 frame @30 fps (tools/paper_tear.py)
 const OP_LETTERBOX = <?= OPENING_LETTERBOX ?>;
-const FONT_CATS = [['sans', 'Sans'], ['display', 'Display / tebal'], ['serif', 'Serif']];
+const FONT_CATS = [['sans', 'Sans'], ['display', 'Display / tebal'], ['serif', 'Serif'], ['script', 'Tulisan tangan']];
 const fontFamily = k => `"${(FONTS.find(f => f.k === k) || FONTS[0]).family}", "Arial Black", sans-serif`;
+const fontLabel = k => (FONTS.find(f => f.k === (k || 'arial-black')) || FONTS[0]).label;
+/* Pemilih font visual: tiap pilihan bertuliskan nama font dalam bentuk font itu sendiri */
+let fpkOpen = null; // target panel teks yang daftar font-nya sedang terbuka
+function fontListHtml(tg, c) {
+  const cur = tg === 'hl' ? c.font : c.font || 'arial-black';
+  return `<div class="fpk-list" role="listbox" aria-label="Font">${tg === 'hl' ? `<button type="button" class="fpk-opt fpk-same${cur ? '' : ' on'}" data-fpk-v="" data-fpk-tg="hl"><span class="fpk-s">Sama dengan subtitle</span></button>` : ''}${FONT_CATS.map(([cat, n]) => {
+    const list = FONTS.filter(f => f.cat === cat);
+    return list.length ? `<div class="fpk-cat">${n}</div>${list.map(f => `<button type="button" class="fpk-opt${f.k === cur ? ' on' : ''}" role="option"
+      aria-selected="${f.k === cur}" data-fpk-v="${f.k}" data-fpk-tg="${tg}" title="${esc(f.label)}"><span class="fpk-s" style='font-family:${fontFamily(f.k)}'>${esc(f.label)}</span></button>`).join('')}` : '';
+  }).join('')}</div>`;
+}
+function pickFont(tg, k) {
+  if (tg === 'hl') { E.style.hl_font = k; fpkOpen = null; changed(); renderProps(); draw(); return; } // font highlight subtitle
+  const c = cfgOf(tg);
+  c.font = k;
+  // Ketebalan yang tidak ada di font baru kembali ke bawaan
+  if (c.weight && !fontWeightOf(c)) c.weight = 0;
+  fpkOpen = null;
+  changed();
+  renderProps();
+  draw();
+}
 // Daftar pilihan font; tiap nama ditampilkan memakai font-nya sendiri. target: 'style' (subtitle) atau 'hook'
 /* Panel teks: font, ukuran, tebal, jarak huruf, perataan, gaya, warna. Semua input bertanda data-ts="target.field". */
 const swatch = (k, v) => `<label class="sw" style="--c:${v}"><input type="color" data-ts="${k}" value="${v}"></label>`;
@@ -1235,10 +1582,21 @@ const textElOf = tg => tg === 'style' ? $('sub')?.querySelector('.sbox') : tg ==
   : $('tlayer')?.querySelector(`.tbox[data-ti="${tg.split('.')[1]}"] span`);
 // Pilihan ketebalan: bawaan font (+ bold sintetis) dan ketebalan asli yang terpasang untuk font itu
 const WEIGHT_NAMES = { 400: 'Regular', 500: 'Medium', 600: 'Semi Bold', 700: 'Bold', 800: 'Extra Bold', 900: 'Black' };
+// Ketebalan sebenarnya file font bawaan (<key>.ttf, dipakai saat weight = 0); diukur dengan membandingkan lebar teks dengan file -w<bobot>
+const FONT_BASE_W = { montserrat: 800, poppins: 800, inter: 800, rubik: 800, nunito: 900, oswald: 700, 'playfair-display': 800, merriweather: 900,
+  lora: 700, 'libre-baskerville': 700, 'cormorant-garamond': 700, 'bodoni-moda': 800, 'eb-garamond': 700, 'roboto-slab': 800, fraunces: 400, cinzel: 400, caveat: 600, 'dancing-script': 600 };
 function weightOptions(c) {
-  const ws = FONTS.find(f => f.k === (c.font || 'arial-black'))?.w || [], cur = fontWeightOf(c) ? String(c.weight) : c.bold ? 'b' : 'r';
-  const opts = [['r', ws.length ? 'Bawaan' : 'Regular'], ['b', ws.length ? 'Bawaan + tebal' : 'Bold'], ...ws.map(w => [String(w), WEIGHT_NAMES[w]])];
-  return opts.map(([v, n]) => `<option value="${v}" ${cur === v ? 'selected' : ''}>${n}</option>`).join('');
+  const ws = FONTS.find(f => f.k === (c.font || 'arial-black'))?.w || [];
+  // Font dengan beberapa ketebalan asli: Regular, Medium, Semi Bold, Bold, Extra Bold, Black (tanpa pilihan "bawaan")
+  if (ws.length) {
+    // Belum pernah dipilih: font bawaan (+ tebal sintetis = paling tebal)
+    const k = c.font || 'arial-black', cur = fontWeightOf(c) || (c.bold ? ws.at(-1) : ws.includes(FONT_BASE_W[k]) ? FONT_BASE_W[k] : ws.at(-1));
+    return ws.map(w => `<option value="${w}" ${cur === w ? 'selected' : ''}>${WEIGHT_NAMES[w]}</option>`).join('');
+  }
+  // Font display satu ketebalan: hanya normal & tebal sintetis
+  const cur = c.bold ? 'b' : 'r';
+  return [['r', 'Normal'], ['b', 'Lebih tebal']].map(([v, n]) => `<option value="${v}" ${cur === v ? 'selected' : ''}>${n}</option>`).join('')
+    + '<option disabled>Font ini hanya 1 ketebalan</option>';
 }
 function textPanel(tg, cfg) {
   const c = cfg || cfgOf(tg), isSub = tg === 'style', isText = tg.startsWith('texts.') || tg === 'preview';
@@ -1246,11 +1604,12 @@ function textPanel(tg, cfg) {
   return `<div class="ts-stack">
     <div class="ts">
       <div class="ts-row">
-        <div class="ts-f grow"><select data-ts="${tg}.font" aria-label="Font">${FONT_CATS.map(([cat, n]) => `<optgroup label="${n}">${
-          FONTS.filter(f => f.cat === cat).map(f => `<option value="${f.k}" ${f.k === (c.font || 'arial-black') ? 'selected' : ''}>${f.label}</option>`).join('')}</optgroup>`).join('')}</select>${ic('chevron-down').replace('class="i"', 'class="i chev"')}</div>
+        <button type="button" class="ts-f grow fpk-btn${fpkOpen === tg ? ' on' : ''}" data-fpk="${tg}" aria-expanded="${fpkOpen === tg}" title="Pilih font"
+          style='font-family:${fontFamily(c.font || 'arial-black')}'><span>${esc(fontLabel(c.font))}</span>${ic('chevron-down').replace('class="i"', 'class="i chev"')}</button>
         ${numField(tg + '.size', c.size, isText ? 20 : isSub ? 40 : 30, isText ? 200 : isSub ? 180 : 140, 1, 'px', '', 'Ukuran huruf', 'w-size')}
         <div class="ts-f w-wt"><select data-wt="${tg}" aria-label="Ketebalan">${weightOptions(c)}</select>${ic('chevron-down').replace('class="i"', 'class="i chev"')}</div>
       </div>
+      ${fpkOpen === tg ? fontListHtml(tg, c) : ''}
       <div class="ts-row">
         ${numField(tg + '.spacing', c.spacing, -5, 30, 0.5, 'px', 'spacing', 'Jarak antar huruf')}
         ${tg === 'hook' ? numField('hook.duration', c.duration, 0.5, 10, 0.1, 'dtk', 'play', 'Durasi tampil hook') : ''}
@@ -1265,8 +1624,7 @@ function textPanel(tg, cfg) {
       </div>
     </div>
     <div class="ts-c"><label>${isSub ? 'Warna' : 'Warna teks'}</label>${hexField(tg + '.color', c.color)}${numField(tg + '.opacity', c.opacity, 0, 100, 1, '%', '', 'Opacity')}</div>
-    ${isSub ? `<div class="ts-c"><label>Highlight<span class="tip" data-tip="Warna kata yang sedang diucapkan, supaya penonton bisa mengikuti.">?</span></label>${hexField('style.highlight', c.highlight)}</div>
-      <div class="ts-c"><label>Border</label>${hexField('style.stroke', c.stroke)}${numField('style.stroke_w', c.stroke_w, 0, 20, 0.5, 'px', '', 'Tebal border')}</div>
+    ${isSub ? `<div class="ts-c"><label>Border</label>${hexField('style.stroke', c.stroke)}${numField('style.stroke_w', c.stroke_w, 0, 20, 0.5, 'px', '', 'Tebal border')}</div>
       <div class="ts-c"><label>Kata<span class="tip" data-tip="Jumlah kata yang tampil sekaligus. Otomatis = satu baris penuh seperti hasil transkrip.${E.caption === 'kinetic' ? ' Tidak berlaku untuk teks kinetik.' : ''}">?</span></label>
         <div class="chunk-seg">${[[0, 'Otomatis'], [1, '1'], [2, '2'], [3, '3'], [4, '4']].map(([v, n]) =>
           `<button type="button" class="${(c.chunk || 0) === v ? 'on' : ''}" data-chunk="${v}" title="${v ? v + ' kata per tampilan' : 'Satu baris penuh'}">${n}</button>`).join('')}</div></div>`
@@ -1286,18 +1644,29 @@ function setAlign(tg, a) {
   }
   c.align = a;
 }
-const FRAMINGS = [['speaker', 'Ikuti pembicara'], ['crop_center', 'Crop tengah'], ['blur', 'Background blur'], ['gaming', 'Streaming game']];
-// Layout bingkai: rasio area video (lebar / tinggi) di layar 9:16; selain Full, video di tengah layar hitam
+// Jenis clip: podcast (split screen = 2 orang otomatis) / streaming game (split screen = gameplay + webcam streamer)
+const KINDS = [['podcast', 'Podcast'], ['gaming', 'Streaming game']];
+// Rasio split screen: persen tinggi panel atas (sama dengan SPLIT_RATIOS di editor_lib.php)
+const SPLIT_RATIOS = [50, 40, 60, 30, 70];
+const splitTop = () => Math.round(1920 * (SPLIT_RATIOS.includes(E.frame.split) ? E.frame.split : 50) / 100 / 2) * 2;
+// layout & split.enabled diturunkan dari jenis clip + layout (sama dengan normalisasi di editor_lib.php)
+function syncLayout() {
+  const sp = E.frame.ratio === 'split';
+  E.layout = sp && E.kind === 'gaming' ? 'gaming' : 'speaker';
+  E.split.enabled = sp && E.kind !== 'gaming';
+}
+// Layout bingkai: rasio area video (lebar / tinggi) di layar 9:16; selain Full, video di tengah dengan background solid (hitam) atau blur
 const FRAME_RATIOS = [['full', 'Full', 9 / 16], ['1:1', '1:1', 1], ['4:5', '4:5', 0.8], ['3:4', '3:4', 0.75], ['16:9', '16:9', 16 / 9]];
 function frameGeom(CW = 1080, CH = 1920) {
   const f = E.layout === 'gaming' ? {} : E.frame || {}, a = (FRAME_RATIOS.find(r => r[0] === f.ratio) || FRAME_RATIOS[0])[2];
-  const full = (f.ratio || 'full') === 'full', h = full ? CH : CW / a;
-  return { a, full, x: 0, y: (CH - h) / 2, w: CW, h, r: (f.radius || 0) * CW / 1080, on: !full || (f.radius || 0) > 0 };
+  const full = ['full', 'split'].includes(f.ratio || 'full'), h = full ? CH : CW / a; // split screen selalu layar penuh
+  return { a, full, x: 0, y: (CH - h) / 2, w: CW, h, r: (f.radius || 0) * CW / 1080, on: !full || (f.radius || 0) > 0, blur: !full && f.bg === 'blur' };
 }
 // Bar hitam & sudut membulat di atas video + efek (sama dengan masker render)
 function drawFrameMask(g, CW, CH) {
   const G = frameGeom(CW, CH);
-  if (!G.on || (E.split.enabled && splitPair(t))) return;
+  // Background blur sudah digambar paintMain di luar bingkai (sudut membulat lewat clip)
+  if (!G.on || G.blur || (E.split.enabled && splitPair(t))) return;
   g.save();
   g.fillStyle = '#000';
   g.beginPath();
@@ -1374,7 +1743,7 @@ function migrateHook() {
   E._migratedHook = true;
   // Posisi vertikal disamakan dengan tepi atas hook lama setelah tinggi grafik diketahui
   gfxCanvas(m.gfx, 1).then(c => {
-    const top = H.y != null ? H.y * 1920 : (E.layout === 'blur' ? 330 : 230);
+    const top = H.y != null ? H.y * 1920 : (frameGeom().blur ? 330 : 230);
     m.y = Math.round((top + (c.height - 36) / 2) / 1920 * 1e4) / 1e4;
     draw();
   });
@@ -1387,7 +1756,7 @@ function startGfxEdit(i) {
   const m = E.media[i];
   if (!m?.gfx || gfxEd) return;
   pause();
-  if (sel.type !== 'media' || sel.i !== i || gfxNeedsPanel(i)) select({ type: 'media', i });
+  if (sel.type !== 'media' || sel.i !== i) select({ type: 'media', i });
   const el = $('mlayer').querySelector(`.mimg[data-mi="${i}"]:not([hidden])`);
   if (!el) return toast('Taruh playhead di dalam durasi grafik untuk mengedit langsung.');
   const o = $('ovl').getBoundingClientRect(), r = el.getBoundingClientRect(), orig = m.gfx.text;
@@ -1482,8 +1851,8 @@ function gfxPanelHtml(m) {
     <div class="p-row"><label>Ukuran teks</label><input type="range" min="60" max="160" step="5" data-gfx="ts" value="${g.ts ?? 100}"><span class="val">${g.ts ?? 100}%</span></div>
     <div class="p-row"><label>Jarak baris</label><input type="range" min="70" max="160" step="5" data-gfx="lh" value="${g.lh ?? 100}"><span class="val">${g.lh ?? 100}%</span></div>
     <div class="ts-stack" style="margin-top:16px">${pre.cn[0] ? col('c1', pre.cn[0]) : ''}${col('c2', pre.cn[1])}${col('c3', pre.cn[2])}${pre.cn[3] && !pre.noLabel ? col('c4', pre.cn[3]) + col('c5', pre.cn[4]) : ''}</div>
-    <div class="p-row" style="margin-top:16px"><label>Mulai</label>${stepper('ms', m.s)}</div>
-    <div class="p-row"><label>Selesai</label>${stepper('me', m.e)}</div>
+    ${m.ref ? refNoteHtml : `<div class="p-row" style="margin-top:16px"><label>Mulai</label>${stepper('ms', m.s)}</div>
+    <div class="p-row"><label>Selesai</label>${stepper('me', m.e)}</div>`}
     <div class="p-row"><label>Ukuran</label><input type="range" min="0.3" max="1" step="0.01" data-k="media.${sel.i}.w" value="${m.w}"><span class="val">${Math.round(m.w * 100)}%</span></div>
     ${pre.full ? `<label class="p-check"><input type="checkbox" data-gfxfill ${g.fill !== false ? 'checked' : ''}> Pita sampai bawah layar
       <span class="tip" data-tip="Pita memanjang sampai tepi bawah layar di posisi mana pun grafik diletakkan, jadi tidak ada ruang kosong di bawahnya.">?</span></label>` : ''}
@@ -1496,7 +1865,7 @@ function gfxPanelHtml(m) {
 }
 
 /* ---------- Kontrol track timeline: sembunyikan / bisukan / kunci ---------- */
-const TRACKS = [['media', 'trk-media', 'Media'], ['text', 'trk-text', 'Teks'], ['fx', 'trk-fx', 'Efek'], ['video', 'trk-video', 'Video'], ['sub', 'trk-sub', 'Subtitle'], ['music', 'music', 'Musik']];
+const TRACKS = [['media', 'trk-media', 'Media'], ['text', 'trk-text', 'Teks'], ['fx', 'trk-fx', 'Efek'], ['video', 'trk-video', 'Video'], ['sub', 'trk-sub', 'Subtitle'], ['music', 'music', 'Musik'], ['sfx', 'volume', 'SFX']];
 const trk = k => (E.tracks[k] ||= {});
 const isHidden = k => k === 'sub' ? !E.subtitles : !!E.tracks?.[k]?.hide;
 const isLocked = k => !!E.tracks?.[k]?.lock;
@@ -1519,23 +1888,23 @@ function applyLayerOrder() {
     if (k === 'text') { $('tlayer').style.zIndex = z + 1; $('hook').style.zIndex = z; }
   });
 }
-const selTrack = type => ({ media: 'media', text: 'text', effect: 'fx', line: 'sub', video: 'video', footage: 'video', transition: 'video', music: 'music' })[type];
+const selTrack = type => ({ media: 'media', text: 'text', effect: 'fx', line: 'sub', video: 'video', footage: 'video', transition: 'video', music: 'music', sfx: 'sfx' })[type];
 
 function renderTrackCtl() {
   const G = $('tl-gut');
   if (!G || !E) return;
   G.querySelectorAll('.trk').forEach(row => {
     const k = row.dataset.trk, name = TRACKS.find(x => x[0] === k)[2];
-    row.classList.toggle('off', isHidden(k) || (k === 'music' && musicMuted()));
+    row.classList.toggle('off', isHidden(k) || (k === 'music' && musicMuted()) || (k === 'sfx' && sfxMuted()));
     row.querySelectorAll('.tc').forEach(b => {
-      const c = b.dataset.tc, on = c === 'hide' ? isHidden(k) : c === 'mute' ? (k === 'music' ? musicMuted() : isMuted()) : isLocked(k);
+      const c = b.dataset.tc, on = c === 'hide' ? isHidden(k) : c === 'mute' ? (k === 'music' ? musicMuted() : k === 'sfx' ? sfxMuted() : isMuted()) : isLocked(k);
       b.classList.toggle('on', on);
       b.innerHTML = ic(c === 'hide' ? (on ? 'eye-off' : 'eye') : c === 'mute' ? (on ? 'volume-x' : 'volume') : (on ? 'lock' : 'unlock'));
       b.setAttribute('aria-label', { hide: on ? `Tampilkan ${name}` : `Sembunyikan ${name}`, mute: on ? `Bunyikan ${name}` : `Bisukan ${name}`, lock: on ? `Buka kunci ${name}` : `Kunci ${name}` }[c]);
       b.title = b.getAttribute('aria-label');
     });
   });
-  const flags = TRACKS.flatMap(([k]) => [isHidden(k) ? 'h-' + k : '', isLocked(k) ? 'l-' + k : '']).concat(isMuted() ? ['m-audio'] : [], musicMuted() ? ['m-music'] : []).filter(Boolean);
+  const flags = TRACKS.flatMap(([k]) => [isHidden(k) ? 'h-' + k : '', isLocked(k) ? 'l-' + k : '']).concat(isMuted() ? ['m-audio'] : [], musicMuted() ? ['m-music'] : [], sfxMuted() ? ['m-sfx'] : []).filter(Boolean);
   $('tl').className = ['sc-inner', ...flags].join(' ');
   applyLayerOrder();
   $('phone').className = ['phone', ...flags.filter(f => f.startsWith('l-')), fp ? 'foot' : ''].filter(Boolean).join(' ');
@@ -1548,6 +1917,7 @@ function bindTrackCtl() {
     const k = b.closest('.trk').dataset.trk, c = b.dataset.tc;
     if (c === 'hide' && k === 'sub') E.subtitles = !E.subtitles;
     else if (c === 'mute' && k === 'music') trk('music').mute = !musicMuted();
+    else if (c === 'mute' && k === 'sfx') trk('sfx').mute = !sfxMuted();
     else if (c === 'mute') trk('video').mute = !isMuted();
     else trk(k)[c] = !trk(k)[c];
     changed();
@@ -1561,7 +1931,27 @@ function bindTrackCtl() {
 
 /* ---------- Animasi masuk / keluar (teks, hook, media). Rumus sama dengan anim_phase() di subtitles.php ---------- */
 const ANIMS = [['none', 'Tidak ada'], ['fade', 'Fade'], ['up', 'Geser naik'], ['down', 'Geser turun'], ['left', 'Geser kiri'], ['right', 'Geser kanan'], ['zoom', 'Zoom'], ['pop', 'Pop']];
-const ANIM_NONE = { in: 'none', out: 'none', din: 0.4, dout: 0.4 };
+const ANIM_NONE = { in: 'none', out: 'none', din: 0.4, dout: 0.4, text: 'none', tdur: 1, hl: '#FFD400', blur: false, smooth: false };
+/* Efek teks per huruf / kata (teks tambahan). Rumus sama dengan text_fx_body() di subtitles.php: hanya transparansi & warna
+   yang berubah, jadi susunan baris tidak bergeser. tdur = lama ketik / munculnya semua kata; sorot = merata sepanjang teks. */
+const TEXT_FX = [['none', 'Tidak ada'], ['type', 'Ketik'], ['word', 'Kata per kata'], ['karaoke', 'Sorot per kata']];
+function textFxHtml(text, fx) {
+  const units = fx === 'type' ? Array.from(text) : text.split(/(\s+)/).filter(u => u !== '');
+  return units.map(u => u.trim() ? `<span class="fxu">${esc(u)}</span>` : esc(u)).join('');
+}
+function paintTextFx(sp, c, time) {
+  const a = c.anim, units = sp.querySelectorAll('.fxu'), n = Math.max(1, units.length), lt = time - c.s;
+  if (a.text === 'karaoke') {
+    const step = Math.max(0.05, (c.e - c.s) / n), cur = Math.floor(lt / step);
+    units.forEach((u, k) => { u.style.color = k === cur ? a.hl : ''; });
+    return;
+  }
+  const step = (a.tdur || 1) / n, fade = a.text === 'word';
+  units.forEach((u, k) => {
+    const p = lt - k * step;
+    u.style.opacity = fade ? tProg(p, 0, 120, a.smooth) : p >= 0 ? 1 : 0;
+  });
+}
 const HOOK_ANIM = { in: 'fade', out: 'fade', din: 0.15, dout: 0.25 };
 function animPhase(kind, phase, p) {
   p = Math.min(1, Math.max(0, p));
@@ -1594,10 +1984,6 @@ function animAt(a, s, e, time) {
 }
 // Transform CSS animasi (jarak dalam px layar 1080)
 const animCss = A => `translate(calc(${A.dx}px * var(--k)), calc(${A.dy}px * var(--k))) scale(${A.s})`;
-const FRAMING_DESC = { speaker: 'Kamera otomatis mengikuti wajah orang yang sedang bicara',
-  crop_center: 'Selalu memotong bagian tengah video, tanpa mengikuti wajah',
-  blur: 'Video utuh di tengah, sisa layar diisi versi blur dari video yang sama',
-  gaming: 'Gameplay 70% di atas, webcam streamer 30% di bawah (posisi webcam dideteksi otomatis)' };
 
 let E = null;            // resep edit
 let fp = null;           // footage yang sedang tampil di preview: { i: indeks E.footage, at: detik } — null = clip utama
@@ -1609,7 +1995,6 @@ fvid.onloadedmetadata = () => { if (fp && E?.footage[fp.i]?.file === fvid.datase
 let meta = null;         // item & video
 let t = 0;               // waktu absolut (detik video sumber)
 let sel = { type: 'clip' };
-let propTab = 'clip';      // tab panel kanan: 'clip' | 'text'
 let dirty = false, pps = 10, cv, ctx, looping = false;
 let loadSeq = 0;          // menandai pemuatan terbaru, supaya respons clip sebelumnya diabaikan
 
@@ -1639,6 +2024,25 @@ async function load(retry) {
   buildUI();
   setDirty(!!E._migratedHook);
   showPending(d);
+  upgradeProxy(IID);
+}
+
+/* Preview lama (proxy 480p) dibuat ulang 720p di latar belakang (±10–20 dtk), lalu video preview ditukar tanpa mengubah posisi putar.
+   Server menolak dengan cepat kalau proxy sudah tajam / video sumber lokal tidak ada. Sekali per clip per sesi. */
+const proxyChecked = new Set();
+async function upgradeProxy(iid) {
+  if (proxyChecked.has(iid) || !E || E.pending) return;
+  proxyChecked.add(iid);
+  let d;
+  try { d = await api('edit_proxy_hd', { id: PID, iid }); } catch { return; }
+  if (!d.upgraded) return;
+  vcache.delete(iid); peeked.delete(iid);
+  if (iid !== IID) return; // sudah pindah clip: versi tajam dipakai saat clip ini dibuka lagi
+  const keep = t, wasPlaying = playing;
+  pause();
+  vid.addEventListener('loadeddata', () => { seek(keep); if (wasPlaying) play(); }, { once: true });
+  vid.src = d.proxy;
+  toast('Preview ditingkatkan ke 720p');
 }
 
 function adoptEdit(d) {
@@ -1651,8 +2055,12 @@ function adoptEdit(d) {
   if (E.style.x === undefined) E.style.x = 0.5;
   E.media = E.media || [];
   E.volume = E.volume ?? 100;
-  E.volKf = E.volKf || [];
+  // Fitur keyframe volume dihapus: keyframe lama dibuang, volume kembali ke nilai tetap clip / musik
+  E.volKf = [];
+  (E.music || []).forEach(m => delete m.kf); // E.music baru dilengkapi di bawah
   E.opening = E.opening && OPENINGS[E.opening.type] ? E.opening : null;
+  itCfg = itFrame = null; // menu Intro mulai dari pengaturan clip ini
+  E.sfx = E.sfx || [];
   E.texts = E.texts || [];
   E.cuts = E.cuts || [];
   E.gaps = E.gaps || [];
@@ -1661,15 +2069,27 @@ function adoptEdit(d) {
   E.music = E.music || [];
   E.caption = E.caption === 'kinetic' ? 'kinetic' : 'subtitle';
   E.frame = { ratio: 'full', radius: 0, ...(E.frame && !Array.isArray(E.frame) ? E.frame : {}) };
-  if (E.layout === 'letterbox') { E.layout = 'crop_center'; if (E.frame.ratio === 'full') E.frame.ratio = '3:4'; }
+  // Resep lama (sama dengan upgrade_layout di editor_lib.php): crop tengah → ikuti pembicara mati, background blur → bingkai 16:9 + blur,
+  // letterbox → bingkai 3:4, streaming game → jenis streaming game + split 70:30, split screen otomatis → split 50:50
+  if (E.layout === 'blur') { if (E.frame.ratio === 'full') E.frame.ratio = '16:9'; E.frame.bg = 'blur'; }
+  else if (E.layout === 'letterbox' && E.frame.ratio === 'full') E.frame.ratio = '3:4';
+  else if (E.layout === 'crop_center') E.follow = false;
+  else if (E.layout === 'gaming' && E.frame.ratio !== 'split') Object.assign(E.frame, { ratio: 'split', split: 70 }), E.kind = 'gaming';
+  else if (E.split.enabled && E.frame.ratio !== 'split') Object.assign(E.frame, { ratio: 'split', split: 50 });
+  E.kind = E.kind === 'gaming' || (E.kind == null && E.layout === 'gaming') ? 'gaming' : 'podcast';
+  E.follow = E.follow !== false;
+  E.frame.bg = E.frame.bg === 'blur' ? 'blur' : 'solid';
+  if (!SPLIT_RATIOS.includes(E.frame.split)) E.frame.split = E.kind === 'gaming' ? 70 : 50;
+  syncLayout();
   E.kinetic = { beats: [], y: 0.3, x: 0.5, ...(E.kinetic && !Array.isArray(E.kinetic) ? E.kinetic : {}) };
   E._klayout = null;
-  E.layers = Array.isArray(E.layers) && E.layers.length ? E.layers : ['text', 'sub', 'media'];
+  E.layers = ['text', 'sub', 'media']; // urutan lapisan tetap (fitur atur layer dihapus)
   E.tracks = E.tracks && !Array.isArray(E.tracks) ? E.tracks : {};
   E.transitions = E.transitions && !Array.isArray(E.transitions) ? E.transitions : {};
   fp = null; fvid.pause();
   migrateOverlay(E);
   E.style = { bold: false, italic: false, underline: false, spacing: 1, align: 'center', opacity: 100, stroke: '#000000', stroke_w: 7, ...E.style };
+  normSubStyle(E.style);
   E.hook = { anim: { ...HOOK_ANIM }, size: 68, bold: false, italic: false, underline: false, spacing: 0, align: 'center', color: '#111111', opacity: 100,
     bg: '#FFFFFF', bg_opacity: 100, ...E.hook };
   t = E.trim[0];
@@ -1824,7 +2244,7 @@ function buildUI() {
       </div>
       <div class="scrub" id="tl-scroll" title="Klik/geser untuk pindah posisi · tarik ujung bar untuk trim">
         <div class="tl-gut" id="tl-gut">${TRACKS.map(([k, icon, name]) => `<div class="trk t-${k}" data-trk="${k}"><span class="ti" title="${name}">${ic(icon)}</span>
-          ${k !== 'music' ? `<button class="tc" data-tc="hide" aria-label="Sembunyikan ${name}"></button>` : ''}<button class="tc" data-tc="lock" aria-label="Kunci ${name}"></button>${k === 'video' || k === 'music' ? `<button class="tc" data-tc="mute" aria-label="Bisukan ${name}"></button>` : ''}</div>`).join('')}</div>
+          ${k !== 'music' && k !== 'sfx' ? `<button class="tc" data-tc="hide" aria-label="Sembunyikan ${name}"></button>` : ''}<button class="tc" data-tc="lock" aria-label="Kunci ${name}"></button>${['video', 'music', 'sfx'].includes(k) ? `<button class="tc" data-tc="mute" aria-label="Bisukan ${name}"></button>` : ''}</div>`).join('')}</div>
         <div class="tl-view" id="tl-view"><div class="sc-inner" id="tl"></div></div>
       </div>
     </div>`;
@@ -1892,9 +2312,9 @@ function buildUI() {
   // Dikecualikan: alat untuk mengedit item terpilih (panel properti, menu kiri, toolbar, penggaris & playhead, modal).
   if (!window.deselectBound) {
     window.deselectBound = true;
-    const ITEMS = '#sub, #hook, .mimg, .tbox, #kbox, #selbox, .sc-lbl, .sc-media, .sc-text, .sc-fx, .sc-music, .sc-foot, .sc-tr, .sc-op, .kf-dot, #film, [data-drag], [data-pr]';
+    const ITEMS = '#sub, #hook, .mimg, .tbox, #kbox, #selbox, .sc-lbl, .sc-media, .sc-text, .sc-fx, .sc-music, .sc-foot, .sc-tr, .sc-op, #film, [data-drag], [data-pr]';
     // #tl: timeline menangani klik area kosongnya sendiri (lihat bindTimeline)
-    const KEEP = '#tl, #props, .lp-tabs, .lp-body, .tl-tools, .transport, .ruler, .playhead, .trk, .tipbox, .gfx-ed, .sty, .modal, [role=dialog], .toast, header';
+    const KEEP = '#tl, #props, .reels, .lp-tabs, .lp-body, .tl-tools, .transport, .ruler, .playhead, .trk, .tipbox, .gfx-ed, .sty, .modal, [role=dialog], .toast, header';
     document.addEventListener('click', e => {
       if (!E || inlineEd || !e.target.isConnected || !DESELECTABLE.includes(sel.type)) return;
       if (performance.now() - tlTapAt < 300) return;
@@ -2051,7 +2471,16 @@ function bindPvZoom() {
 
 function updatePhoneScale() {
   const w = $('phone')?.clientWidth;
-  if (w) $('phone').style.setProperty('--k', w / 1080);
+  if (!w) return;
+  $('phone').style.setProperty('--k', w / 1080);
+  // Resolusi canvas = ukuran tampil × devicePixelRatio (layar Retina 2×), maks. 1080×1920, supaya preview tidak buram
+  const cw = Math.min(1080, Math.round(w * (devicePixelRatio || 1) / 2) * 2);
+  if (cv && Math.abs(cv.width - cw) > 2) {
+    cv.width = cw;
+    cv.height = Math.round(cw * 16 / 9);
+    ctx.imageSmoothingQuality = 'high'; // ukuran canvas baru mengatur ulang state context
+    draw();
+  }
 }
 
 // Sama dengan speaker_crop() di clip.php: wajah di tengah, tinggi wajah ±24% layar
@@ -2071,13 +2500,26 @@ function speakerCrop(seg, W, H, a = 9 / 16) {
    Satu run = satu shot kamera sumber: ukuran crop tetap, kamera bergeser ease-in-out ke pembicara berikutnya.
    Antar run (cut di video sumber) kamera langsung pindah. */
 // Sama dengan clip.php: perpindahan jauh (> CAM_JUMP) = cut langsung, perpindahan kecil = geser halus
-const CAM_PAN = 0.9, CAM_DEADZONE = 0.02, CAM_HOLD = 1.0, CAM_JUMP = 0.18;
+const CAM_PAN = 0.9, CAM_DEADZONE = 0.02, CAM_HOLD = 1.0, CAM_JUMP = 0.18, CAM_SNAP = 0.6;
+// Sama dengan snap_segments() di clip.php: batas pergantian pembicara ditarik ke cut kamera sumber terdekat (≤ CAM_SNAP dtk)
+function snapSegs(segs, cuts) {
+  segs = segs.map(x => ({ ...x }));
+  if (!cuts) return segs;
+  for (let i = 1; i < segs.length; i++) {
+    const st = segs[i].s;
+    let best = null;
+    for (const c of cuts) if (Math.abs(c - st) <= CAM_SNAP && c > segs[i - 1].s + 0.05 && c < segs[i].e - 0.05 && (best === null || Math.abs(c - st) < Math.abs(best - st))) best = c;
+    if (best !== null) { segs[i].s = best; segs[i - 1].e = best; }
+  }
+  return segs;
+}
 let camCache = { key: null, runs: [] };
 function cameraRuns(a) {
-  const W = E.src.w, H = E.src.h, segs = E.segments || [];
-  const key = [segs, E.shots, a, W, H];
+  const W = E.src.w, H = E.src.h;
+  const key = [E.segments, E.shots, a, W, H];
   if (camCache.key && key.every((v, k) => v === camCache.key[k])) return camCache.runs;
   const cuts = E.shots?.length ? E.shots.map(s => s.s) : null;
+  const segs = snapSegs(E.segments || [], cuts);
   const runs = [];
   let prev = null;
   segs.forEach((seg, i) => {
@@ -2101,6 +2543,8 @@ function cameraRuns(a) {
       keys.push([k === 0 ? r.s : seg.s, x, y]);
     });
     keys = keys.filter((kv, k) => k === 0 || ((keys[k + 1]?.[0] ?? r.e) - kv[0]) >= CAM_HOLD);
+    // Awal shot yang singkat juga tidak dipakai (sama dengan camera_runs)
+    while (keys.length > 1 && keys[1][0] - keys[0][0] < CAM_HOLD) { keys[0] = [keys[0][0], keys[1][1], keys[1][2]]; keys.splice(1, 1); }
     r.keys = keys;
   }
   camCache = { key, runs };
@@ -2124,26 +2568,25 @@ function camAt(time, a = 9 / 16) {
   return [x / W, y / H, r.cw / W, r.ch / H];
 }
 
-// Sama dengan half_crop() di clip.php: separuh layar 9:8, tinggi wajah ±32%
-function halfCrop(p, W, H) {
+// Sama dengan half_crop() di clip.php: satu panel split screen (bawaan 9:8), tinggi wajah ±32%
+function halfCrop(p, W, H, a = 9 / 8) {
   const minH = Math.min(H, Math.max(H * 0.35, 400));
   let ch = p.fh > 0 ? p.fh * H / 0.32 : H;
   ch = Math.max(minH, Math.min(H, ch));
-  let cw = ch * 9 / 8;
-  if (cw > W) { cw = W; ch = Math.min(H, W * 8 / 9); }
+  let cw = ch * a;
+  if (cw > W) { cw = W; ch = Math.min(H, W / a); }
   const x = Math.max(0, Math.min(W - cw, p.cx * W - cw / 2));
   const y = Math.max(0, Math.min(H - ch, p.cy * H - ch * 0.45));
   return [x / W, y / H, cw / W, ch / H];
 }
 
 // Sama dengan gaming_crops() di clip.php: [game, webcam] dalam koordinat 0..1.
-// Game = crop tengah rasio 1080x1344 (70%), webcam = sekitar wajah streamer rasio 1080x576 (30%)
-const GAMING_TOP = 1344;
-function gamingCrops(cam, W, H) {
-  const ga = 1080 / GAMING_TOP;
+// Game = crop tengah rasio 1080 x top (bawaan 70%), webcam = sekitar wajah streamer rasio 1080 x sisanya
+function gamingCrops(cam, W, H, top = 1344) {
+  const ga = 1080 / top;
   let gh = H, gw = gh * ga;
   if (gw > W) { gw = W; gh = W / ga; }
-  const ca = 1080 / (1920 - GAMING_TOP);
+  const ca = 1080 / (1920 - top);
   let ch = Math.max(cam.fh * H / 0.35, H * 0.12), cw = ch * ca;
   if (cw > W) { cw = W; ch = W / ca; }
   if (ch > H) { ch = H; cw = H * ca; }
@@ -2180,8 +2623,12 @@ function draw() {
   paintOpening(); // juga saat frame video belum siap, supaya lapisan opening selalu sesuai posisi putar
   const tr = trState();
   $('phone')?.classList.toggle('foot', !!fp || !!tr);
-  if (fp) drawFootage();
-  else {
+  if (fp) {
+    // Footage / intro: efek, media, grafik & teks yang menempel ke footage ikut tampil
+    drawFootage();
+    drawEffects(cv.width, cv.height);
+    drawOverlay();
+  } else {
     if (vid.readyState < 2) return;
     if (isHidden('video')) { ctx.fillStyle = '#000'; ctx.fillRect(0, 0, cv.width, cv.height); }
     else paintMain(ctx, vid, frameTime(), cv.width, cv.height);
@@ -2192,6 +2639,14 @@ function draw() {
   if (tr) composeTransition(tr);
 }
 
+// Gambar area sumber r (pecahan 0..1) ke panel tanpa gepeng: area dipersempit di tengah sampai serasio panel (sama dengan fit_panel di clip.php)
+function drawPanel(g, v, r, dx, dy, dw, dh) {
+  const VW = v.videoWidth, VH = v.videoHeight;
+  let sx = r[0] * VW, sy = r[1] * VH, sw = r[2] * VW, sh = r[3] * VH;
+  const a = dw / dh;
+  if (sw / sh > a) { const w = sh * a; sx += (sw - w) / 2; sw = w; } else { const h = sw / a; sy += (sh - h) / 2; sh = h; }
+  g.drawImage(v, sx, sy, sw, sh, dx, dy, dw, dh);
+}
 // Frame clip (framing / split / blur) dari video v pada waktu sumber time ke context g
 function paintMain(g, v, time, CW, CH) {
   const VW = v.videoWidth, VH = v.videoHeight;
@@ -2199,30 +2654,37 @@ function paintMain(g, v, time, CW, CH) {
   // Layout bingkai (bukan Full): area video sesuai rasio di tengah layar hitam, mengikuti pembicara kalau framing-nya begitu
   const G = frameGeom(CW, CH);
   if (!G.full && !splitPair(time)) {
-    g.fillStyle = '#000';
-    g.fillRect(0, 0, CW, CH);
-    const r = (E.layout === 'speaker' && camAt(time, G.a)) || speakerCrop(null, E.src.w, E.src.h, G.a);
-    g.drawImage(v, r[0] * VW, r[1] * VH, r[2] * VW, r[3] * VH, 0, G.y, CW, G.h);
+    const r = (E.layout === 'speaker' && E.follow && camAt(time, G.a)) || speakerCrop(null, E.src.w, E.src.h, G.a);
+    const src = [r[0] * VW, r[1] * VH, r[2] * VW, r[3] * VH];
+    if (G.blur) {
+      // Background blur: area video yang sama diperbesar memenuhi layar lalu diblur (sama dengan render)
+      // (digambar sedikit melebihi layar supaya tepi blur tidak menggelap)
+      const bw = CW * CH / G.h, px = Math.round(16 * CW / 540), m = px * 2;
+      g.filter = `blur(${px}px) brightness(0.85)`;
+      g.drawImage(v, ...src, (CW - bw) / 2 - m, -m, bw + 2 * m, CH + 2 * m);
+      g.filter = 'none';
+      g.save();
+      g.beginPath();
+      g.roundRect(G.x, G.y, G.w, G.h, G.r);
+      g.clip();
+      g.drawImage(v, ...src, 0, G.y, CW, G.h);
+      g.restore();
+    } else {
+      g.fillStyle = '#000';
+      g.fillRect(0, 0, CW, CH);
+      g.drawImage(v, ...src, 0, G.y, CW, G.h);
+    }
     return;
   }
+  const T = splitTop(), top = CH * T / 1920;
   if (E.layout === 'gaming' && E.cam) {
-    const top = CH * GAMING_TOP / 1920;
-    gamingCrops(E.cam, E.src.w, E.src.h).forEach((r, k) =>
-      g.drawImage(v, r[0] * VW, r[1] * VH, r[2] * VW, r[3] * VH, 0, k ? top : 0, CW, k ? CH - top : top));
-  } else if (E.layout === 'blur' && !splitPair(time)) {
-    const s = Math.max(CW / VW, CH / VH);
-    g.filter = 'blur(16px) brightness(0.85)';
-    g.drawImage(v, (CW - VW * s) / 2, (CH - VH * s) / 2, VW * s, VH * s);
-    g.filter = 'none';
-    const h = CW * VH / VW;
-    g.drawImage(v, 0, (CH - h) / 2, CW, h);
+    gamingCrops(E.cam, E.src.w, E.src.h, T).forEach((r, k) => drawPanel(g, v, r, 0, k ? top : 0, CW, k ? CH - top : top));
   } else if (splitPair(time)) {
     splitPair(time).forEach((p, k) => {
-      const r = halfCrop(p, E.src.w, E.src.h);
-      g.drawImage(v, r[0] * VW, r[1] * VH, r[2] * VW, r[3] * VH, 0, k * CH / 2, CW, CH / 2);
+      drawPanel(g, v, halfCrop(p, E.src.w, E.src.h, 1080 / (k ? 1920 - T : T)), 0, k ? top : 0, CW, k ? CH - top : top);
     });
   } else {
-    const r = (E.layout === 'speaker' && camAt(time)) || speakerCrop(null, E.src.w, E.src.h);
+    const r = (E.layout === 'speaker' && E.follow && camAt(time)) || speakerCrop(null, E.src.w, E.src.h);
     g.drawImage(v, r[0] * VW, r[1] * VH, r[2] * VW, r[3] * VH, 0, 0, CW, CH);
   }
 }
@@ -2247,13 +2709,83 @@ function activeLine() {
   return -1;
 }
 
+/* Highlight & efek subtitle (mengikuti waktu ucapan). Sama dengan sub_hl_cfg() / sub_fx_word() di subtitles.php.
+   Highlight = kata yang sedang diucapkan disorot (warna teks atau latar kotak, font & skala sendiri).
+   Efek: ketik (huruf muncul selama kata diucapkan) · kata per kata (animasi masuk fade / pop / glow) · blur menajam saat muncul.
+   Hanya transparansi, tinggi huruf, garis tepi & blur yang dianimasikan, jadi kata tidak bergeser dalam baris. */
+const SUB_FX = [['none', 'Tidak ada'], ['type', 'Ketik'], ['word', 'Kata per kata']];
+const SUB_WANIMS = [['fade', 'Fade'], ['pop', 'Pop'], ['glow', 'Glow']];
+const SUB_BLUR = 6, SUB_BLUR_MS = 220;
+// Smoother: semua animasi teks 1,8x lebih lama + easing melambat di akhir (sama dengan ass_t di subtitles.php)
+const SMOOTH_K = 1.8, SMOOTH_ACC = 0.5;
+// Progres tag \t(a,b) ASS pada detik p sejak awal event (a, b dalam ms)
+const tProg = (p, a, b, sm) => {
+  const k = sm ? SMOOTH_K : 1, q = Math.max(0, Math.min(1, (p * 1000 - a * k) / ((b - a) * k)));
+  return sm ? q ** SMOOTH_ACC : q;
+};
+const blurDone = sm => SUB_BLUR_MS * (sm ? SMOOTH_K : 1) / 1000;
+// Padding kotak highlight [samping, atas-bawah] dari ukuran huruf (sama dengan sub_box_pad)
+const SUB_BOX_PAD = size => [Math.round(size * 0.16), Math.round(size * 0.02)];
+// Lengkapi / konversi pengaturan subtitle lama (efek "sorot per kata" = highlight aktif)
+function normSubStyle(st) {
+  const fx = st.fx ?? 'karaoke';
+  Object.assign(st, {
+    hl: 'hl' in st ? !!st.hl : fx !== 'none', fx: ['type', 'word'].includes(fx) ? fx : 'none',
+    hl_style: st.hl_style === 'box' ? 'box' : 'color', hl_font: FONTS.some(f => f.k === st.hl_font) ? st.hl_font : '',
+    hl_tc: /^#[0-9a-f]{6}$/i.test(st.hl_tc || '') ? st.hl_tc : '#111111', hl_pop: st.hl_pop !== false,
+    wanim: SUB_WANIMS.some(w => w[0] === st.wanim) ? st.wanim : 'fade', blur: !!st.blur, smooth: !!st.smooth,
+  });
+}
+const lerp = (a, b, p) => a + (b - a) * Math.max(0, Math.min(1, p));
+const mixHex = (a, b, p) => '#' + [1, 3, 5].map(i => Math.round(lerp(parseInt(a.substr(i, 2), 16), parseInt(b.substr(i, 2), 16), p)).toString(16).padStart(2, '0')).join('');
+function subFxHtml(words, active, nextS, st) {
+  const k = $('phone').clientWidth / 1080, hideRest = st.fx !== 'none', sm = st.smooth;
+  const box = st.hl && st.hl_style === 'box', S = st.hl && st.hl_pop ? 1.1 : 1;
+  return words.map((w, j) => {
+    const txt = displayWord(w.w);
+    if (j > active && hideRest) return `<span style="opacity:0">${esc(txt)}</span>`;
+    if (j !== active || (!st.hl && st.fx === 'none')) return esc(txt);
+    const css = [`font-size:${S}em`], p = t - w.s;
+    // Garis tepi akhir kata aktif: tanpa garis (kotak), atau border biasa
+    const edgeC = box ? st.hl_tc : st.stroke, edgeW = box ? 0 : st.stroke_w;
+    if (st.hl) {
+      css.push(`color:${rgba(box ? st.hl_tc : st.highlight, st.opacity)}`);
+      if (st.hl_font) css.push(`font-family:${fontFamily(st.hl_font)}`);
+    }
+    if (box) {
+      // Kotak sungguhan di belakang kata aktif (sama dengan lapisan SubBox saat render)
+      const [px, py] = SUB_BOX_PAD(st.size);
+      css.push(`background:${st.highlight}`, `padding:${py * k}px ${px * k}px`, 'text-shadow:none', '-webkit-box-decoration-break:clone', 'box-decoration-break:clone');
+    }
+    let stroke = box ? [0, edgeC] : null, block = false;
+    if (st.fx === 'word') {
+      css.push(`opacity:${tProg(p, 0, st.wanim === 'fade' ? 160 : 90, sm)}`);
+      if (st.wanim === 'pop') {
+        block = true;
+        css.push(`transform:scaleY(${p * 1000 < 90 * (sm ? SMOOTH_K : 1) ? lerp(0.4, 1.15, tProg(p, 0, 90, sm)) : lerp(1.15, 1, tProg(p, 90, 170, sm))})`);
+      }
+      if (st.wanim === 'glow' && !box) stroke = [lerp(18, edgeW, tProg(p, 0, 260, sm)), mixHex('#FFFFFF', edgeC, tProg(p, 0, 260, sm))];
+    }
+    if (st.blur && st.fx !== 'none' && p < blurDone(sm)) { block = true; css.push(`filter:blur(${lerp(SUB_BLUR, 0, tProg(p, 0, SUB_BLUR_MS, sm)) * k}px)`); }
+    if (stroke) css.push(`-webkit-text-stroke:${stroke[0] * 2 * k}px ${stroke[1]}`);
+    if (block) css.push('display:inline-block;line-height:1;transform-origin:50% 85%');
+    if (st.fx === 'type') {
+      // Kata terakhir potongan diperpanjang sampai potongan berikutnya, sama dengan render
+      const e = j === words.length - 1 && nextS != null ? Math.max(w.e, nextS) : w.e, ch = Array.from(txt);
+      const vis = ch.filter((_, q) => p >= q / ch.length * Math.max(0, e - w.s)).length;
+      return `<i style='${css.join(';')}'>${esc(ch.slice(0, vis).join(''))}<span style="opacity:0">${esc(ch.slice(vis).join(''))}</span></i>`;
+    }
+    return `<i style='${css.join(';')}'>${esc(txt)}</i>`; // kutip tunggal: nama font memakai kutip ganda
+  }).join(' ');
+}
+
 const displayWord = w => {
   w = w.replace(/[.,;:…]+["”]?$/u, '');
   return E.style.uppercase ? w.toUpperCase() : w;
 };
 
 function drawOverlay() {
-  const inClip = t >= E.trim[0] - 0.01 && t <= E.trim[1];
+  const inClip = !fp && t >= E.trim[0] - 0.01 && t <= E.trim[1];
   const st = E.style;
   const sub = $('sub');
   const kinetic = E.caption === 'kinetic';
@@ -2270,8 +2802,9 @@ function drawOverlay() {
     const n = st.chunk || 0, c0 = n ? Math.floor(active / n) * n : 0;
     const shown = n ? l.words.slice(c0, c0 + n) : l.words;
     active -= c0;
-    sub.innerHTML = '<span class="sbox">' + shown.map((w, k) => k === active
-      ? `<i style="color:${rgba(st.highlight, st.opacity)}">${esc(displayWord(w.w))}</i>` : esc(displayWord(w.w))).join(' ') + '</span>';
+    sub.innerHTML = '<span class="sbox">' + subFxHtml(shown, active, n && c0 + n < l.words.length ? l.words[c0 + n].s : null, st) + '</span>';
+    const pb = t - shown[0].s; // blur menajam saat potongan baru muncul
+    sub.firstChild.style.filter = st.blur && pb >= 0 && pb < blurDone(st.smooth) ? `blur(${lerp(SUB_BLUR, 0, tProg(pb, 0, SUB_BLUR_MS, st.smooth)) * $('phone').clientWidth / 1080}px)` : '';
     applyTextStyle(sub, st);
     sub.style.color = rgba(st.color, st.opacity);
     sub.style.webkitTextStroke = st.stroke_w > 0 ? `calc(${st.stroke_w * 2}px * var(--k)) ${st.stroke}` : '0';
@@ -2470,7 +3003,7 @@ const musicEls = new Map();
 let musicResync = false;
 function syncMusic() {
   if (!E) return;
-  const on = playing && !fp && !musicMuted(), live = new Set();
+  const on = playing && !musicMuted(), live = new Set();
   for (const m of E.music) {
     let a = musicEls.get(m.id);
     if (!a || a.dataset.f !== m.file) {
@@ -2481,11 +3014,13 @@ function syncMusic() {
       musicEls.set(m.id, a);
     }
     live.add(m.id);
-    if (!on || t < m.s || t >= m.e || m.off + t - m.s >= m.dur) { if (!a.paused) a.pause(); continue; }
-    const want = m.off + t - m.s;
+    // Waktu potongan musik: detik video asli (musik di clip) atau detik dari awal footage (musik yang menempel ke footage / intro)
+    const mt = itemT(m);
+    if (!on || mt === null || mt < m.s || mt >= m.e || m.off + mt - m.s >= m.dur) { if (!a.paused) a.pause(); continue; }
+    const want = m.off + mt - m.s;
     if (a.paused || musicResync || Math.abs(a.currentTime - want) > 0.3) a.currentTime = want;
-    const fi = m.fin > 0 ? Math.min(1, (t - m.s) / m.fin) : 1, fo = m.fout > 0 ? Math.min(1, (m.e - t) / m.fout) : 1;
-    a.volume = Math.max(0, Math.min(1, musicVol(m, t) / 100 * fi * fo));
+    const fi = m.fin > 0 ? Math.min(1, (mt - m.s) / m.fin) : 1, fo = m.fout > 0 ? Math.min(1, (m.e - mt) / m.fout) : 1;
+    a.volume = Math.max(0, Math.min(1, musicVol(m, mt) / 100 * fi * fo));
     if (a.paused) a.play().catch(() => {});
   }
   musicResync = false;
@@ -2547,11 +3082,11 @@ function drawMedia(inClip) {
     const src = m._src || (m.file ? 'previews/overlays/' + m.file : '');
     if (el.dataset.f !== src) { el.src = src; el.dataset.f = src; }
     el.dataset.mi = i;
-    el.hidden = isHidden('media') || !(inClip && inSpan(m.s, m.e));
+    el.hidden = isHidden('media') || !itemOn(m, inClip);
     el.style.left = `calc(${m.x * 1080}px * var(--k))`;
     el.style.top = `calc(${m.y * 1920}px * var(--k))`;
     el.style.width = `calc(${m.w * 1080}px * var(--k))`;
-    const A = animAt(m.anim, m.s, m.e, t);
+    const A = animAt(m.anim, m.s, m.e, itemT(m) ?? t);
     el.style.transform = `translate(-50%, -50%) ${animCss(A)}`;
     el.style.opacity = A.a * (m.opacity ?? 100) / 100;
     el.style.zIndex = i;
@@ -2571,7 +3106,7 @@ function bindMediaDrag() {
     let moving = false;
     el.setPointerCapture(e.pointerId);
     pause();
-    if (sel.type !== 'media' || sel.i !== i || gfxNeedsPanel(i)) select({ type: 'media', i });
+    if (sel.type !== 'media' || sel.i !== i) select({ type: 'media', i });
     const move = ev => {
       const dx = (ev.clientX - sx) / k, dy = (ev.clientY - sy) / k;
       if (!moving) {
@@ -2618,13 +3153,23 @@ function bindMediaDrag() {
   });
 }
 
-// Sidebar panel kiri
+// Rail kiri: 'clips' = Galeri clip (bawaan), selain itu isi menu (Media, Musik, …) di panel kiri. Panel kanan selalu properti.
+let sideMode = 'clips';
+function setSide(mode) {
+  sideMode = mode;
+  document.body.classList.toggle('side-menu', mode !== 'clips');
+  document.querySelectorAll('.lp-tab').forEach(x => x.classList.toggle('on', x.dataset.lp === mode));
+  document.querySelectorAll('#clips .lp-pane').forEach(p => { p.hidden = p.id !== 'lp-' + mode; });
+}
 document.querySelector('.lp-tabs').addEventListener('click', e => {
   const b = e.target.closest('[data-lp]');
   if (!b) return;
-  document.querySelectorAll('.lp-tab').forEach(x => x.classList.toggle('on', x === b));
-  document.querySelectorAll('#clips .lp-pane').forEach(p => { p.hidden = p.id !== 'lp-' + b.dataset.lp; });
-  try { localStorage.setItem('ed-lp', b.dataset.lp); } catch {}
+  const lp = b.dataset.lp;
+  setSide(lp);
+  if (!E) return;
+  if (lp === 'intro') { renderIntro(); selectIntroPanel(); }
+  else if (sel.type === 'intro') select({ type: 'clip' });
+  if (lp === 'sfx') loadSfxLib();
 });
 $('media-add').onclick = () => $('media-input').click();
 $('media-input').onchange = e => { uploadMedia(e.target.files); e.target.value = ''; };
@@ -2651,7 +3196,6 @@ document.addEventListener('dragend', () => { dragMedia = null; showDrop(null); }
 ['dragenter', 'dragover'].forEach(ev => $('lp-media').addEventListener(ev, e => { if (dragMedia) return; e.preventDefault(); $('media-grid').classList.add('drop'); }));
 ['dragleave', 'drop'].forEach(ev => $('lp-media').addEventListener(ev, e => { if (dragMedia) return; e.preventDefault(); $('media-grid').classList.remove('drop'); }));
 $('lp-media').addEventListener('drop', e => { if (!dragMedia) uploadMedia(e.dataTransfer.files); });
-try { const lp = localStorage.getItem('ed-lp'); if (['media', 'music', 'text', 'fx', 'tr', 'gfx', 'preset'].includes(lp)) document.querySelector(`[data-lp="${lp}"]`).click(); } catch {}
 loadMediaLib();
 
 /* ---------- Efek transisi overlay (light leak, flash, fade hitam) ---------- */
@@ -2694,14 +3238,16 @@ function copyCv(CW, CH) {
 // Gambar efek aktif di atas video pada canvas preview (sebelum media/teks, seperti hasil render).
 // Urutan sama dengan render: gerak kamera → glow → cahaya (screen) → gelap
 function drawEffects(CW, CH) {
-  if (!E.effects?.length || isHidden('fx') || t < E.trim[0] || t > E.trim[1]) return;
+  if (!E.effects?.length || isHidden('fx')) return;
+  const inClip = !fp && t >= E.trim[0] && t <= E.trim[1];
   const rank = { zoom: 0, shake: 0, grade: 0.5, glow: 1, dip: 3, vignette: 3 };
-  const act = E.effects.filter(fx => EFFECTS[fx.type] && fx.intensity && inSpan(fx.s, fx.e))
+  const act = E.effects.filter(fx => EFFECTS[fx.type] && fx.intensity && itemOn(fx, inClip))
     .sort((a, b) => (rank[EFFECTS[a.type].kind] ?? 2) - (rank[EFFECTS[b.type].kind] ?? 2));
   for (const fx of act) {
-    const pre = EFFECTS[fx.type], p = (t - fx.s) / (fx.e - fx.s), k = fx.intensity / 100, env = Math.max(0, fxEnv(pre.kind, p)), a = env * k;
+    const ft = itemT(fx);
+    const pre = EFFECTS[fx.type], p = (ft - fx.s) / (fx.e - fx.s), k = fx.intensity / 100, env = Math.max(0, fxEnv(pre.kind, p)), a = env * k;
     if (pre.kind === 'zoom' || pre.kind === 'shake') {
-      const z = pre.kind === 'zoom' ? 1 + 0.18 * k * env : 1 + 0.06 * env, tl = t - fx.s;
+      const z = pre.kind === 'zoom' ? 1 + 0.18 * k * env : 1 + 0.06 * env, tl = ft - fx.s;
       const amp = pre.kind === 'shake' ? 30 * k * env * CW / 1080 : 0;
       copyCv(CW, CH);
       ctx.drawImage(fxBuf, (CW - CW * z) / 2 - amp * Math.sin(2 * Math.PI * 13 * tl), (CH - CH * z) / 2 - amp * Math.cos(2 * Math.PI * 11 * tl), CW * z, CH * z);
@@ -2876,8 +3422,8 @@ function cutTarget() {
     return t > l.s + m && t < l.e - m && k > 0 && k < l.words.length ? 'line' : null;
   }
   if (['media', 'text', 'effect', 'music'].includes(sel.type) && trackArr(sel.type)[sel.i]) {
-    const it = trackArr(sel.type)[sel.i];
-    return t > it.s + m && t < it.e - m ? sel.type : null;
+    const it = trackArr(sel.type)[sel.i], lt = itemT(it);
+    return lt !== null && lt > it.s + m && lt < it.e - m ? sel.type : null;
   }
   if (sel.type === 'video') {
     return t > E.trim[0] + m && t < E.trim[1] - m && !E.cuts.some(c => Math.abs(c - t) < m) ? 'video' : null;
@@ -2897,7 +3443,7 @@ function cutAtPlayhead() {
     E.lines.splice(sel.i, 1, { s: a[0].s, e: a.at(-1).e, words: a }, { s: b[0].s, e: b.at(-1).e, words: b });
     sel = { type: 'line', i: sel.i + 1 };
   } else if (kind === 'media' || kind === 'text' || kind === 'effect' || kind === 'music') {
-    const arr = trackArr(kind), it = arr[sel.i];
+    const arr = trackArr(kind), it = arr[sel.i], at = round3(itemT(it)); // waktu potong dalam satuan item
     const copy = { ...it, id: Math.random().toString(36).slice(2, 10), s: at };
     if (kind === 'music') copy.off = round3(it.off + at - it.s); // potongan kedua melanjutkan lagu dari titik potong
     if (it.gfx) copy.gfx = { ...it.gfx };
@@ -2978,18 +3524,28 @@ function drawTexts(inClip) {
     }
     el.dataset.ti = i;
     const editing = inlineEd?.kind === 'text' && inlineEd.i === i;
-    el.hidden = !editing && (isHidden('text') || !(inClip && inSpan(c.s, c.e)));
+    el.hidden = !editing && (isHidden('text') || !itemOn(c, inClip));
     if (el.hidden) return;
     const sp = el.firstChild, boxed = c.bg_opacity > 0;
-    if (!editing && sp.textContent !== c.text) sp.textContent = c.text;
+    const fx = !editing && c.anim?.text && c.anim.text !== 'none' ? c.anim.text : null;
+    if (fx) {
+      const key = fx + '|' + c.text;
+      if (sp.dataset.fx !== key) { sp.innerHTML = textFxHtml(c.text, fx); sp.dataset.fx = key; }
+      paintTextFx(sp, c, itemT(c) ?? t);
+    } else if (!editing && (sp.dataset.fx || sp.textContent !== c.text)) {
+      delete sp.dataset.fx;
+      sp.textContent = c.text;
+    }
     applyTextStyle(el, c);
     el.style.lineHeight = boxed ? '1.5' : '1.2';
     el.style.margin = { left: '0 auto 0 0', right: '0 0 0 auto' }[c.align] || '0 auto';
     el.style.top = `calc(${c.y * 1920}px * var(--k))`;
-    const A = editing ? animAt(null) : animAt(c.anim, c.s, c.e, t);
+    const A = editing ? animAt(null) : animAt(c.anim, c.s, c.e, itemT(c) ?? t);
     el.style.transform = `translateX(calc(${anchorShift(c)}px * var(--k))) ${animCss(A)}`;
     el.style.transformOrigin = `${{ left: 'left', right: 'right' }[c.align] || 'center'} top`;
     el.style.opacity = A.a;
+    const pb = (itemT(c) ?? t) - c.s; // blur menajam saat teks muncul (sama dengan text_fx_body)
+    el.style.filter = !editing && c.anim?.blur && pb >= 0 && pb < blurDone(c.anim.smooth) ? `blur(${lerp(SUB_BLUR, 0, tProg(pb, 0, SUB_BLUR_MS, c.anim.smooth)) * $('phone').clientWidth / 1080}px)` : '';
     el.style.zIndex = i;
     sp.style.fontSize = `calc(${c.size}px * var(--k))`;
     sp.style.color = rgba(c.color, c.opacity);
@@ -3064,7 +3620,7 @@ const anchorShift = c => anchorX(c) * 1080 - ({ left: 70, right: 1010 }[c.align]
 /* ---------- Geser posisi subtitle & hook di preview ---------- */
 // Area aman (koordinat video 1080x1920) seperti panduan story Instagram; teks tidak bisa keluar dari sini
 const SAFE = { l: 64, r: 1016, t: 192, b: 1728 }, SNAP = 22;
-const hookTop = () => E.hook.y != null ? E.hook.y * 1920 : (E.layout === 'blur' ? 330 : 230);
+const hookTop = () => E.hook.y != null ? E.hook.y * 1920 : (frameGeom().blur ? 330 : 230);
 let movedAt = 0;
 const justMoved = () => performance.now() - movedAt < 250;
 
@@ -3265,6 +3821,7 @@ function deleteSelectedText() {
   if (sel.type === 'video') return toggleSegment();
   if (sel.type === 'effect' && E.effects[sel.i]) return removeEffect(sel.i);
   if (sel.type === 'music' && E.music[sel.i]) return removeMusic(sel.i);
+  if (sel.type === 'sfx' && E.sfx[sel.i]) return removeSfx(sel.i);
   if (sel.type === 'footage' && E.footage[sel.i]) return removeFootage(sel.i);
   if (sel.type === 'transition' && E.transitions[sel.id]) return removeTransition(sel.id);
   if (sel.type === 'opening' && E.opening) return setOpening('');
@@ -3291,105 +3848,9 @@ function seek(time) {
 // Volume preview: sampai 100% cukup lewat vid.volume; di atasnya pakai GainNode (Web Audio) supaya terdengar sama dengan hasil render
 let audioCtx = null;
 
-/* ---------- Keyframe volume: rumus sama dengan volume_kf_expr() di editor_lib.php ---------- */
-const KF_EASES = [['ease', 'Ease in-out (halus)'], ['linear', 'Linear'], ['in', 'Ease in (makin cepat)'], ['out', 'Ease out (makin pelan)'], ['hold', 'Tahan (lompat)']];
-const KF_FN = { linear: p => p, ease: p => p * p * (3 - 2 * p), in: p => p * p, out: p => 1 - (1 - p) * (1 - p), hold: () => 0 };
-// Nilai kurva di detik `time`: sebelum keyframe pertama / sesudah terakhir = nilai keyframe itu
-function kfValue(kfs, time) {
-  const n = kfs.length;
-  for (let j = 0; j < n - 1; j++) {
-    const a = kfs[j], b = kfs[j + 1];
-    if (time < b.t) return a.v + (b.v - a.v) * (KF_FN[a.e] || KF_FN.linear)(Math.max(0, Math.min(1, (time - a.t) / Math.max(0.001, b.t - a.t))));
-  }
-  return kfs[n - 1].v;
-}
-const clipVol = time => E.volKf?.length ? kfValue(E.volKf, time) : (E.volume ?? 100);
-const musicVol = (m, time) => m.kf?.length ? kfValue(m.kf, time) : m.vol;
-// Target keyframe: 'clip' (audio clip) atau 'm<i>' (musik ke-i)
-function kfTarget(tg) {
-  if (tg === 'clip') return { arr: E.volKf, lo: E.trim[0], hi: E.trim[1], max: 200, base: E.volume ?? 100, now: clipVol };
-  const m = E.music[+tg.slice(1)];
-  if (!m) return null;
-  m.kf = m.kf || [];
-  return { arr: m.kf, lo: m.s, hi: m.e, max: 100, base: m.vol, now: time => musicVol(m, time) };
-}
-function kfPanelHtml(tg) {
-  const K = kfTarget(tg), t0 = E.trim[0];
-  const rows = K.arr.map((k, j) => `<div class="kf-row${Math.abs(k.t - t) < 0.05 ? ' on' : ''}">
-      <button type="button" class="kf-go" data-kfgo="${j}" title="Lompat ke keyframe ini">◆</button>
-      <input type="number" class="kf-tm" data-kftm="${j}" step="0.1" value="${(k.t - t0).toFixed(2)}" title="Detik dari awal clip" aria-label="Detik keyframe">
-      <select data-kfe="${j}" ${j === K.arr.length - 1 ? 'disabled title="Keyframe terakhir: volume tetap sampai akhir"' : 'title="Cara volume berubah menuju keyframe berikutnya"'}>
-        ${KF_EASES.map(([v, l]) => `<option value="${v}" ${k.e === v ? 'selected' : ''}>${j === K.arr.length - 1 ? 'Tetap sampai akhir' : l}</option>`).join('')}</select>
-      <button type="button" class="kf-del" data-kfdel="${j}" title="Hapus keyframe" aria-label="Hapus keyframe">×</button>
-      <div class="kf-vol"><input type="range" data-kfv="${j}" min="0" max="${K.max}" step="1" value="${k.v}" aria-label="Volume keyframe"><span class="val">${k.v}%</span></div>
-    </div>`).join('');
-  return `<div class="kf-box" data-kft="${tg}">
-    <div class="kf-hd"><span>◆ Keyframe volume ${K.arr.length ? `<span class="muted">· ${K.arr.length}</span>` : ''}</span>
-      <button type="button" class="btn sm" data-kfadd>◆ Tambah di playhead</button></div>
-    ${rows || `<p class="muted kf-empty">Volume tetap. Taruh playhead lalu klik <b>Tambah di playhead</b> untuk membuat volume naik-turun, mis. detik 1 = 100% → detik 3 = 70%.</p>`}
-    ${K.arr.length === 1 ? '<p class="muted kf-empty" style="margin-top:6px">Tambahkan 1 keyframe lagi supaya volume berubah.</p>' : ''}
-  </div>`;
-}
-// Kurva volume di timeline (garis) + diamond tiap keyframe; y = tengah baris track
-function kfTimelineHtml(tg, top, h, max) {
-  const K = kfTarget(tg);
-  if (!K?.arr.length) return '';
-  const a = Math.max(K.lo, E.base[0]), b = Math.min(K.hi, E.base[1]);
-  if (b <= a) return '';
-  const pts = [];
-  for (let px = x(a); px <= x(b) + 0.5; px += 3) { const tm = Math.min(b, a + (px - x(a)) / pps); pts.push(`${(px - x(a)).toFixed(1)},${(h - kfValue(K.arr, tm) / max * h).toFixed(1)}`); }
-  const curve = `<svg class="kf-curve" style="left:${x(a)}px;top:${top}px;width:${x(b) - x(a)}px;height:${h}px"><polyline points="${pts.join(' ')}" fill="none" stroke="#FFC400" stroke-width="1.5" stroke-opacity=".9"/></svg>`;
-  const on = j => (tg === 'clip' ? ['clip', 'video'].includes(sel.type) : sel.type === 'music' && sel.i === +tg.slice(1)) && Math.abs(K.arr[j].t - t) < 0.05;
-  return curve + K.arr.map((k, j) => k.t < E.base[0] || k.t > E.base[1] ? '' :
-    `<span class="kf-dot${tg === 'clip' ? '' : ' mu'}${on(j) ? ' on' : ''}" data-kfd="${tg}:${j}" style="left:${x(k.t)}px;top:${top + h - k.v / max * h - 5.5}px" title="${fmtTs(k.t - E.trim[0])} · ${k.v}% · ${(KF_EASES.find(e => e[0] === k.e) || KF_EASES[0])[1]}"></span>`).join('');
-}
-function kfAdd(tg) {
-  const K = kfTarget(tg);
-  if (!K) return;
-  if (t < K.lo - 0.01 || t > K.hi + 0.01) return toast(tg === 'clip' ? 'Pindahkan playhead ke dalam clip dulu' : 'Pindahkan playhead ke dalam potongan musik ini dulu');
-  const at = round3(Math.max(K.lo, Math.min(K.hi, t)));
-  if (K.arr.some(k => Math.abs(k.t - at) < 0.05)) return toast('Sudah ada keyframe di posisi ini');
-  K.arr.push({ t: at, v: Math.round(K.now(at)), e: 'ease' });
-  K.arr.sort((p, q) => p.t - q.t);
-  changed(); renderProps(); renderTimeline(); drawWave(); applyVolume();
-}
-function bindKf(P) {
-  const ctx = e => { const box = e.target.closest('[data-kft]'); return box ? kfTarget(box.dataset.kft) : null; };
-  P.addEventListener('input', e => {
-    const j = e.target.dataset.kfv, K = j !== undefined && ctx(e);
-    if (!K) return;
-    e.stopImmediatePropagation();
-    K.arr[+j].v = +e.target.value;
-    e.target.nextElementSibling.textContent = e.target.value + '%';
-    changed(); applyVolume(); renderTimeline(); drawWave();
-  });
-  P.addEventListener('change', e => {
-    const K = ctx(e), d = e.target.dataset;
-    if (!K || (d.kfe === undefined && d.kftm === undefined && d.kfv === undefined)) return;
-    e.stopImmediatePropagation();
-    if (d.kfe !== undefined) K.arr[+d.kfe].e = e.target.value;
-    if (d.kftm !== undefined) {
-      const v = parseFloat(e.target.value);
-      if (!isNaN(v)) {
-        const at = round3(Math.max(K.lo, Math.min(K.hi, E.trim[0] + v)));
-        const k = K.arr[+d.kftm];
-        if (!K.arr.some(o => o !== k && Math.abs(o.t - at) < 0.05)) { k.t = at; K.arr.sort((p, q) => p.t - q.t); seek(at); }
-        else toast('Sudah ada keyframe di detik itu');
-      }
-    }
-    changed(); renderProps(); renderTimeline(); drawWave(); applyVolume();
-  });
-  P.addEventListener('click', e => {
-    const b = e.target.closest('[data-kfadd], [data-kfgo], [data-kfdel]'), K = b && ctx(e);
-    if (!K) return;
-    e.stopImmediatePropagation();
-    const tg = b.closest('[data-kft]').dataset.kft;
-    if (b.dataset.kfadd !== undefined) return kfAdd(tg);
-    if (b.dataset.kfgo !== undefined) { pause(); seek(K.arr[+b.dataset.kfgo].t); renderProps(); renderTimeline(); return; }
-    K.arr.splice(+b.dataset.kfdel, 1);
-    changed(); renderProps(); renderTimeline(); drawWave(); applyVolume();
-  });
-}
+// Volume tetap per clip / per musik (fitur keyframe volume sudah dihapus)
+const clipVol = () => E.volume ?? 100;
+const musicVol = m => m.vol;
 
 function applyVolume() {
   if (!E || !vid) return;
@@ -3500,6 +3961,58 @@ function footStart(f) {
 const curV = () => fp && E.footage[fp.i] ? footStart(E.footage[fp.i]) + fp.at : preDur() + t - E.base[0];
 const footUrl = f => 'previews/overlays/' + f.file;
 const footThumb = f => 'previews/overlays/' + (f.kind === 'video' ? f.file.replace(/\.\w+$/, '.thumb.jpg') : f.file);
+
+/* ---------- Item yang menempel ke footage / intro (media, grafik, teks, efek, musik) ----------
+   Item biasa memakai detik video asli (s/e) dan hanya ada di rentang clip. Item yang digeser ke bagian footage punya ref = id footage
+   dan s/e = detik dari awal footage itu di video akhir, jadi bisa mulai di detik 0 video & berlanjut melewati sambungan ke clip. */
+// Video akhir: footage awal → bagian clip yang dipertahankan → footage akhir
+const keptBefore = tm => (tm - E.trim[0]) - (E.gaps || []).reduce((a, [p, q]) => a + Math.max(0, Math.min(q, tm) - Math.max(p, E.trim[0])), 0);
+const outTotal = () => preDur() + keptDur() + sumDur(postF());
+function segStartO(id) {
+  if (id === 'main') return preDur();
+  const f = E.footage.find(g => g.id === id);
+  if (!f) return null;
+  return f.pos === 'pre' ? footStart(f) : preDur() + keptDur() + footStart(f) - preDur() - baseDur();
+}
+// Detik video akhir di posisi putar sekarang (null = di luar video akhir, mis. bagian clip di luar trim)
+const outNow = () => fp && E.footage[fp.i] ? segStartO(E.footage[fp.i].id) + fp.at
+  : t < E.trim[0] - 0.01 || t > E.trim[1] + 0.01 ? null : preDur() + keptBefore(Math.max(E.trim[0], Math.min(E.trim[1], t)));
+// Timeline editor (virtual: footage + seluruh rentang clip termasuk bagian di luar trim) ↔ video akhir
+function vOfOut(o) {
+  const P = preDur(), K = keptDur();
+  if (o <= P) return o;
+  if (o <= P + K) return P + E.trim[0] - E.base[0] + (o - P);
+  return P + baseDur() + (o - P - K);
+}
+function outOfV(v) {
+  const P = preDur(), B = baseDur();
+  if (v < P) return v;
+  if (v <= P + B) return P + keptBefore(Math.max(E.trim[0], Math.min(E.trim[1], E.base[0] + v - P)));
+  return P + keptDur() + (v - P - B);
+}
+// Rentang item di timeline editor (detik virtual)
+function itemV(m) {
+  if (!m.ref) return [preDur() + Math.max(m.s, E.base[0]) - E.base[0], preDur() + Math.min(m.e, E.base[1]) - E.base[0]];
+  const o = segStartO(m.ref);
+  return o === null ? [0, 0] : [vOfOut(o + m.s), vOfOut(o + m.e)];
+}
+// Waktu item (satuan s/e item) di posisi putar sekarang; null = item ini tidak sedang berjalan di bagian ini
+function itemT(m) {
+  if (!m.ref) return fp ? null : t;
+  const o = outNow(), b = segStartO(m.ref);
+  return o === null || b === null ? null : o - b;
+}
+const itemOn = (m, inClip) => { if (!m.ref) return inClip && inSpan(m.s, m.e); const lt = itemT(m); return lt !== null && lt >= m.s && lt < m.e; };
+// Posisi timeline v → tempelan: di rentang clip = detik video asli, di footage = ref + detik dari awal footage itu
+function itemAnchor(v) {
+  const P = preDur(), B = baseDur();
+  if (v >= P && v <= P + B) return { ref: null, s: E.base[0] + v - P };
+  const a = sfxAnchor(v);
+  return { ref: a.ref, s: a.at };
+}
+// Batas waktu item yang menempel ke footage (dalam satuan item): seluruh video akhir
+const refRange = m => { const b = segStartO(m.ref) ?? 0; return [-b, outTotal() - b]; };
+const refNoteHtml = `<p class="muted small" style="margin:10px 0 0">Item ini ada di bagian intro / footage. Geser bloknya di timeline untuk mengatur posisi & durasi.</p>`;
 
 // Pindah ke posisi virtual v (detik dari awal timeline)
 function seekV(v) {
@@ -3654,6 +4167,7 @@ function composeTransition({ j, p, liveIsA }) {
       g.beginPath(); g.arc(CW / 2, CH / 2, p * Math.hypot(CW, CH) / 2, 0, Math.PI * 2); g.clip();
       g.drawImage(B, 0, 0);
       break;
+    case 'paper': drawPaperTr(g, A, B, p, CW, CH); break;
     case 'zoomin': {
       g.drawImage(B, 0, 0);
       const z = 1 + p;
@@ -3671,7 +4185,7 @@ function composeTransition({ j, p, liveIsA }) {
 
 // Tambah transisi di sambungan menuju item id, lalu buka menu Transisi untuk memilih template
 function addTransition(id) {
-  E.transitions[id] = { type: trPreset, dur: 0.5 };
+  E.transitions[id] = { type: trPreset, dur: trPreset === 'paper' ? PAPER_DUR : 0.5 };
   changed();
   select({ type: 'transition', id });
   openTrTab();
@@ -3767,6 +4281,566 @@ function setOpening(k) {
   renderOpList();
   playOpening();
 }
+/* ---------- Intro video: screenshot clip (dibingkai seperti preview) + grafik hook + suara AI yang membacakannya.
+   Hasilnya footage gambar paling depan + transisi kertas robek ke bagian berikutnya. Saat render, footage_concat()
+   memakai suara (vo) sebagai audio footage ini & merakit transisi kertasnya. ---------- */
+const INTRO_POS = [['Atas', 0.24], ['Tengah', 0.5], ['Bawah', 0.72]];
+const INTRO_TPL = Object.keys(GFX).filter(k => !GFX[k].full); // banner selebar layar tidak dipakai di intro
+const introFoot = () => E?.footage.find(f => f.intro);
+const voUrl = file => `api.php?action=hook_voice_file&id=${PID}&iid=${IID}&f=${encodeURIComponent(file)}`;
+// Teks hook bawaan: grafik hook di awal clip, kalau tidak ada hook dari AI
+const hookTextDefault = () => (E.media.find(m => /^hook/.test(m.gfx?.type || '') && m.s <= E.trim[0] + 0.1)?.gfx.text || E.hook.text || '').trim();
+const introKey = c => JSON.stringify([round3(c.t), c.y, c.w, c.voice, c.style || 'auto', c.script || '', c.gfx.type, c.gfx.text, c.gfx.label || '', c.gfx.c1, c.gfx.c2, c.gfx.c3]);
+
+function introDefaults() {
+  const f = introFoot();
+  if (f) return { style: 'auto', script: '', ...JSON.parse(JSON.stringify(f.intro)) };
+  const voice = defaultVoice();
+  const pre = GFX.hook_red, inClip = t >= E.trim[0] && t < E.trim[1] - 0.2;
+  return { t: round3(inClip ? t : E.trim[0] + (E.trim[1] - E.trim[0]) * 0.25), y: 0.72, w: 0.87, voice, style: 'auto', script: '',
+    gfx: { type: 'hook_red', label: '', text: hookTextDefault() || pre.text, c1: pre.c1, c2: pre.c2, c3: pre.c3 } };
+}
+// Pilihan suara dikelompokkan pria / wanita; suara tersimpan yang tidak ada di daftar tetap ditampilkan
+function voiceOptions(cur) {
+  const opt = v => `<option value="${esc(v.id)}" ${v.id === cur ? 'selected' : ''}>${esc(v.name)}${v.desc ? ' — ' + esc(v.desc.split(' · ')[1]) : ''}</option>`;
+  return (voiceInfo(cur) ? '' : `<option value="${esc(cur)}" selected>${esc(voiceName(cur))}</option>`)
+    + ['Pria', 'Wanita'].map(g => `<optgroup label="${g}">${ttsVoices.filter(v => v.gender === g).map(opt).join('')}</optgroup>`).join('');
+}
+function openIntro() {
+  itCfg = null;
+  document.querySelector('[data-lp="intro"]')?.click();
+}
+
+function renderIntro() {
+  if (!E || !$('it-body')) return;
+  itCfg = itCfg || introDefaults();
+  const f = introFoot(), c = itCfg, g = c.gfx;
+  const changedNote = f && introKey(c) !== introKey(f.intro);
+  $('it-body').innerHTML = `
+    <div class="it-acts"><button class="btn sm primary" data-it="gen" ${itBusy ? 'disabled' : ''}>${ic(f ? 'refresh' : 'sparkles')} ${f ? 'Perbarui intro' : 'Generate intro'}</button>
+      ${f ? `<button class="btn sm ghost" data-it="del" title="Hapus intro dari timeline">${ic('trash')}</button>` : '<span></span>'}</div>
+    ${changedNote ? '<p class="it-note" style="color:var(--warn)">Ada perubahan yang belum dipasang. Klik Perbarui intro.</p>' : ''}
+    <div class="it-prev"><canvas id="it-cv" width="360" height="640"></canvas><span class="ld" id="it-ld">Memuat screenshot…</span></div>
+    <button type="button" class="lnk-btn it-gfx-link" data-it="gfx">${ic('gfx')} Template, warna & posisi grafik di panel kanan</button>
+    <div><div class="it-lbl"><span>Screenshot dari clip</span><span>${fmtTs(c.t - E.base[0])}</span></div>
+      <button class="btn sm" data-it="here" style="width:100%;justify-content:center">${ic('range')} Pakai posisi playhead</button></div>
+    <div><div class="it-lbl"><span>Teks hook (dibacakan AI)</span><span id="it-cnt">${g.text.length}/200</span></div>
+      <textarea class="input it-text" id="it-text" maxlength="200" spellcheck="false">${esc(g.text)}</textarea></div>
+    <div><div class="it-lbl"><span>Suara AI</span><span>Gemini</span></div>
+      <div class="it-row"><select class="input" id="it-voice">${voiceOptions(c.voice)}</select>
+      <button class="btn sm" data-it="listen" title="Dengar teks hook dengan suara ini">${ic('volume')}</button></div></div>
+    <div><div class="it-lbl"><span>Gaya baca</span></div><select class="input" id="it-style">${Object.entries(TTS_STYLES).map(([k, n]) =>
+      `<option value="${k}" ${(c.style || 'auto') === k ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select></div>
+    <div><div class="it-lbl"><span>Naskah yang dibacakan</span>${c.script ? '<button type="button" class="lnk-btn" data-it="auto-script">Kembali ke otomatis</button>' : '<span>dirapikan AI</span>'}</div>
+      ${c.script ? `<textarea class="input it-text" id="it-script" maxlength="300" spellcheck="false">${esc(c.script)}</textarea>
+        <p class="it-note" style="margin-top:4px">Tanda baca mengatur intonasi: koma = jeda napas, "..." = jeda dramatis, ? = nada bertanya, ! = penekanan.</p>`
+        : `<div class="it-script"><span id="it-script-auto">${itScript.key === scriptKey(c) ? esc(itScript.text) : '<span class="muted">Merapikan naskah…</span>'}</span>
+          <button type="button" class="lnk-btn" data-it="edit-script">Edit</button></div>`}</div>
+    <p class="it-note">Intro dipasang di awal timeline sebelum clip utama, lama tampilnya mengikuti panjang suara, lalu transisi kertas robek membuka clip.
+      Suara AI gratis dibatasi Gemini ±10 suara per model per hari; suara yang sudah dibuat disimpan & tidak dihitung lagi.</p>`;
+  drawIntroPreview();
+  if (!c.script) prepScript();
+  if (introPanelOn()) renderProps();
+}
+// Panel kanan menampilkan setelan grafik intro: saat menu Intro dibuka (sel 'intro') atau footage intro dipilih
+const introPanelOn = () => sel.type === 'intro' || (sel.type === 'footage' && !!E.footage[sel.i]?.intro);
+function introPropsHtml() {
+  itCfg = itCfg || introDefaults();
+  const c = itCfg, g = c.gfx, pre = GFX[g.type] || GFX.hook_red, f = introFoot(), fi = f ? E.footage.indexOf(f) : -1;
+  const cats = [...new Set(INTRO_TPL.map(k => GFX[k].cat))];
+  const col = (k, n) => n ? `<div class="ts-c"><label>${esc(n)}</label><div class="ts-f hex"><label class="sw" style="--c:${g[k] || '#FFFFFF'}"><input type="color" data-itc="${k}" value="${(g[k] || '#ffffff').toLowerCase()}"></label>
+    <input data-itch="${k}" value="${(g[k] || '#FFFFFF').slice(1)}" maxlength="7" spellcheck="false" aria-label="Kode warna"><span class="u">Hex</span></div></div>` : '';
+  return `<div class="card p-card"><div class="p-sec">
+    <h3><span>Grafik intro · ${esc(pre.name)}</span> <button class="back-link" data-p="back">← Kembali</button></h3>
+    ${f ? `<div class="ov-file"><img class="ov-thumb" src="${footThumb(f)}" alt=""><div style="min-width:0"><b style="font-size:13px">Intro video</b>
+      <div class="muted small">Gambar · awal clip · ${fmtTs(f.dur)} (mengikuti suara AI)</div></div></div>` : ''}
+    <div class="p-field" style="margin-top:${f ? 12 : 0}px"><div class="p-label"><label>Template</label></div>
+      ${cats.map(cat => `<div class="fx-sec">${esc(cat)}</div><div class="gfx-pick">${INTRO_TPL.filter(k => GFX[k].cat === cat).map(k => `<button type="button" class="gpk${k === g.type ? ' on' : ''}" data-itt="${k}" title="${esc(GFX[k].name)}">
+        <span class="gpk-img" data-gthumb="${k}">${gfxThumbs[k] ? `<img src="${gfxThumbs[k]}" alt="">` : ''}</span><span class="gpk-nm">${esc(GFX[k].name)}</span></button>`).join('')}</div>`).join('')}</div>
+    ${pre.noLabel ? '' : `<div class="p-field"><div class="p-label"><label>Label</label><span class="cnt">${(g.label || '').length}/40</span></div><input class="input p-input" id="it-label" value="${esc(g.label || '')}" maxlength="40" spellcheck="false"></div>`}
+    <div class="ts-stack" style="margin-top:16px">${(pre.cn || [null, 'Kotak', 'Teks']).slice(0, 3).map((n, i) => col('c' + (i + 1), n)).join('')}</div>
+    <div class="p-field"><div class="p-label"><label>Posisi</label></div><div class="it-seg">${INTRO_POS.map(([n, y]) => `<button type="button" class="${Math.abs(c.y - y) < 0.01 ? 'on' : ''}" data-ity="${y}">${n}</button>`).join('')}</div></div>
+    <div class="p-row"><label>Ukuran grafik</label><input type="range" id="it-w" min="0.5" max="1" step="0.01" value="${c.w}"><span class="val" id="it-wv">${Math.round(c.w * 100)}%</span></div>
+    ${f && introKey(c) !== introKey(f.intro) ? '<p class="muted small" style="margin:8px 0 0;color:var(--warn)">Ada perubahan yang belum dipasang ke timeline.</p>' : ''}
+    <div class="p-actions"><button class="btn sm primary" data-it="gen" style="grid-column:1 / -1" ${itBusy ? 'disabled' : ''}>${ic(f ? 'refresh' : 'sparkles')} ${f ? 'Perbarui intro' : 'Generate intro'}</button></div>
+    ${f ? `<div class="p-actions"><button class="btn sm" data-p="intro-open">${ic('pencil')} Hook & suara</button>
+      <button class="btn sm danger" data-it="del">${ic('trash')} Hapus intro</button></div>` : ''}
+  </div></div>`;
+}
+// Naskah suara dirapikan AI, disiapkan lebih dulu (di latar) supaya Dengar / Generate tidak menunggu lama
+let itScript = { key: '', text: '' }, itScriptTimer = null;
+const scriptKey = c => (c.style || 'auto') + '|' + c.gfx.text.trim();
+function prepScript(delay = 0) {
+  clearTimeout(itScriptTimer);
+  itScriptTimer = setTimeout(async () => {
+    const c = itCfg, key = c && scriptKey(c);
+    if (!c || c.script || !c.gfx.text.trim() || itScript.key === key) return;
+    try {
+      const d = await api('tts_script', { id: PID, iid: IID, text: c.gfx.text.trim(), style: c.style || 'auto' });
+      itScript = { key, text: d.script };
+      if (itCfg && scriptKey(itCfg) === key && $('it-script-auto')) $('it-script-auto').textContent = d.script;
+    } catch {}
+  }, delay);
+}
+
+// Screenshot resolusi penuh dari video sumber (bukan preview 480p); paintMain() membacanya seperti elemen video
+async function introFrame(time) {
+  const key = Math.round(time * 100) / 100;
+  if (itFrame?.t === key) return itFrame.img;
+  const img = new Image();
+  img.src = `api.php?action=intro_frame&id=${PID}&iid=${IID}&t=${key}`;
+  await img.decode();
+  img.videoWidth = img.naturalWidth;
+  img.videoHeight = img.naturalHeight;
+  itFrame = { t: key, img };
+  return img;
+}
+// Gambar intro ke canvas c: frame dibingkai sama dengan clip (paintMain + bingkai), lalu grafik hook
+async function composeIntro(c, cfg, img) {
+  const W = c.width, H = c.height, g = c.getContext('2d');
+  paintMain(g, img, cfg.t, W, H);
+  drawFrameMask(g, W, H);
+  if (!cfg.gfx.text.trim()) return;
+  const gc = await gfxCanvas(cfg.gfx, 2);
+  const gw = cfg.w * W, gh = gw * gc.height / gc.width;
+  g.drawImage(gc, (W - gw) / 2, Math.max(0, Math.min(H - gh, cfg.y * H - gh / 2)), gw, gh);
+}
+let itPrevTimer = null;
+function drawIntroPreview() {
+  clearTimeout(itPrevTimer);
+  itPrevTimer = setTimeout(async () => {
+    const c = $('it-cv'), ld = $('it-ld');
+    if (!c || !itCfg) return;
+    try {
+      const img = await introFrame(itCfg.t);
+      await composeIntro(c, itCfg, img);
+      if (ld) ld.hidden = true;
+    } catch { if (ld) { ld.hidden = false; ld.textContent = 'Screenshot gagal dimuat'; } }
+  }, 120);
+}
+
+async function generateIntro() {
+  if (itBusy || !itCfg) return;
+  const cfg = JSON.parse(JSON.stringify(itCfg)), text = cfg.gfx.text.trim();
+  if (!text) return toast('Isi teks hook dulu.');
+  itBusy = true;
+  renderIntro();
+  busy('Membuat intro…', 'Screenshot clip, grafik hook, dan suara AI yang membacakan hook.');
+  try {
+    const [img, vo] = await Promise.all([introFrame(cfg.t), api('hook_voice', { id: PID, iid: IID, text, voice: cfg.voice, style: cfg.style || 'auto', script: cfg.script || '' })]);
+    const c = document.createElement('canvas');
+    c.width = 1080; c.height = 1920;
+    await composeIntro(c, cfg, img);
+    const fd = new FormData();
+    fd.append('file', await new Promise(r => c.toBlob(r, 'image/jpeg', 0.93)), 'intro.jpg');
+    const res = await fetch('api.php?action=overlay_upload', { method: 'POST', body: fd });
+    const d = await res.json().catch(() => ({ error: 'Respons server tidak valid.' }));
+    if (!res.ok || d.error) throw new Error(d.error || 'Gambar intro gagal disimpan.');
+    let f = introFoot();
+    const isNew = !f;
+    if (!f) f = { id: Math.random().toString(36).slice(2, 10), name: 'Intro video', kind: 'image', pos: 'pre' };
+    // Lama tampil = panjang suara + jeda; transisi kertas (setengahnya masih di intro) dimulai tepat setelah suara selesai
+    Object.assign(f, { file: d.file, dur: round3(Math.max(1, +vo.dur + 0.25)), vo: vo.file, intro: cfg });
+    E.footage = [f, ...E.footage.filter(x => x !== f)]; // intro selalu paling depan
+    const next = seqItems()[1];
+    if (E.transitions[itemId(next)]?.type !== 'paper') E.transitions[itemId(next)] = { type: 'paper', dur: PAPER_DUR };
+    if (!sfxLib.length) await loadSfxLib();
+    renderTimeline(); // pps & posisi sambungan untuk SFX
+    const jn = junctions().find(k => k.id === itemId(next));
+    if (jn) addPaperSfx(jn);
+    pause();
+    changed();
+    select({ type: 'footage', i: 0 });
+    setFoot(0, 0);
+    renderTimeline();
+    toast(isNew ? `Intro ditambahkan di awal clip · ${fmtTs(f.dur)}` : 'Intro diperbarui');
+  } catch (err) { toast(err.message || 'Gagal membuat intro.'); }
+  finally {
+    itBusy = false;
+    idle();
+    renderIntro();
+  }
+}
+function deleteIntro() {
+  const f = introFoot();
+  if (!f) return;
+  const s = seqItems(), next = s[s.indexOf(f) + 1];
+  if (next && E.transitions[itemId(next)]?.type === 'paper') delete E.transitions[itemId(next)];
+  removeFootage(E.footage.indexOf(f));
+  if (!$('lp-intro').hidden) select({ type: 'intro' });
+  renderTimeline();
+  renderIntro();
+  toast('Intro dihapus');
+}
+async function listenIntro() {
+  const text = itCfg?.gfx.text.trim();
+  if (!text) return toast('Isi teks hook dulu.');
+  const btn = $('it-body').querySelector('[data-it="listen"]');
+  if (btn) btn.disabled = true;
+  try {
+    const vo = await api('hook_voice', { id: PID, iid: IID, text, voice: itCfg.voice, style: itCfg.style || 'auto', script: itCfg.script || '' });
+    if (!itCfg.script && $('it-script-auto')) { itScript = { key: scriptKey(itCfg), text: vo.said }; $('it-script-auto').textContent = vo.said; }
+    itAudio?.pause();
+    itAudio = new Audio(voUrl(vo.file));
+    itAudio.dataset.f = '';
+    itAudio.play().catch(() => toast('Suara tidak bisa diputar.'));
+  } catch (err) { toast(err.message); }
+  finally { if (btn) btn.disabled = false; }
+}
+// Suara intro ikut diputar saat footage intro diputar di preview (posisi disamakan dengan playhead)
+function syncIntroVo() {
+  const f = playing && fp ? E?.footage[fp.i] : null;
+  if (!f?.vo || isMuted()) {
+    if (itAudio?.dataset.f && !itAudio.paused) itAudio.pause();
+    return;
+  }
+  if (itAudio?.dataset.f !== f.vo) { itAudio?.pause(); itAudio = new Audio(voUrl(f.vo)); itAudio.dataset.f = f.vo; }
+  if (fp.at >= (itAudio.duration || Infinity) - 0.05) return;
+  if (Math.abs(itAudio.currentTime - fp.at) > 0.3) itAudio.currentTime = fp.at;
+  if (itAudio.paused) itAudio.play().catch(() => {});
+}
+// Form intro: perubahan langsung terlihat di gambar contoh; footage di timeline berubah setelah Perbarui intro.
+// Hook, screenshot & suara di panel kiri (#it-body); template, warna, posisi & ukuran grafik di panel kanan (#props).
+const itChanged = (full = false) => { if (full) renderIntro(); else drawIntroPreview(); };
+// Panel kanan pindah ke setelan grafik intro (footage intro kalau sudah ada)
+function selectIntroPanel() {
+  const f = introFoot();
+  select(f ? { type: 'footage', i: E.footage.indexOf(f) } : { type: 'intro' });
+}
+function introClick(e) {
+  const b = e.target.closest('button');
+  if (!b || !itCfg) return;
+  const g = itCfg.gfx;
+  if (b.dataset.it === 'gen') return generateIntro();
+  if (b.dataset.it === 'del') return deleteIntro();
+  if (b.dataset.it === 'listen') return listenIntro();
+  if (b.dataset.it === 'gfx') return selectIntroPanel();
+  if (b.dataset.it === 'here') {
+    itCfg.t = round3(Math.max(E.trim[0], Math.min(E.trim[1] - 0.1, fp ? E.trim[0] : t)));
+    return itChanged(true);
+  }
+  if (b.dataset.itt) {
+    const pre = GFX[b.dataset.itt];
+    Object.assign(g, { type: b.dataset.itt, c1: pre.c1, c2: pre.c2, c3: pre.c3, label: pre.noLabel ? '' : (g.label || pre.label) });
+    return itChanged(true);
+  }
+  if (b.dataset.ity) { itCfg.y = +b.dataset.ity; return itChanged(true); }
+  // Naskah: edit sendiri (mulai dari naskah AI) atau kembali dirapikan otomatis
+  if (b.dataset.it === 'edit-script') { itCfg.script = itScript.key === scriptKey(itCfg) ? itScript.text : itCfg.gfx.text.trim(); renderIntro(); return $('it-script')?.focus(); }
+  if (b.dataset.it === 'auto-script') { itCfg.script = ''; return renderIntro(); }
+}
+function introInput(e) {
+  if (!itCfg) return;
+  const el = e.target, g = itCfg.gfx;
+  if (el.id === 'it-text') { g.text = el.value; $('it-cnt').textContent = `${el.value.length}/200`; if (!itCfg.script) { $('it-script-auto') && ($('it-script-auto').innerHTML = '<span class="muted">Merapikan naskah…</span>'); prepScript(1200); } }
+  else if (el.id === 'it-script') { itCfg.script = el.value; return; }
+  else if (el.id === 'it-label') { g.label = el.value; el.previousElementSibling?.querySelector('.cnt')?.replaceChildren(`${el.value.length}/40`); }
+  else if (el.id === 'it-w') { itCfg.w = +el.value; $('it-wv').textContent = Math.round(itCfg.w * 100) + '%'; }
+  else if (el.dataset.itc || el.dataset.itch) {
+    const k = el.dataset.itc || el.dataset.itch, v = el.dataset.itc ? el.value : '#' + el.value.replace('#', '');
+    if (!/^#[0-9a-f]{6}$/i.test(v)) return;
+    g[k] = v.toUpperCase();
+    const box = el.closest('.ts-f');
+    box.querySelector('.sw').style.setProperty('--c', g[k]);
+    if (el.dataset.itc) box.querySelector('[data-itch]').value = g[k].slice(1); else box.querySelector('[data-itc]').value = g[k].toLowerCase();
+  }
+  else return;
+  itChanged();
+}
+function introChange(e) {
+  if (e.target.id === 'it-voice' && itCfg) {
+    itCfg.voice = e.target.value;
+    try { localStorage.setItem('ed-intro-voice', itCfg.voice); } catch {}
+    return renderIntro(); // catatan "belum dipasang"
+  }
+  if (e.target.id === 'it-style' && itCfg) { itCfg.style = e.target.value; return renderIntro(); }
+  if (e.target.id === 'it-script' && itCfg) { itCfg.script = e.target.value.trim(); if (!itCfg.script) return renderIntro(); }
+  if (introFoot()) renderIntro(); // tampilkan catatan "belum dipasang"
+}
+$('it-body').addEventListener('click', introClick);
+$('it-body').addEventListener('input', introInput);
+$('it-body').addEventListener('change', introChange);
+
+/* ---------- Sound effect: pustaka (bawaan + unggahan) & track SFX. Item menempel ke clip (ref 'main', at = detik video asli)
+   atau ke footage (ref = id footage, at = detik di footage), jadi bisa dipasang di intro. Render: edit_sfx_output() + mix. ---------- */
+let sfxLib = [];
+const sfxPrev = { file: '', el: new Audio() };
+sfxPrev.el.onended = () => { sfxPrev.file = ''; renderSfxLib(); };
+const sfxUrl = file => 'previews/sfx/' + encodeURIComponent(file);
+const sfxMuted = () => !!E?.tracks?.sfx?.mute;
+// Posisi virtual timeline (detik) sebuah SFX, dan kebalikannya: posisi → tempelan ke footage / clip
+function sfxStart(x) {
+  if (x.ref === 'main') return preDur() + x.at - E.base[0];
+  const f = E.footage.find(g => g.id === x.ref);
+  return f ? footStart(f) + x.at : 0;
+}
+function sfxAnchor(v) {
+  const P = preDur(), B = baseDur();
+  const list = v < P ? preF() : v > P + B ? postF() : [];
+  let s0 = v < P ? 0 : P + B;
+  for (const f of list) {
+    if (v < s0 + f.dur || f === list.at(-1)) return { ref: f.id, at: round3(Math.max(0, Math.min(f.dur, v - s0))) };
+    s0 += f.dur;
+  }
+  return { ref: 'main', at: round3(E.base[0] + Math.max(0, Math.min(B, v - P))) };
+}
+function sfxTimelineHtml() {
+  if (!E.sfx.length) return `<div class="sc-mempty" style="--top:216px"><span class="st">${ic('volume')} SFX: tambahkan dari menu Sound effect di panel kiri</span></div>`;
+  return E.sfx.map((x, i) => {
+    const v = sfxStart(x);
+    return `<div class="sc-sfx${sel.type === 'sfx' && sel.i === i ? ' on' : ''}" data-sx="${i}" style="left:${v * pps}px;width:${Math.max(14, x.dur * pps)}px"
+      title="${esc(x.name)} · ${fmtTs(v)} · volume ${x.vol}%">${ic('volume')}<span>${esc(x.name)}</span></div>`;
+  }).join('');
+}
+
+async function loadSfxLib() {
+  try {
+    const d = await api('sfx_list');
+    sfxLib = d.sfx || [];
+    sfxAiOn = !!d.ai;
+    paintSfxAi();
+  } catch (err) { toast(err.message); }
+  renderSfxLib();
+  if (E) renderTimeline(); // posisi SFX kertas memakai detik puncak dari library
+}
+// Buat SFX dengan AI: pilihan cepat (prompt bahasa Inggris yang sudah teruji) atau deskripsi sendiri
+const SFX_AI_PRESETS = [
+  ['Kertas robek', 'A sheet of paper crumpled briefly then ripped apart in one fast tear, close-up, dry studio recording, no music', 1.2, 'paper'],
+  ['Whoosh transisi', 'Fast cinematic whoosh transition swoosh, clean, no music', 1, ''],
+  ['Pop lucu', 'Cartoon bubble pop, short and cute', 0.5, ''],
+  ['Ding', 'Bright notification ding bell, single hit', 1, ''],
+  ['Tawa penonton', 'Small studio audience laughing, short burst', 3, ''],
+  ['Record scratch', 'Vinyl record scratch stop sound effect', 1, ''],
+  ['Drum dramatis', 'Dramatic drum hit with reverb, suspense sting', 2, ''],
+];
+let sfxAiPick = null;
+$('sfx-chips').innerHTML = SFX_AI_PRESETS.map((p, i) => `<button type="button" data-sfxp="${i}">${esc(p[0])}</button>`).join('');
+$('sfx-chips').addEventListener('click', e => {
+  const b = e.target.closest('[data-sfxp]');
+  if (!b) return;
+  sfxAiPick = SFX_AI_PRESETS[+b.dataset.sfxp];
+  $('sfx-prompt').value = sfxAiPick[1];
+  // Durasi pilihan cepat yang belum ada di daftar ditambahkan supaya tidak jatuh ke "otomatis"
+  const d = String(sfxAiPick[2]), sd = $('sfx-dur');
+  if (![...sd.options].some(o => o.value === d)) sd.add(new Option(d.replace('.', ',') + 's', d));
+  sd.value = d;
+  $('sfx-chips').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+});
+$('sfx-prompt').addEventListener('input', () => {
+  if (sfxAiPick && $('sfx-prompt').value !== sfxAiPick[1]) { sfxAiPick = null; $('sfx-chips').querySelectorAll('button').forEach(x => x.classList.remove('on')); }
+});
+// Panel AI: dibuka/ditutup dari tombol ✨ (diingat); hanya muncul kalau API key ElevenLabs ada
+let sfxAiOn = false, sfxAiOpen = false;
+try { sfxAiOpen = localStorage.getItem('ed-sfx-ai') === '1'; } catch {}
+function paintSfxAi() {
+  $('sfx-ai-toggle').hidden = !sfxAiOn;
+  $('sfx-ai').hidden = !sfxAiOn || !sfxAiOpen;
+  $('sfx-ai-toggle').classList.toggle('on', sfxAiOpen);
+  $('sfx-ai-toggle').setAttribute('aria-expanded', sfxAiOpen);
+}
+$('sfx-ai-toggle').onclick = () => {
+  sfxAiOpen = !sfxAiOpen;
+  try { localStorage.setItem('ed-sfx-ai', sfxAiOpen ? '1' : '0'); } catch {}
+  paintSfxAi();
+  if (sfxAiOpen) $('sfx-prompt').focus();
+};
+$('sfx-prompt').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); $('sfx-gen').click(); } });
+// Unduh file SFX ke komputer (nama file mengikuti nama SFX)
+function downloadSfx(x) {
+  const a = document.createElement('a');
+  a.href = sfxUrl(x.file);
+  a.download = (x.name || 'sound effect').replace(/[\\/:*?"<>|]+/g, ' ').trim() + '.' + x.file.split('.').pop();
+  document.body.append(a);
+  a.click();
+  a.remove();
+}
+// Generate berjalan di latar (tanpa layar tunggu): library tetap bisa diputar & dipasang selama ElevenLabs bekerja
+$('sfx-gen').onclick = async () => {
+  const text = $('sfx-prompt').value.trim();
+  if (!text) return toast('Tulis deskripsi suaranya dulu.');
+  const btn = $('sfx-gen'), st = $('sfx-ai-st');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spin"></span>';
+  st.hidden = false;
+  st.textContent = 'Membuat suara… library tetap bisa dipakai.';
+  try {
+    const d = await api('sfx_generate', { text, dur: $('sfx-dur').value || null, name: sfxAiPick ? sfxAiPick[0] + ' (AI)' : '', tag: sfxAiPick?.[3] || '' });
+    sfxLib = d.sfx;
+    sfxNew = d.item.file;
+    renderSfxLib();
+    $('sfx-list').querySelector(`[data-sfx-f="${CSS.escape(d.item.file)}"]`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    downloadSfx(d.item);
+    sfxPrev.file = d.item.file;
+    sfxPrev.el.src = sfxUrl(d.item.file);
+    sfxPrev.el.play().catch(() => {});
+    renderSfxLib();
+    toast(d.item.tag === 'paper' ? 'SFX kertas robek AI siap · terunduh & dipakai untuk transisi kertas berikutnya' : `"${d.item.name}" terunduh & masuk library`);
+  } catch (err) { toast(err.message); }
+  finally {
+    btn.disabled = false;
+    btn.innerHTML = ic('sparkles');
+    st.hidden = true;
+  }
+};
+let sfxNew = '';
+function renderSfxLib() {
+  if (!$('sfx-list')) return;
+  // Milikmu (AI & unggahan, terbaru di atas), lalu bawaan
+  const mine = sfxLib.filter(x => !x.builtin).reverse(), built = sfxLib.filter(x => x.builtin);
+  const row = x => `<div class="sfx-row${sfxPrev.file === x.file ? ' play' : ''}${sfxNew === x.file ? ' new' : ''}" data-sfx-f="${esc(x.file)}">
+      <button data-sfx-play title="Dengarkan">${ic(sfxPrev.file === x.file ? 'pause' : 'play')}</button>
+      <div style="min-width:0"><b title="${esc(x.prompt || x.name)}">${esc(x.name)}${x.ai ? '<span class="ai">AI</span>' : ''}</b><small>${(+x.dur).toFixed(2)} dtk${x.builtin ? ' · bawaan' : ''}</small></div>
+      <div class="sfx-act">${x.builtin ? '' : `<button data-sfx-del title="Hapus dari library">${ic('trash')}</button>`}<button data-sfx-dl title="Unduh ke komputer">${ic('download')}</button><button data-sfx-add title="Tambah di posisi playhead">${ic('plus')}</button></div>
+    </div>`;
+  $('sfx-list').innerHTML = !sfxLib.length ? '<p class="hint">Memuat sound effect…</p>'
+    : (mine.length ? `<div class="fx-sec">Milikmu (AI & unggahan)</div>${mine.map(row).join('')}<div class="fx-sec">Bawaan</div>` : '') + built.map(row).join('');
+}
+function addSfx(lib, at = null) {
+  if (!E || !$('cv')) return toast('Tunggu editor selesai dimuat.');
+  if (isLocked('sfx')) return toast('Track SFX sedang dikunci.');
+  E.sfx.push({ id: Math.random().toString(36).slice(2, 10), file: lib.file, name: lib.name, dur: +lib.dur, ...sfxAnchor(at ?? curV()), vol: 100 });
+  pause();
+  changed();
+  select({ type: 'sfx', i: E.sfx.length - 1 });
+  toast(`SFX "${lib.name}" ditambahkan`);
+}
+function removeSfx(i) {
+  E.sfx.splice(i, 1);
+  changed();
+  select({ type: 'clip' });
+}
+function playSfxItem(i) {
+  const x = E.sfx[i];
+  if (!x) return;
+  sfxPrev.el.src = sfxUrl(x.file);
+  sfxPrev.el.volume = Math.min(1, x.vol / 100);
+  sfxPrev.el.play().catch(() => toast('Suara tidak bisa diputar.'));
+}
+async function uploadSfx(files) {
+  files = [...files].filter(f => /\.(mp3|m4a|aac|wav|ogg|flac)$/i.test(f.name));
+  if (!files.length) return toast('Format sound effect harus MP3, M4A, AAC, WAV, OGG, atau FLAC.');
+  for (const f of files) {
+    toast(`Mengunggah ${f.name}…`);
+    try {
+      const fd = new FormData();
+      fd.append('file', f);
+      const res = await fetch('api.php?action=sfx_upload', { method: 'POST', body: fd });
+      const d = await res.json().catch(() => ({ error: 'Respons server tidak valid.' }));
+      if (!res.ok || d.error) throw new Error(d.error || 'Sound effect gagal diunggah.');
+      sfxLib = d.sfx;
+      renderSfxLib();
+    } catch (err) { toast(err.message); return; }
+  }
+  toast(files.length > 1 ? `${files.length} sound effect masuk library` : 'Sound effect masuk library');
+}
+$('sfx-add').onclick = () => $('sfx-input').click();
+loadSfxLib();
+$('sfx-input').onchange = e => { uploadSfx(e.target.files); e.target.value = ''; };
+$('sfx-list').addEventListener('click', async e => {
+  const row = e.target.closest('[data-sfx-f]'), lib = row && sfxLib.find(x => x.file === row.dataset.sfxF);
+  if (!lib) return;
+  if (e.target.closest('[data-sfx-play]')) {
+    if (sfxPrev.file === lib.file) { sfxPrev.el.pause(); sfxPrev.file = ''; return renderSfxLib(); }
+    pause();
+    sfxPrev.file = lib.file;
+    sfxPrev.el.src = sfxUrl(lib.file);
+    sfxPrev.el.volume = 1;
+    sfxPrev.el.play().catch(() => toast('Suara tidak bisa diputar.'));
+    return renderSfxLib();
+  }
+  if (e.target.closest('[data-sfx-add]')) return addSfx(lib);
+  if (e.target.closest('[data-sfx-dl]')) return downloadSfx(lib);
+  if (e.target.closest('[data-sfx-del]')) {
+    if (!confirm(`Hapus "${lib.name}" dari library? SFX ini di timeline clip lain ikut tidak terpakai.`)) return;
+    try { sfxLib = (await api('sfx_delete', { file: lib.file })).sfx; renderSfxLib(); } catch (err) { toast(err.message); }
+  }
+});
+// Pemutaran SFX di preview: tiap item punya elemen audio sendiri, disinkronkan ke posisi putar (juga di footage / intro)
+const sfxEls = new Map();
+function syncSfx() {
+  if (!E) return;
+  const v = curV(), on = playing && !sfxMuted(), live = new Set();
+  for (const x of E.sfx) {
+    let a = sfxEls.get(x.id);
+    if (!a || a.dataset.f !== x.file) {
+      a?.pause();
+      a = new Audio(sfxUrl(x.file));
+      a.preload = 'auto';
+      a.dataset.f = x.file;
+      sfxEls.set(x.id, a);
+    }
+    live.add(x.id);
+    const rel = v - sfxStart(x);
+    if (!on || rel < 0 || rel >= x.dur) { if (!a.paused) a.pause(); continue; }
+    // Sudah selesai diputar: hanya diulang kalau posisi putar kembali ke bagian awal SFX (mis. diputar ulang / seek mundur)
+    if (a.ended && rel >= (a.duration || x.dur) - 0.1) continue;
+    if (a.paused || a.ended || Math.abs(a.currentTime - rel) > 0.25) a.currentTime = rel;
+    a.volume = Math.min(1, x.vol / 100);
+    if (a.paused) a.play().catch(() => {});
+  }
+  for (const [id, a] of sfxEls) if (!live.has(id)) { a.pause(); sfxEls.delete(id); }
+}
+// SFX kertas robek yang terikat ke transisi kertas: posisinya disamakan dengan saat kertas mulai robek
+const paperSfxOf = j => E.sfx.find(x => x.tr === j.id);
+// SFX kertas yang dipakai: hasil AI terbaru bertanda 'paper', kalau belum ada SFX bawaan
+const paperLib = () => [...sfxLib].reverse().find(x => x.tag === 'paper' && x.ai) || sfxLib.find(x => x.file === 'paper_rip.wav') || { file: 'paper_rip.wav', name: 'Kertas robek', dur: 0.85, peak: 0.51 };
+const sfxPeak = file => sfxLib.find(x => x.file === file)?.peak ?? (file === 'paper_rip.wav' ? 0.51 : 0.3);
+// Puncak suara (detik peak di file) jatuh ±0,2 dtk setelah kertas mulai robek (setelah fase gumpalan)
+const PAPER_BALL = 8 / 19;
+const paperSfxV = (j, file) => Math.max(0, junctionX(j) / pps - trDur(j) / 2 + trDur(j) * PAPER_BALL + 0.2 - sfxPeak(file));
+function addPaperSfx(j) {
+  if (paperSfxOf(j)) return;
+  const lib = paperLib();
+  E.sfx.push({ id: Math.random().toString(36).slice(2, 10), file: lib.file, name: lib.name, dur: +lib.dur, ...sfxAnchor(paperSfxV(j, lib.file)), vol: 100, tr: j.id });
+  changed();
+  renderTimeline();
+  if (sel.type === 'transition') renderProps();
+}
+function alignPaperSfx() {
+  if (!pps) return;
+  const js = junctions();
+  for (const x of E.sfx) {
+    if (!x.tr) continue;
+    const j = js.find(k => k.id === x.tr);
+    if (!j || E.transitions[j.id]?.type !== 'paper') { delete x.tr; continue; }
+    Object.assign(x, sfxAnchor(paperSfxV(j, x.file)));
+  }
+}
+
+// Pratinjau transisi kertas robek di canvas (perkiraan aset tools/paper_tear.py): gumpalan kertas, lalu lubang bergerigi membesar
+function drawPaperTr(g, A, B, p, CW, CH) {
+  const cx = CW / 2, cy = CH * 0.46, ball = 8 / 19;
+  const rnd = i => { const x = Math.sin(i * 12.9898) * 43758.5453; return x - Math.floor(x); };
+  const blob = (R, seed, jag) => {
+    const P = new Path2D();
+    for (let i = 0; i <= 96; i++) {
+      const a = i / 96 * Math.PI * 2, r = R * (1 + 0.1 * Math.sin(3 * a + seed) + 0.05 * Math.sin(7 * a + seed * 2) + jag * (rnd(i + seed * 100) - 0.5));
+      i ? P.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r) : P.moveTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r);
+    }
+    P.closePath();
+    return P;
+  };
+  g.drawImage(A, 0, 0);
+  if (p < ball) {
+    const r = CW * 0.17 * (0.2 + 0.8 * (1 - (1 - p / ball) ** 3));
+    const gr = g.createRadialGradient(cx - r * 0.35, cy - r * 0.4, r * 0.1, cx, cy, r * 1.1);
+    gr.addColorStop(0, '#ffffff'); gr.addColorStop(1, '#b9b8b2');
+    g.fillStyle = gr;
+    g.fill(blob(r, 1, 0.12));
+    return;
+  }
+  const q = (p - ball) / (1 - ball), R = CW * (0.11 + 1.45 * q ** 1.8);
+  const hole = blob(R, 2, 0.1);
+  g.save(); g.clip(hole); g.drawImage(B, 0, 0); g.restore();
+  const ring = new Path2D();
+  ring.addPath(blob(R + CW * 0.08 + R * 0.42, 3, 0.18));
+  ring.addPath(hole);
+  g.fillStyle = '#efeee9';
+  g.shadowColor = 'rgba(0, 0, 0, .35)'; g.shadowBlur = 12;
+  g.fill(ring, 'evenodd');
+  g.shadowBlur = 0;
+}
+
 $('tr-tabs').addEventListener('click', e => { const b = e.target.closest('[data-trtab]'); if (b) { trTab = b.dataset.trtab; paintTrTab(); } });
 $('op-grid').addEventListener('click', e => { const b = e.target.closest('[data-opk]'); if (b) setOpening(b.dataset.opk); });
 
@@ -3781,6 +4855,7 @@ $('tr-grid').addEventListener('click', e => {
   trPreset = b.dataset.trk;
   if (E && sel.type === 'transition' && E.transitions[sel.id]) {
     E.transitions[sel.id].type = trPreset;
+    if (trPreset === 'paper') E.transitions[sel.id].dur = PAPER_DUR;
     changed();
     renderProps();
     renderTimeline();
@@ -3821,6 +4896,8 @@ function addFootage(lib, pos, k) {
 
 function removeFootage(i) {
   const showing = fp?.i === i;
+  const gone = E.footage[i]?.id;
+  E.sfx = E.sfx.filter(x => x.ref !== gone); // SFX yang menempel di footage ini ikut dihapus
   E.footage.splice(i, 1);
   if (showing || fp) { fp = null; fvid.pause(); }
   changed();
@@ -3862,8 +4939,8 @@ function bindTimelineDrop() {
   // Baris tujuan dari posisi kursor: track media (atas) = overlay, track video (bawah) = footage
   const target = e => {
     const r = $('tl').getBoundingClientRect(), y = e.clientY - r.top, v = (e.clientX - r.left) / pps;
-    if (y >= 18 && y < 48) return { kind: 'med', v };
-    if (y >= 100 && y < 148) return { kind: 'foot', v };
+    if (y >= 20 && y < 50) return { kind: 'med', v };
+    if (y >= 50 && y < 94) return { kind: 'foot', v };
     return null;
   };
   sc.addEventListener('dragover', e => {
@@ -3939,7 +5016,8 @@ function loop() {
   // Rentang putar: berhenti di penanda akhir
   if (E && playing && prange.on && curV() >= prange.b - 0.01) pause();
   syncMusic();
-  if (E?.volKf?.length && playing) applyVolume();
+  syncIntroVo();
+  syncSfx();
   requestAnimationFrame(loop);
 }
 
@@ -3986,6 +5064,7 @@ function renderTimeline() {
   if (!sc || !E) return;
   const vw = Math.max(1, $('tl-view').clientWidth - 14);
   pps = vw / (totalDur() * tlScale);
+  alignPaperSfx();
   fitRange();
   $('tl').style.width = (tlScale < 1 ? vw / tlScale : vw) + 'px';
   $('tl').style.setProperty('--tlw', totalDur() * pps + 'px');
@@ -3996,15 +5075,15 @@ function renderTimeline() {
     const a = Math.max(l.s, b0), b = Math.min(l.e, b1), w = Math.max(3, x(b) - x(a) - 2);
     const on = sel.type === 'line' && sel.i === i, out = l.e <= t0 || l.s >= t1;
     const txt = l.words.map(w => w.w).join(' ');
-    return `<span class="sc-lbl${on ? ' on' : ''}${out ? ' out' : ''}${w < 18 ? ' narrow' : ''}" data-line="${i}" style="left:${x(a)}px;width:${w}px" title="${esc(txt)}">${esc(txt)}</span>`;
+    return `<span class="sc-lbl${on ? ' on' : ''}${out ? ' out' : ''}${w < 44 ? ' narrow' : ''}" data-line="${i}" style="left:${x(a)}px;width:${w}px" title="${esc(txt)}">${esc(txt)}</span>`;
   }).join('') : '';
   const bands = splitParts().map(p => [Math.max(p.s, E.base[0]), Math.min(p.e, E.base[1])]).filter(([a, b]) => b - a > 0.05)
     .map(([a, b]) => `<span class="sc-split" style="left:${x(a)}px;width:${x(b) - x(a)}px" title="Split screen"></span>`).join('');
   const W = x(b1);
+  const spanX = m => { const [va, vb] = itemV(m); return `left:${va * pps}px;width:${Math.max(24, (vb - va) * pps)}px`; };
   const meds = E.media.length ? E.media.map((m, i) => {
-    const a = Math.max(m.s, b0), b = Math.min(m.e, b1);
-    const on = sel.type === 'media' && sel.i === i, out = m.e <= t0 || m.s >= t1;
-    return `<div class="sc-media${on ? ' on' : ''}${out ? ' out' : ''}" data-mi="${i}" style="left:${x(a)}px;width:${Math.max(24, x(b) - x(a))}px" title="${esc(m.name)} · ${fmtTs(m.s - b0)}–${fmtTs(m.e - b0)}">
+    const on = sel.type === 'media' && sel.i === i, out = !m.ref && (m.e <= t0 || m.s >= t1);
+    return `<div class="sc-media${on ? ' on' : ''}${out ? ' out' : ''}" data-mi="${i}" style="${spanX(m)}" title="${esc(m.name)} · ${fmtTs(m.s - b0)}–${fmtTs(m.e - b0)}">
       <span class="mh l" data-drag="m0"></span><i class="mth" style="${m.file ? `background-image:url('previews/overlays/${m.file}')` : ''}"></i><span class="nm">${esc(m.name || 'Gambar')}</span><span class="mh r" data-drag="m1"></span></div>`;
   }).join('') : `<div class="sc-mempty"><span class="st">${ic('image')} Media: pilih gambar di panel Media untuk menambahkannya ke timeline</span></div>`;
   if (!$('tlx')) $('tl').innerHTML = `<div class="film" id="film">${filmHtml()}</div><canvas class="wave" id="wave"></canvas><div class="tlx" id="tlx"></div><div class="tl-drop" id="tl-drop" hidden></div>`;
@@ -4022,23 +5101,20 @@ function renderTimeline() {
     return `<button class="sc-tr${tr ? ' has' : ''}${on ? ' on' : ''}" data-tr="${j.id}" style="left:${junctionX(j)}px" aria-label="${tr ? esc(TRANSITIONS[tr.type].label) : 'Tambah transisi'}">${ic(tr ? 'transition' : 'plus')}</button>`;
   }).join('') : '';
   const txs = E.texts.length ? E.texts.map((c, i) => {
-    const a = Math.max(c.s, b0), b = Math.min(c.e, b1);
-    const on = sel.type === 'text' && sel.i === i, out = c.e <= t0 || c.s >= t1;
-    return `<div class="sc-text${on ? ' on' : ''}${out ? ' out' : ''}" data-ti="${i}" style="left:${x(a)}px;width:${Math.max(24, x(b) - x(a))}px" title="${esc(c.text)} · ${fmtTs(c.s - b0)}–${fmtTs(c.e - b0)}">
+    const on = sel.type === 'text' && sel.i === i, out = !c.ref && (c.e <= t0 || c.s >= t1);
+    return `<div class="sc-text${on ? ' on' : ''}${out ? ' out' : ''}" data-ti="${i}" style="${spanX(c)}" title="${esc(c.text)} · ${fmtTs(c.s - b0)}–${fmtTs(c.e - b0)}">
       <span class="mh l" data-drag="m0"></span>${ic('type')}<span class="nm">${esc(c.text)}</span><span class="mh r" data-drag="m1"></span></div>`;
-  }).join('') : `<div class="sc-mempty" style="--top:50px"><span class="st">${ic('type')} Teks: tambahkan dari tab Teks di panel kiri</span></div>`;
+  }).join('') : `<div class="sc-mempty" style="--top:156px"><span class="st">${ic('type')} Teks: tambahkan dari tab Teks di panel kiri</span></div>`;
   const fxs = E.effects.length ? E.effects.map((fx, i) => {
-    const a = Math.max(fx.s, b0), b = Math.min(fx.e, b1);
-    const on = sel.type === 'effect' && sel.i === i, out = fx.e <= t0 || fx.s >= t1;
-    return `<div class="sc-fx${on ? ' on' : ''}${out ? ' out' : ''}" data-fi="${i}" style="left:${x(a)}px;width:${Math.max(24, x(b) - x(a))}px" title="${esc(EFFECTS[fx.type].label)} · ${fmtTs(fx.s - b0)}–${fmtTs(fx.e - b0)}">
+    const on = sel.type === 'effect' && sel.i === i, out = !fx.ref && (fx.e <= t0 || fx.s >= t1);
+    return `<div class="sc-fx${on ? ' on' : ''}${out ? ' out' : ''}" data-fi="${i}" style="${spanX(fx)}" title="${esc(EFFECTS[fx.type].label)} · ${fmtTs(fx.s - b0)}–${fmtTs(fx.e - b0)}">
       <span class="mh l" data-drag="m0"></span>${ic('sparkles')}<span class="nm">${esc(EFFECTS[fx.type].label)}</span><span class="mh r" data-drag="m1"></span></div>`;
-  }).join('') : `<div class="sc-mempty" style="--top:78px"><span class="st">${ic('sparkles')} Efek: tambahkan dari menu Efek di panel kiri</span></div>`;
+  }).join('') : `<div class="sc-mempty" style="--top:186px"><span class="st">${ic('sparkles')} Efek: tambahkan dari menu Efek di panel kiri</span></div>`;
   const mus = E.music.length ? E.music.map((m, i) => {
-    const a = Math.max(m.s, b0), b = Math.min(m.e, b1);
-    const on = sel.type === 'music' && sel.i === i, out = m.e <= t0 || m.s >= t1;
-    return `<div class="sc-music${on ? ' on' : ''}${out ? ' out' : ''}" data-mu="${i}" style="left:${x(a)}px;width:${Math.max(24, x(b) - x(a))}px" title="${esc(m.name)} · ${fmtTs(m.s - b0)}–${fmtTs(m.e - b0)} · volume ${m.vol}%">
+    const on = sel.type === 'music' && sel.i === i, out = !m.ref && (m.e <= t0 || m.s >= t1);
+    return `<div class="sc-music${on ? ' on' : ''}${out ? ' out' : ''}" data-mu="${i}" style="${spanX(m)}" title="${esc(m.name)} · ${fmtTs(m.s - b0)}–${fmtTs(m.e - b0)} · volume ${m.vol}%">
       <span class="mh l" data-drag="m0"></span>${ic('music')}<span class="nm">${esc(m.name || 'Musik')}</span><span class="mh r" data-drag="m1"></span></div>`;
-  }).join('') : `<div class="sc-mempty" style="--top:176px"><span class="st">${ic('music')} Musik: pilih lagu dari menu Musik di panel kiri</span></div>`;
+  }).join('') : `<div class="sc-mempty" style="--top:126px"><span class="st">${ic('music')} Musik: pilih lagu dari menu Musik di panel kiri</span></div>`;
   $('tlx').innerHTML = `${rulerHtml()}${meds}${txs}${fxs}${mus}
     <span class="sc-dim l" style="left:${x(b0)}px;width:${x(t0) - x(b0)}px"></span><span class="sc-dim r" style="left:${x(t1)}px;width:${Math.max(0, W - x(t1))}px"></span>
     ${videoMarks()}
@@ -4047,11 +5123,14 @@ function renderTimeline() {
     ${prange.on ? `<div class="prange${prange.custom ? ' custom' : ''}" data-pr="m" style="left:${prange.a * pps}px;width:${(prange.b - prange.a) * pps}px"><span class="pr-h l" data-pr="a"></span><span class="pr-h r" data-pr="b"></span></div>
       <span class="pr-line${prange.custom ? '' : ' full'}" style="left:${prange.a * pps}px"></span><span class="pr-line${prange.custom ? '' : ' full'}" style="left:${prange.b * pps}px"></span>` : ''}
     ${E.opening ? `<div class="sc-op${sel.type === 'opening' ? ' on' : ''}" style="left:${preF().length ? 0 : x(E.trim[0])}px;width:${Math.max(18, E.opening.dur * pps)}px" title="Opening: ${esc(OPENINGS[E.opening.type].label)} · ${E.opening.dur.toFixed(1)} dtk">${ic('transition')}${E.opening.dur * pps > 70 ? 'Opening' : ''}</div>` : ''}
-    ${kfTimelineHtml('clip', 124, 18, 200)}${E.music.map((_, i) => kfTimelineHtml('m' + i, 178, 20, 100)).join('')}
+    ${sfxTimelineHtml()}
+
     ${foots}${trBtns}${bands}${lbls}<div class="playhead" id="playhead" style="left:${curV() * pps}px"><span class="ph-knob"></span></div>`;
   ensureFilm();
   renderTextList();
   $('fx-info').textContent = E.effects.length || '';
+  $('intro-info').textContent = introFoot() ? '1' : '';
+  $('sfx-info').textContent = E.sfx.length || '';
   $('tr-info').textContent = Object.keys(E.transitions).length || '';
   renderTrackCtl();
   drawWave();
@@ -4206,7 +5285,7 @@ async function buildFilm(key, n) {
 function paintFilm() { const el = $('film'); if (el) el.innerHTML = filmHtml(); }
 
 // Jenis seleksi yang dilepas saat klik di luar item
-const DESELECTABLE = ['line', 'hook', 'media', 'text', 'video', 'effect', 'footage', 'transition', 'music', 'opening'];
+const DESELECTABLE = ['line', 'hook', 'media', 'text', 'video', 'effect', 'footage', 'transition', 'music', 'opening', 'sfx', 'intro'];
 function bindTimeline() {
   const tl = $('tl');
   let drag = null;
@@ -4221,23 +5300,8 @@ function bindTimeline() {
     }
     if (e.target.closest('.sc-op')) {
       pause();
-      propTab = 'clip';
       select({ type: 'opening' });
       openTrTab('open');
-      return;
-    }
-    const kd = e.target.closest('.kf-dot');
-    if (kd) {
-      // Diamond keyframe: klik = pilih & lompat ke sana, geser = pindah waktu (tidak bisa melewati keyframe tetangga)
-      const [tg, j] = kd.dataset.kfd.split(':');
-      pause();
-      if (tg === 'clip') { if (!['clip', 'video'].includes(sel.type) || propTab !== 'clip') { propTab = 'clip'; select({ type: 'clip' }); } }
-      else if (sel.type !== 'music' || sel.i !== +tg.slice(1)) select({ type: 'music', i: +tg.slice(1) });
-      seek(kfTarget(tg).arr[+j].t);
-      renderProps(); renderTimeline();
-      tl.setPointerCapture(e.pointerId);
-      drag = { kind: 'kf', tg, j: +j };
-      document.body.classList.add('dragging');
       return;
     }
     const prh = e.target.closest('[data-pr]');
@@ -4270,14 +5334,24 @@ function bindTimeline() {
       if (sel.type !== 'footage' || sel.i !== i) select({ type: 'footage', i });
       return;
     }
+    const sx = e.target.closest('.sc-sfx');
+    if (sx) {
+      const i = +sx.dataset.sx;
+      pause();
+      tl.setPointerCapture(e.pointerId);
+      drag = { kind: 'sfx', i, x0: e.clientX, v0: sfxStart(E.sfx[i]), moved: false };
+      if (sel.type !== 'sfx' || sel.i !== i) select({ type: 'sfx', i });
+      document.body.classList.add('moving');
+      return;
+    }
     const md = e.target.closest('.sc-media, .sc-text, .sc-fx, .sc-music');
     if (md) {
       const tr = md.classList.contains('sc-text') ? 'text' : md.classList.contains('sc-fx') ? 'effect' : md.classList.contains('sc-music') ? 'music' : 'media';
       const i = +(tr === 'text' ? md.dataset.ti : tr === 'effect' ? md.dataset.fi : tr === 'music' ? md.dataset.mu : md.dataset.mi), m = trackArr(tr)[i];
       const kind = e.target.closest('[data-drag]')?.dataset.drag || 'mm';
-      drag = { kind, i, tr, off: timeAt(e.clientX) - m.s };
+      drag = { kind, i, tr, off: timeAt(e.clientX) - m.s, offV: vAt(e.clientX) - itemV(m)[0] };
       pause();
-      if (sel.type !== tr || sel.i !== i || (tr === 'media' && gfxNeedsPanel(i))) select({ type: tr, i });
+      if (sel.type !== tr || sel.i !== i) select({ type: tr, i });
       tl.setPointerCapture(e.pointerId);
       document.body.classList.add(kind === 'mm' ? 'moving' : 'dragging');
       return;
@@ -4320,13 +5394,14 @@ function bindTimeline() {
       drag.kind = 'seek';
     }
     if (drag.kind === 'seek') return seekV(vAt(e.clientX));
-    if (drag.kind === 'kf') {
-      const K = kfTarget(drag.tg), k = K?.arr[drag.j];
-      if (!k) return;
-      const prev = K.arr[drag.j - 1], next = K.arr[drag.j + 1];
-      k.t = round3(Math.max(K.lo, prev ? prev.t + 0.05 : -1e9, Math.min(K.hi, next ? next.t - 0.05 : 1e9, time)));
-      seek(k.t);
-      changed(); renderTimeline(); renderProps(); drawWave();
+    if (drag.kind === 'sfx') {
+      const x = E.sfx[drag.i];
+      if (!x || (!drag.moved && Math.abs(e.clientX - drag.x0) < 3)) return;
+      drag.moved = true;
+      delete x.tr; // digeser manual: tidak lagi mengikuti transisi
+      Object.assign(x, sfxAnchor(Math.max(0, Math.min(totalDur() - 0.05, drag.v0 + (e.clientX - drag.x0) / pps))));
+      changed();
+      renderTimeline();
       return;
     }
     if (drag.kind === 'pr') {
@@ -4349,26 +5424,32 @@ function bindTimeline() {
       return updateTime();
     }
     if (drag.kind === 'm0' || drag.kind === 'm1' || drag.kind === 'mm') {
-      const m = trackArr(drag.tr)[drag.i], [b0, b1] = E.base;
-      // Magnet ke playhead & batas trim (±8px)
-      const mag = v => { for (const p of [t, E.trim[0], E.trim[1]]) if (Math.abs(p - v) * pps < 8) return p; return v; };
-      if (drag.kind === 'm0' && drag.tr === 'music') {
+      const m = trackArr(drag.tr)[drag.i];
+      // Magnet ke playhead & batas trim (±8px); hanya untuk item di rentang clip (detik video asli)
+      const mag = v => { if (m.ref) return v; for (const p of [t, E.trim[0], E.trim[1]]) if (Math.abs(p - v) * pps < 8) return p; return v; };
+      // Item di bagian footage: batas = seluruh video akhir, waktu pointer dalam satuan item
+      const [b0, b1] = m.ref ? refRange(m) : E.base;
+      const time = m.ref ? outOfV(vAt(e.clientX)) - segStartO(m.ref) : timeAt(e.clientX);
+      const seekItem = v => m.ref ? seekV(vOfOut(segStartO(m.ref) + v)) : seek(v);
+      if (drag.kind === 'mm') {
+        // Geser bebas di seluruh timeline: di bagian footage / intro item menempel ke footage, di rentang clip ke detik video asli
+        const d = m.e - m.s;
+        const a = itemAnchor(Math.max(0, Math.min(totalDur() - 0.05, vAt(e.clientX) - drag.offV)));
+        let s0 = a.s;
+        if (!a.ref) {
+          s0 = mag(s0);
+          if (Math.abs(mag(s0 + d) - (s0 + d)) > 0) s0 = mag(s0 + d) - d;
+          s0 = Math.max(E.base[0], Math.min(E.base[1] - d, s0));
+        }
+        if (a.ref) m.ref = a.ref; else delete m.ref;
+        m.s = round3(s0); m.e = round3(s0 + d);
+      } else if (drag.kind === 'm0' && drag.tr === 'music') {
         // Ujung kiri musik: isi lagu tetap di tempatnya (off ikut bergeser), tidak bisa melewati awal lagu
         const s = round3(Math.max(b0, m.s - m.off, Math.min(m.e - 0.2, mag(time))));
-        m.off = round3(Math.max(0, m.off + s - m.s)); m.s = s; seek(m.s);
-      } else if (drag.kind === 'm1' && drag.tr === 'music') { m.e = round3(Math.min(b1, m.s + m.dur - m.off, Math.max(m.s + 0.2, mag(time)))); seek(m.e - 0.05); }
-      else if (drag.kind === 'm0') { m.s = round3(Math.max(b0, Math.min(m.e - 0.2, mag(time)))); seek(m.s); }
-      else if (drag.kind === 'm1') { m.e = round3(Math.min(b1, Math.max(m.s + 0.2, mag(time)))); seek(m.e - 0.05); }
-      else {
-        const d = m.e - m.s;
-        let s0 = mag(time - drag.off);
-        if (Math.abs(mag(s0 + d) - (s0 + d)) > 0) s0 = mag(s0 + d) - d;
-        s0 = Math.max(b0, Math.min(b1 - d, s0));
-        // Keyframe musik ikut bergeser bersama bloknya
-        const dt = round3(s0) - m.s;
-        if (drag.tr === 'music' && m.kf?.length && dt) m.kf.forEach(k => { k.t = round3(k.t + dt); });
-        m.s = round3(s0); m.e = round3(s0 + d);
-      }
+        m.off = round3(Math.max(0, m.off + s - m.s)); m.s = s; seekItem(m.s);
+      } else if (drag.kind === 'm1' && drag.tr === 'music') { m.e = round3(Math.min(b1, m.s + m.dur - m.off, Math.max(m.s + 0.2, mag(time)))); seekItem(m.e - 0.05); }
+      else if (drag.kind === 'm0') { m.s = round3(Math.max(b0, Math.min(m.e - 0.2, mag(time)))); seekItem(m.s); }
+      else if (drag.kind === 'm1') { m.e = round3(Math.min(b1, Math.max(m.s + 0.2, mag(time)))); seekItem(m.e - 0.05); }
       changed();
       renderTimeline();
       renderProps();
@@ -4410,15 +5491,11 @@ function snap(time, free) {
 
 /* ---------- Panel properti ---------- */
 
-// Grafik template yang dipilih belum tampil di panel kanan (panel sedang di tab Animasi / Layer)
-const gfxNeedsPanel = i => !!E.media[i]?.gfx && propTab !== 'clip';
 
 function select(s) {
   if (inlineEd) endInlineEdit(true);
   sel = s;
-  // Klik grafik template: panel kanan selalu pindah ke setelan grafiknya
-  if ((s.type === 'media' && E.media[s.i]?.gfx) || s.type === 'opening') propTab = 'clip';
-  if (propTab !== 'layer' && (s.type === 'line' || (['hook', 'text'].includes(s.type) && propTab !== 'anim'))) propTab = 'text';
+
   renderProps();
   renderTimeline();
   draw();
@@ -4428,6 +5505,22 @@ function select(s) {
 function stepper(key, value) {
   return `<div class="stepper"><button data-nudge="${key}" data-v="-0.1">−</button>
     <input data-time="${key}" value="${fmtTs(value - E.base[0])}"><button data-nudge="${key}" data-v="0.1">+</button></div>`;
+}
+
+// Pilihan split screen: rasio atas:bawah + keterangan sesuai jenis clip
+function splitPanelHtml() {
+  const g = E.kind === 'gaming';
+  return `<div class="split-opts">
+    <div class="split-lbl">${g ? 'Game : Webcam' : 'Atas : Bawah'}</div>
+    <div class="splits">${SPLIT_RATIOS.map(p => `<button type="button" class="spl ${E.frame.split === p ? 'on' : ''}" data-split="${p}">
+      <span class="shape"><i style="flex:${p}"></i><i style="flex:${100 - p}"></i></span>${p}:${100 - p}</button>`).join('')}</div>
+    <p class="muted small" style="margin:8px 0 0">${g
+      ? (E.cam ? 'Atas: gameplay · Bawah: webcam streamer (terdeteksi otomatis).' : E.pending ? 'Mendeteksi posisi webcam…' : E.cam === null ? 'Webcam tidak terdeteksi: preview & hasil memakai bagian tengah video.' : 'Atas: gameplay · Bawah: webcam streamer.')
+      : 'Bagian video yang menampilkan 2 orang otomatis dibagi atas-bawah; bagian 1 orang tetap layar penuh.'}</p>
+    ${g ? '' : `<div class="p-row"><label>Toleransi<span class="tip" data-tip="Split screen muncul lebih awal sebanyak detik ini. Contoh: AI mendeteksi 2 orang di detik 12, toleransi 2 dtk → split mulai di detik 10.">?</span></label>
+      <input type="range" min="0" max="5" step="0.25" id="split-lead" value="${E.split.early}">
+      <span class="val">${E.split.early.toFixed(2)}s</span></div>`}
+  </div>`;
 }
 
 function renderProps() {
@@ -4441,8 +5534,6 @@ function syncRange(r) {
 }
 document.addEventListener('input', e => { if (e.target.type === 'range') syncRange(e.target); });
 
-const ptabsHtml = active => `<div class="pt-tabs">${[['clip', 'Clip'], ['text', 'Teks'], ['anim', 'Animasi'], ['layer', 'Layer']].map(([k, n]) =>
-  `<button class="pt-tab ${active === k ? 'on' : ''}" data-ptab="${k}">${n}</button>`).join('')}</div>`;
 
 // Item yang bisa dianimasikan dari pilihan sekarang: { obj, s, e, path }
 function animTarget() {
@@ -4452,97 +5543,90 @@ function animTarget() {
   return null;
 }
 
-// Panel Layer: grup (teks, subtitle, media & grafik) dan item di dalamnya, paling atas = paling depan
-function layerPanelHtml() {
-  const G = { text: ['trk-text', 'Teks', E.texts], sub: ['trk-sub', 'Subtitle', null], media: ['trk-media', 'Media & grafik', E.media] };
-  const kids = g => {
-    const arr = G[g][2];
-    if (!arr) return '';
-    return [...arr.keys()].reverse().map(i => {
-      const it = arr[i], on = (g === 'text' && sel.type === 'text' && sel.i === i) || (g === 'media' && sel.type === 'media' && sel.i === i);
-      const th = g === 'media' && it.file ? `<span class="th" style="background-image:url('previews/overlays/${it.file}')"></span>` : '';
-      return `<div class="ly-item${on ? ' on' : ''}" draggable="true" data-ly-item="${g}:${i}"><span class="grip">${ic('grip')}</span>${th}<span class="nm">${esc(g === 'text' ? it.text : it.name || 'Gambar')}</span></div>`;
-    }).join('');
-  };
-  const groups = layerOrder().map(g => {
-    const n = g === 'sub' ? (E.subtitles ? E.lines.length : 0) : G[g][2].length;
-    return `<div class="ly-group" data-ly-group="${g}"><div class="ly-head" draggable="true" data-ly-head="${g}"><span class="grip">${ic('grip')}</span>${ic(G[g][0])}<span>${G[g][1]}</span><span class="cnt">${n}</span></div>${kids(g)}</div>`;
-  }).join('');
+/* Template subtitle: kombinasi font, warna, highlight & animasi siap pakai. Posisi & perataan subtitle tidak diubah. */
+const SUB_TPL = {
+  'viral-kuning': { n: 'Viral Kuning', d: 'Klasik clipper, tebal & sorot kuning', s: { font: 'arial-black', size: 98, color: '#FFFFFF', highlight: '#FFD400', stroke: '#000000', stroke_w: 7, uppercase: true, hl: true, hl_style: 'color', hl_pop: true } },
+  'hormozi-box': { n: 'Hormozi Box', d: 'Kotak hijau mencolok per kata', s: { font: 'montserrat', weight: 900, size: 92, color: '#FFFFFF', highlight: '#39E75F', hl_tc: '#0B0B0B', stroke: '#000000', stroke_w: 6, uppercase: true, chunk: 3, hl: true, hl_style: 'box', hl_pop: true } },
+  'neon-pop': { n: 'Neon Pop', d: 'Kata muncul memantul, sorot cyan', s: { font: 'anton', size: 104, color: '#FFFFFF', highlight: '#00E5FF', stroke: '#000000', stroke_w: 7, uppercase: true, spacing: 2, hl: true, fx: 'word', wanim: 'pop', smooth: true } },
+  'hype-gaming': { n: 'Hype Gaming', d: 'Komik heboh dengan glow hijau', s: { font: 'bangers', size: 110, color: '#FFFFFF', highlight: '#A3FF12', stroke: '#000000', stroke_w: 8, uppercase: true, spacing: 2, hl: true, fx: 'word', wanim: 'glow' } },
+  'merah-membara': { n: 'Merah Membara', d: 'Kotak merah tegas, gaya berita', s: { font: 'poppins', weight: 900, size: 90, color: '#FFFFFF', highlight: '#FF3B3B', hl_tc: '#FFFFFF', stroke: '#000000', stroke_w: 6, uppercase: true, chunk: 2, hl: true, hl_style: 'box', hl_pop: true } },
+  'minimal-clean': { n: 'Minimal Clean', d: 'Bersih & kalem, muncul lembut', s: { font: 'inter', weight: 600, size: 80, color: '#FFFFFF', highlight: '#FFFFFF', stroke: '#000000', stroke_w: 4, hl: false, blur: true, smooth: true } },
+  'cinematic': { n: 'Cinematic', d: 'Serif elegan, sorot emas', s: { font: 'instrument-serif', size: 104, color: '#FFFFFF', highlight: '#E8C27A', stroke: '#000000', stroke_w: 3, hl: true, hl_pop: false, fx: 'word', wanim: 'fade', blur: true, smooth: true } },
+  'golden-quote': { n: 'Golden Quote', d: 'Kutipan miring bernuansa mewah', s: { font: 'playfair-display', weight: 800, size: 88, italic: true, color: '#FFFFFF', highlight: '#F5C451', stroke: '#000000', stroke_w: 4, hl: true, hl_pop: true } },
+  'soft-aesthetic': { n: 'Soft Aesthetic', d: 'Tulisan tangan pastel yang lembut', s: { font: 'caveat', weight: 700, size: 108, color: '#FFFFFF', highlight: '#FFB8CF', stroke: '#3A1F2B', stroke_w: 4, hl: true, hl_pop: false, fx: 'word', wanim: 'fade', blur: true, smooth: true } },
+  'diary-notes': { n: 'Diary Notes', d: 'Spidol dengan stabilo kuning', s: { font: 'permanent-marker', size: 88, color: '#FFFFFF', highlight: '#FFF176', hl_tc: '#1A1A1A', stroke: '#000000', stroke_w: 5, chunk: 2, hl: true, hl_style: 'box', hl_pop: false } },
+  'romantis': { n: 'Romantis', d: 'Script manis bernuansa pink', s: { font: 'dancing-script', weight: 700, size: 100, color: '#FFFFFF', highlight: '#FF8FB1', stroke: '#2B0F1A', stroke_w: 4, hl: true, hl_pop: true, blur: true, smooth: true } },
+  'mesin-ketik': { n: 'Mesin Ketik', d: 'Huruf muncul seperti diketik', s: { font: 'roboto-slab', weight: 700, size: 84, color: '#FFFFFF', highlight: '#7DD3FC', stroke: '#000000', stroke_w: 5, hl: true, hl_pop: false, fx: 'type' } },
+};
+// Nilai bawaan untuk field yang tidak disebut template (supaya gaya lama tidak tercampur)
+const SUB_TPL_BASE = { weight: 0, bold: false, italic: false, underline: false, spacing: 1, opacity: 100, uppercase: false, chunk: 0,
+  hl: true, hl_style: 'color', hl_font: '', hl_tc: '#111111', hl_pop: true, fx: 'none', wanim: 'fade', blur: false, smooth: false };
+const tplActive = k => E.style.tpl === k && Object.entries(SUB_TPL[k].s).every(([f, v]) => E.style[f] === v);
+function applySubTpl(k) {
+  const keep = { pos: E.style.pos, x: E.style.x, align: E.style.align };
+  Object.assign(E.style, SUB_TPL_BASE, SUB_TPL[k].s, keep, { tpl: k });
+  changed(); renderProps(); draw();
+  const l = E.lines[sel.type === 'line' ? sel.i : Math.max(0, activeLine())];
+  if (l) { pause(); seek(l.s); play(); }
+}
+// Contoh mini tiap template: font, warna, garis tepi & cara sorot kata aktif
+function tplDemo(t) {
+  const s = { ...SUB_TPL_BASE, ...t.s }, f = FONTS.find(x => x.k === s.font);
+  const fam = w => w && f?.w.includes(w) ? `"${f.wf}", ${fontFamily(s.font)}` : fontFamily(s.font);
+  const cap = w => s.uppercase ? w.toUpperCase() : w;
+  const base = `font-family:${fam(s.weight)};font-weight:${s.weight || 400};${s.italic ? 'font-style:italic;' : ''}color:${s.color};-webkit-text-stroke:${Math.min(3, s.stroke_w * .35)}px ${s.stroke};paint-order:stroke fill;font-size:${Math.round(s.size * .19)}px`;
+  const hl = !s.hl ? '' : s.hl_style === 'box' ? `background:${s.highlight};color:${s.hl_tc};-webkit-text-stroke:0;padding:0 4px;border-radius:2px;`
+    : `color:${s.highlight};`;
+  const hf = s.hl_font ? `font-family:${fontFamily(s.hl_font)};` : '';
+  return `<span class="tpd" style='${base}'>${cap('kata')} <i style='${hl}${hf}${s.hl && s.hl_pop ? 'font-size:1.1em;' : ''}'>${cap('viral')}</i></span>`;
+}
+function subTplHtml() {
   return `<div class="card p-card"><div class="p-sec">
-    <h3><span>Layer<span class="tip" data-tip="Paling atas = tampil paling depan. Seret grup atau item untuk mengubah urutan. Efek dan video utama selalu di dasar.">?</span></span></h3>
-    <div class="layers" id="layers">${groups}
-      <div class="ly-fixed">${ic('trk-fx')}<span>Efek</span><small>di atas video</small></div>
-      <div class="ly-fixed">${ic('trk-video')}<span>Video utama</span><small>dasar</small></div>
-    </div>
+    <h3><span>Template subtitle<span class="tip" data-tip="Kombinasi font, warna, highlight & animasi siap pakai. Posisi subtitle tidak berubah; semua bisa diatur lagi setelahnya.">?</span></span></h3>
+    <div class="tpls">${Object.entries(SUB_TPL).map(([k, t]) => `<button type="button" class="tpl ${tplActive(k) ? 'on' : ''}" data-subtpl="${k}" title="${esc(t.d)}">
+      <span class="tpl-pv">${tplDemo(t)}</span><b>${esc(t.n)}</b></button>`).join('')}</div>
   </div></div>`;
 }
 
-// Seret & lepas di panel Layer
-let lyDrag = null;
-function bindLayerDnd(P) {
-  const target = e => e.target.closest(lyDrag?.item ? '[data-ly-item]' : '[data-ly-head]');
-  const clear = () => P.querySelectorAll('.drop-before, .drop-after, .ly-drag').forEach(x => x.classList.remove('drop-before', 'drop-after', 'ly-drag'));
-  P.addEventListener('dragstart', e => {
-    const it = e.target.closest('[data-ly-item]'), hd = e.target.closest('[data-ly-head]');
-    if (!it && !hd) return;
-    lyDrag = it ? { item: it.dataset.lyItem } : { group: hd.dataset.lyHead };
-    (it || hd.parentElement).classList.add('ly-drag');
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', 'layer');
-  });
-  P.addEventListener('dragover', e => {
-    if (!lyDrag) return;
-    const el = target(e);
-    if (!el || (lyDrag.item && el.dataset.lyItem.split(':')[0] !== lyDrag.item.split(':')[0])) return;
-    e.preventDefault();
-    const r = el.getBoundingClientRect(), after = e.clientY > r.top + r.height / 2;
-    P.querySelectorAll('.drop-before, .drop-after').forEach(x => x.classList.remove('drop-before', 'drop-after'));
-    el.classList.add(after ? 'drop-after' : 'drop-before');
-  });
-  P.addEventListener('dragend', () => { lyDrag = null; clear(); });
-  P.addEventListener('drop', e => {
-    if (!lyDrag) return;
-    e.preventDefault();
-    const el = target(e);
-    if (!el) { lyDrag = null; return clear(); }
-    const after = el.classList.contains('drop-after');
-    if (lyDrag.group) {
-      const o = layerOrder().filter(k => k !== lyDrag.group), at = o.indexOf(el.dataset.lyHead);
-      o.splice(after ? at + 1 : at, 0, lyDrag.group);
-      E.layers = o;
-    } else {
-      const [g, from] = lyDrag.item.split(':'), to = +el.dataset.lyItem.split(':')[1], arr = g === 'text' ? E.texts : E.media;
-      if (el.dataset.lyItem.split(':')[0] === g && +from !== to) {
-        const chosen = (sel.type === 'text' || sel.type === 'media') ? trackArr(sel.type)[sel.i] : null;
-        // Panel menampilkan urutan terbalik (atas = indeks terbesar)
-        const ui = [...arr.keys()].reverse().filter(i => i !== +from), pos = ui.indexOf(to);
-        ui.splice(after ? pos + 1 : pos, 0, +from);
-        const items = ui.reverse().map(i => arr[i]);
-        arr.splice(0, arr.length, ...items);
-        if (chosen) sel.i = trackArr(sel.type).indexOf(chosen);
-      }
-    }
-    lyDrag = null;
-    clear();
-    changed();
-    renderProps();
-    renderTimeline();
-    draw();
-  });
-  P.addEventListener('click', e => {
-    const it = e.target.closest('[data-ly-item]');
-    if (!it) return;
-    const [g, i] = it.dataset.lyItem.split(':');
-    select({ type: g === 'text' ? 'text' : 'media', i: +i });
-  });
+// Highlight kata subtitle: aktif/mati, gaya (warna teks / latar kotak), warna, font, membesar
+function subHighlightHtml() {
+  const st = E.style, sw = (k, on, label) => `<label class="switch"><input type="checkbox" data-k="${k}" aria-label="${label}" ${on ? 'checked' : ''}></label>`;
+  return `<div class="card p-card"><div class="p-sec">
+    <h3><span>Highlight kata<span class="tip" data-tip="Kata yang sedang diucapkan pembicara otomatis disorot, supaya penonton mudah mengikuti.">?</span></span>${sw('style.hl', st.hl, 'Highlight kata')}</h3>
+    ${st.hl ? `<div class="framings two">${[['color', 'Warna teks'], ['box', 'Latar kotak']].map(([k, n]) =>
+      `<button type="button" class="framing ${st.hl_style === k ? 'on' : ''}" data-hls="${k}">${n}</button>`).join('')}</div>
+    <div class="ts-stack" style="margin-top:10px">
+      <div class="ts-c"><label>${st.hl_style === 'box' ? 'Warna latar' : 'Warna'}</label>${hexField('style.highlight', st.highlight)}</div>
+      ${st.hl_style === 'box' ? `<div class="ts-c"><label>Warna teks</label>${hexField('style.hl_tc', st.hl_tc)}</div>` : ''}
+    </div>
+    <div class="p-field"><div class="p-label"><label>Font highlight</label></div>
+      <button type="button" class="ts-f fpk-btn${fpkOpen === 'hl' ? ' on' : ''}" data-fpk="hl" aria-expanded="${fpkOpen === 'hl'}" style='font-family:${fontFamily(st.hl_font || st.font)}'>
+        <span>${st.hl_font ? esc(fontLabel(st.hl_font)) : 'Sama dengan subtitle'}</span>${ic('chevron-down').replace('class="i"', 'class="i chev"')}</button>
+      ${fpkOpen === 'hl' ? fontListHtml('hl', { font: st.hl_font || '' }) : ''}</div>
+    <div class="p-row sw-row"><label>Membesar 110%</label>${sw('style.hl_pop', st.hl_pop, 'Kata highlight membesar')}</div>`
+    : '<p class="muted small" style="margin:0">Aktifkan untuk menyorot kata yang sedang diucapkan.</p>'}
+  </div></div>`;
 }
-
+// Animasi subtitle: efek teks (ketik / kata per kata + animasi per kata) & blur saat muncul
+function subAnimHtml() {
+  const st = E.style, demo = k => k === 'type' ? '<i>A</i><i>b</i><i>c</i>' : k === 'none' ? 'Aa' : '<i>Aa</i> <i>Bb</i>';
+  return `<div class="card p-card anim-card"><div class="anim-head">${ic('sparkles')} Animasi</div><div class="p-sec">
+      <h3><span>Efek teks<span class="tip" data-tip="Berlaku untuk semua subtitle dan mengikuti waktu ucapan tiap kata.">?</span></span></h3>
+      <div class="anims three">${SUB_FX.map(([k, n]) => `<button class="anim ${st.fx === k ? 'on' : ''}" data-sfx="${k}"><span class="tfxv tfx-${k}">${demo(k)}</span>${n}</button>`).join('')}</div>
+      ${st.fx === 'word' ? `<div class="p-field"><div class="p-label"><label>Animasi masuk per kata</label></div>
+        <div class="framings">${SUB_WANIMS.map(([k, n]) => `<button type="button" class="framing ${st.wanim === k ? 'on' : ''}" data-swa="${k}">${n}</button>`).join('')}</div></div>` : ''}
+      <p class="muted small" style="margin:8px 0 0">${{ none: 'Satu baris tampil sekaligus.', type: 'Huruf muncul seperti diketik saat kata diucapkan.', word: 'Kata muncul satu per satu saat diucapkan.' }[st.fx]}</p>
+    </div>
+    <div class="p-sec"><div class="p-row sw-row" style="margin-top:0"><label>Blur saat muncul<span class="tip" data-tip="Teks muncul sedikit blur lalu menajam, memberi kesan lembut.">?</span></label>
+      <label class="switch"><input type="checkbox" data-k="style.blur" aria-label="Blur saat muncul" ${st.blur ? 'checked' : ''}></label></div>
+      <div class="p-row sw-row"><label>Smoother<span class="tip" data-tip="Semua animasi teks (blur, fade, pop, glow, muncul baris) jadi lebih panjang & halus, melambat di akhir.">?</span></label>
+      <label class="switch"><input type="checkbox" data-k="style.smooth" aria-label="Smoother" ${st.smooth ? 'checked' : ''}></label></div></div></div>`;
+}
+// Bagian animasi di bawah setelan item terpilih (teks, hook, media, grafik); kosong untuk item lain
 function animPanelHtml() {
-  // Subtitle hasil AI tidak bisa dianimasikan: panel tetap tampil tapi nonaktif
-  const off = sel.type === 'line';
-  const tg = off ? { obj: {}, def: ANIM_NONE } : animTarget();
-  if (!tg) return `<div class="card p-card"><div class="p-sec"><h3><span>Animasi</span></h3>
-    <p class="hint" style="margin:0">Pilih teks, hook, atau media di layar maupun timeline.</p></div></div>`;
+  if (sel.type === 'line') return subHighlightHtml() + subAnimHtml();
+  const tg = animTarget();
+  if (!tg) return '';
   const a = tg.obj.anim = { ...tg.def, ...(tg.obj.anim || {}) };
   const vars = (k, ph) => {
     const v = { up: [0, 1], down: [0, -1], left: [1, 0], right: [-1, 0] }[k], sgn = ph === 'out' ? -1 : 1;
@@ -4554,8 +5638,17 @@ function animPanelHtml() {
         <span class="av ${ph}" style="${k === 'none' ? '--x:0' : vars(k, ph)}"${k === 'none' ? ' data-none' : ''}></span>${n}</button>`).join('')}</div>
       ${a[ph] !== 'none' ? `<div class="p-row"><label>Durasi</label><input type="range" min="0.1" max="1.5" step="0.05" data-k="${tg.path}.anim.d${ph}" value="${a['d' + ph]}"><span class="val">${(+a['d' + ph]).toFixed(2)}s</span></div>` : ''}
     </div>`;
-  return `<div class="card p-card"><fieldset class="anim-set${off ? ' ts-off' : ''}"${off ? ' disabled' : ''}>${sec('in', 'Animasi masuk')}${sec('out', 'Animasi keluar')}
-    <div class="p-sec"><div class="p-actions" style="margin-top:0"><button class="btn sm" data-p="anim-play" style="grid-column:1 / -1">${ic('play')} Putar animasi</button></div></div></fieldset></div>`;
+  const tfx = sel.type !== 'text' ? '' : `<div class="p-sec">
+      <h3><span>Efek teks<span class="tip" data-tip="Huruf atau kata muncul / disorot bergantian. Bisa digabung dengan animasi masuk & keluar.">?</span></span></h3>
+      <div class="anims three">${TEXT_FX.filter(([k]) => k !== 'karaoke' || a.text === 'karaoke').map(([k, n]) => `<button class="anim ${(a.text || 'none') === k ? 'on' : ''}" data-tfx="${k}"><span class="tfxv tfx-${k}">${
+        k === 'type' ? '<i>A</i><i>b</i><i>c</i>' : k === 'none' ? 'Aa' : '<i>Aa</i> <i>Bb</i>'}</span>${n}</button>`).join('')}</div>
+      ${a.text === 'type' || a.text === 'word' ? `<div class="p-row"><label>Lama efek</label><input type="range" min="0.2" max="5" step="0.1" data-k="${tg.path}.anim.tdur" value="${a.tdur}"><span class="val">${(+a.tdur).toFixed(1)}s</span></div>` : ''}
+      ${a.text === 'karaoke' ? `<div class="p-row"><label>Warna sorot</label><input type="color" class="tfx-hl" data-k="${tg.path}.anim.hl" value="${a.hl.toLowerCase()}" aria-label="Warna sorot"><span class="val">${a.hl}</span></div>` : ''}
+      <div class="p-row sw-row"><label>Blur saat muncul</label><label class="switch"><input type="checkbox" data-k="${tg.path}.anim.blur" aria-label="Blur saat muncul" ${a.blur ? 'checked' : ''}></label></div>
+      <div class="p-row sw-row"><label>Smoother<span class="tip" data-tip="Blur & animasi kata jadi lebih panjang dan halus, melambat di akhir.">?</span></label><label class="switch"><input type="checkbox" data-k="${tg.path}.anim.smooth" aria-label="Smoother" ${a.smooth ? 'checked' : ''}></label></div>
+    </div>`;
+  return `<div class="card p-card anim-card"><div class="anim-head">${ic('sparkles')} Animasi</div>${tfx}${sec('in', 'Animasi masuk')}${sec('out', 'Animasi keluar')}
+    <div class="p-sec"><div class="p-actions" style="margin-top:0"><button class="btn sm" data-p="anim-play" style="grid-column:1 / -1">${ic('play')} Putar animasi</button></div></div></div>`;
 }
 
 // Putar item dari awal (animasi masuk) atau menjelang akhir (animasi keluar)
@@ -4572,12 +5665,23 @@ function playAnim(phase) {
 
 function renderPropsBody() {
   const P = $('props');
-  if (propTab === 'layer') {
-    P.innerHTML = ptabsHtml('layer') + layerPanelHtml();
+  if (introPanelOn()) {
+    P.innerHTML = introPropsHtml();
     return;
   }
-  if (propTab === 'anim' && ['clip', 'text', 'hook', 'media', 'line'].includes(sel.type)) {
-    P.innerHTML = ptabsHtml('anim') + animPanelHtml();
+  if (sel.type === 'sfx' && E.sfx[sel.i]) {
+    const x = E.sfx[sel.i], i = sel.i, f = x.ref !== 'main' && E.footage.find(g => g.id === x.ref);
+    P.innerHTML = `<div class="card p-card">
+      <div class="p-sec">
+        <h3><span>Sound effect</span> <button class="back-link" data-p="back">← Kembali</button></h3>
+        <div class="ov-file"><span class="mu-badge">${ic('volume')}</span>
+          <div style="min-width:0"><b style="font-size:13px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(x.name)}</b>
+            <div class="muted small">${x.dur.toFixed(2)} dtk · ${f ? `di ${esc(f.name || 'footage')}` : 'di clip'} · mulai ${fmtTs(sfxStart(x))}</div></div></div>
+        <div class="p-row"><label>Volume</label><input type="range" min="0" max="200" step="5" data-k="sfx.${i}.vol" value="${x.vol}"><span class="val">${x.vol}%</span></div>
+        <p class="muted small" style="margin:6px 0 0">Geser blok oranye di track SFX untuk memindah posisinya, termasuk ke bagian intro / footage.</p>
+        <div class="p-actions"><button class="btn sm" data-p="sfx-play">${ic('play')} Putar</button>
+          <button class="btn sm danger" data-p="sfx-remove">${ic('trash')} Hapus SFX</button></div>
+      </div></div>`;
     return;
   }
   if (sel.type === 'music' && E.music[sel.i]) {
@@ -4588,11 +5692,10 @@ function renderPropsBody() {
         <div class="ov-file"><span class="mu-badge">${ic('music')}</span>
           <div style="min-width:0"><b style="font-size:13px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(m.name)}</b>
             <div class="muted small">Dipakai ${fmtDur(m.e - m.s)} dari lagu ${fmtDur(m.dur)}</div></div></div>
-        <div class="p-row"${m.kf?.length ? ' title="Volume diatur oleh keyframe di bawah"' : ''}><label>Volume</label><input type="range" min="0" max="100" step="1" data-k="music.${i}.vol" value="${m.vol}" ${m.kf?.length ? 'disabled' : ''}><span class="val">${m.kf?.length ? '◆' : m.vol + '%'}</span></div>
+        <div class="p-row"><label>Volume</label><input type="range" min="0" max="100" step="1" data-k="music.${i}.vol" value="${m.vol}"><span class="val">${m.vol}%</span></div>
         <div class="p-row"><label>Mulai lagu</label><input type="range" min="0" max="${Math.max(0, m.dur - 1).toFixed(1)}" step="0.1" data-k="music.${i}.off" value="${m.off}"><span class="val">${fmtTs(m.off)}</span></div>
         <div class="p-row"><label>Fade in</label><input type="range" min="0" max="5" step="0.1" data-k="music.${i}.fin" value="${m.fin}"><span class="val">${(+m.fin).toFixed(1)}s</span></div>
         <div class="p-row"><label>Fade out</label><input type="range" min="0" max="5" step="0.1" data-k="music.${i}.fout" value="${m.fout}"><span class="val">${(+m.fout).toFixed(1)}s</span></div>
-        ${kfPanelHtml('m' + i)}
         <p class="muted small" style="margin:8px 0 0">Suara asli clip diatur di volume clip; musik dicampur di atasnya saat render.</p>
         <div class="p-actions"><button class="btn sm" data-p="mu-full">${ic('range')} Sepanjang clip</button>
           <button class="btn sm danger" data-p="mu-remove">${ic('trash')} Hapus musik</button></div>
@@ -4624,7 +5727,11 @@ function renderPropsBody() {
         <h3><span>Transisi</span> <button class="back-link" data-p="back">← Kembali</button></h3>
         <div class="ov-file"><span class="fxt on" style="pointer-events:none;width:96px;padding:0;border:0;background:none"><span class="trs tr-${tr.type}"><i class="a"></i><i class="b"></i></span></span>
           <div style="min-width:0"><b style="font-size:13px">${esc(TRANSITIONS[tr.type].label)}</b>${j ? `<div class="muted small">${nm(j.a)} → ${nm(j.b)}</div>` : ''}</div></div>
-        <div class="p-row"><label>Durasi</label><input type="range" min="0.2" max="${max.toFixed(1)}" step="0.1" data-k="transitions.${sel.id}.dur" value="${Math.min(max, tr.dur)}"><span class="val">${Math.min(max, tr.dur).toFixed(1)}s</span></div>
+        <div class="p-row"><label>Durasi</label><input type="range" min="${tr.type === 'paper' ? 0.3 : 0.2}" max="${max.toFixed(2)}" step="0.05" data-k="transitions.${sel.id}.dur" value="${Math.min(max, tr.dur)}"><span class="val">${Math.min(max, tr.dur).toFixed(2)}s</span></div>
+        ${tr.type === 'paper' && j ? `<p class="muted small" style="margin:6px 0 0">Gumpalan kertas muncul lalu robek membuka bagian berikutnya. Durasi pendek = robekan lebih cepat.</p>
+          ${paperSfxOf(j) ? `<p class="muted small" style="margin:4px 0 0">SFX kertas robek terpasang dan posisinya ikut menyesuaikan durasi transisi.</p>
+            ${paperSfxOf(j).file !== paperLib().file ? `<div class="p-actions"><button class="btn sm" data-p="tr-sfx-swap" style="grid-column:1 / -1">${ic('refresh')} Pakai ${esc(paperLib().name)}</button></div>` : ''}`
+            : `<div class="p-actions"><button class="btn sm" data-p="tr-sfx" style="grid-column:1 / -1">${ic('volume')} Tambah SFX kertas robek</button></div>`}` : ''}
         <div class="p-actions">
           <button class="btn sm" data-p="tr-play">${ic('play')} Putar</button>
           <button class="btn sm danger" data-p="tr-remove">${ic('trash')} Hapus transisi</button>
@@ -4640,7 +5747,7 @@ function renderPropsBody() {
         <div class="ov-file"><span class="fxt on" style="pointer-events:none;width:96px;padding:0;border:0;background:none">${opThumb(op.type)}</span>
           <div style="min-width:0"><b style="font-size:13px">${esc(pr.label)}</b><div class="muted small">${esc((OP_CATS.find(c => c[0] === pr.cat) || [])[1] || '')} · di awal video</div></div></div>
         <div class="p-row"><label>Durasi</label><input type="range" min="0.2" max="5" step="0.1" data-k="opening.dur" value="${op.dur}"><span class="val">${op.dur.toFixed(1)}s</span></div>
-        <p class="muted small" style="margin:4px 0 0">Ganti jenis opening dari menu Transisi → Opening di panel kiri.</p>
+        <p class="muted small" style="margin:4px 0 0">Ganti jenis opening dari menu Transisi → Opening.</p>
         <div class="p-actions">
           <button class="btn sm" data-p="op-play">${ic('play')} Putar</button>
           <button class="btn sm danger" data-p="op-remove">${ic('trash')} Hapus opening</button>
@@ -4664,25 +5771,25 @@ function renderPropsBody() {
     return;
   }
   if (sel.type === 'media' && E.media[sel.i]?.gfx) {
-    P.innerHTML = ptabsHtml(null) + gfxPanelHtml(E.media[sel.i]);
+    P.innerHTML = gfxPanelHtml(E.media[sel.i]) + animPanelHtml();
     return;
   }
   if (sel.type === 'media' && E.media[sel.i]) {
     const m = E.media[sel.i];
-    P.innerHTML = ptabsHtml(null) + `<div class="card p-card">
+    P.innerHTML = `<div class="card p-card">
       <div class="p-sec">
         <h3><span>Media</span> <button class="back-link" data-p="back">← Kembali</button></h3>
         <div class="ov-file"><img class="ov-thumb" src="previews/overlays/${m.file}" alt=""><div style="min-width:0"><b style="font-size:13px;word-break:break-all">${esc(m.name || 'Gambar')}</b>
           <div class="muted small">${fmtDur(m.e - m.s)} tampil</div></div></div>
-        <div class="p-row"><label>Mulai</label>${stepper('ms', m.s)}</div>
-        <div class="p-row"><label>Selesai</label>${stepper('me', m.e)}</div>
+        ${m.ref ? refNoteHtml : `<div class="p-row"><label>Mulai</label>${stepper('ms', m.s)}</div>
+        <div class="p-row"><label>Selesai</label>${stepper('me', m.e)}</div>`}
         <div class="p-row"><label>Ukuran</label><input type="range" min="0.1" max="1" step="0.01" data-k="media.${sel.i}.w" value="${m.w}"><span class="val">${Math.round(m.w * 100)}%</span></div>
         <div class="p-row"><label>Opacity</label><input type="range" min="0" max="100" step="1" data-k="media.${sel.i}.opacity" value="${m.opacity ?? 100}"><span class="val">${m.opacity ?? 100}%</span></div>
         <div class="p-actions">
           <button class="btn sm" data-p="media-center">${ic('align-center')} Ke tengah</button>
           <button class="btn sm danger" data-p="media-remove">${ic('trash')} Hapus dari timeline</button>
         </div>
-      </div></div>`;
+      </div></div>` + animPanelHtml();
     return;
   }
   if (sel.type === 'lines') {
@@ -4690,52 +5797,54 @@ function renderPropsBody() {
     markActiveLine();
     return;
   }
-  // Panel utama dipisah jadi dua tab supaya tidak memanjang: pengaturan clip & editor teks
-  const tabs = ptabsHtml(propTab);
+  // Teks / hook terpilih: editor teks, lalu animasi di bawahnya (subtitle tidak bisa dianimasikan)
   if (textSelected()) {
-    P.innerHTML = tabs + textEditorHtml();
+    // Subtitle: template di paling atas (pilihan cepat), lalu editor teks, highlight & animasi
+    P.innerHTML = (sel.type === 'line' ? subTplHtml() : '') + textEditorHtml() + animPanelHtml();
     return;
   }
-  P.innerHTML = tabs + (propTab === 'text'
-    ? textOverviewHtml()
-    : `<div class="card p-card">
+  // Tidak ada item terpilih: pengaturan clip
+  P.innerHTML = `<div class="card p-card">
     <div class="p-sec">
-      <h3><span>Clip</span><span class="muted small">${fmtDur(E.trim[1] - E.trim[0])}</span></h3>
-      <div class="p-row" style="display:block;margin-top:0"><div class="framings">${FRAMINGS.map(([k, n]) =>
-        `<button class="framing ${k === E.layout ? 'on' : ''}" data-framing="${k}" data-tip="${FRAMING_DESC[k]}">${n}</button>`).join('')}</div></div>
-      ${E.layout === 'gaming' ? `<p class="muted small" style="margin:8px 0 0">${E.cam ? 'Webcam streamer terdeteksi otomatis.' : E.pending ? 'Mendeteksi posisi webcam…' : 'Webcam tidak terdeteksi, preview & hasil memakai crop tengah.'}</p>` : ''}
+      <h3><span>Jenis clip</span><span class="muted small" title="Durasi clip">${fmtDur(E.trim[1] - E.trim[0])}</span></h3>
+      <div class="framings two">${KINDS.map(([k, n]) => `<button type="button" class="framing ${E.kind === k ? 'on' : ''}" data-kind="${k}">${n}</button>`).join('')}</div>
     </div>
-    ${E.layout === 'gaming' ? '' : `<div class="p-sec">
+    <div class="p-sec">
+      <h3><span>Ikuti pembicara</span><label class="switch"><input type="checkbox" id="follow-on" aria-label="Ikuti pembicara" ${E.follow ? 'checked' : ''}></label></h3>
+      <p class="muted small" style="margin:0">${E.follow ? 'Kamera otomatis mengikuti wajah orang yang sedang bicara.' : 'Mati: video memakai bagian tengah, kamera tidak bergerak.'}</p>
+    </div>
+    <div class="p-sec">
       <h3><span>Layout</span></h3>
-      <div class="ratios">${FRAME_RATIOS.map(([k, n, a]) => {
+      <div class="ratios six">${FRAME_RATIOS.map(([k, n, a]) => {
         const h = Math.round(Math.min(32, 18 / a)), w = Math.round(Math.min(18, 32 * a));
         return `<button class="ratio ${(E.frame.ratio || 'full') === k ? 'on' : ''}" data-ratio="${k}"><span class="shape"><i style="width:${w}px;height:${h}px"></i></span>${n}</button>`;
-      }).join('')}</div>
+      }).join('')}<button class="ratio ${E.frame.ratio === 'split' ? 'on' : ''}" data-ratio="split" title="Split screen atas-bawah"><span class="shape split"><i></i><i></i></span>Split</button></div>
+      ${E.frame.ratio === 'split' ? splitPanelHtml() : ''}
       <div class="p-row"><label>Sudut</label><input type="range" min="0" max="120" step="2" data-k="frame.radius" value="${E.frame.radius || 0}"><span class="val">${E.frame.radius || 0}px</span></div>
+    </div>
+    ${E.frame.ratio === 'split' ? '' : `<div class="p-sec">
+      <h3><span>Background<span class="tip" data-tip="Isi layar di luar video saat layout bukan Full. Solid = hitam, Blur = video yang sama diperbesar & diblur.">?</span></span></h3>
+      <div class="bgs">${[['solid', 'Solid'], ['blur', 'Blur']].map(([k, n]) =>
+        `<button type="button" class="bgopt ${E.frame.bg === k ? 'on' : ''}" data-fbg="${k}" ${(E.frame.ratio || 'full') === 'full' ? 'disabled' : ''}><span class="sw-${k}"></span>${n}</button>`).join('')}</div>
+      ${(E.frame.ratio || 'full') === 'full' ? '<p class="muted small" style="margin:8px 0 0">Pilih layout selain Full untuk memakai background.</p>' : ''}
     </div>`}
     <div class="p-sec">
       <h3><span>Gaya teks</span></h3>
       <div class="framings two">${[['subtitle', 'Subtitle'], ['kinetic', 'Teks kinetik']].map(([k, n]) =>
         `<button class="framing ${(E.caption || 'subtitle') === k ? 'on' : ''}" data-caption="${k}">${n}</button>`).join('')}</div>
       ${E.caption === 'kinetic' ? `<div class="p-actions"><button class="btn sm" data-p="kin-rebuild" style="grid-column:1 / -1">${ic('refresh')} Susun ulang dari subtitle</button></div>` : ''}
+      <div class="p-actions"><button class="btn sm" data-p="sub-tpl">${ic('caption')} Template subtitle</button>
+        <button class="btn sm" data-p="add-hook">${ic('gfx')} Tambah teks hook</button></div>
     </div>
-    ${E.layout === 'gaming' ? '' : `<div class="p-sec">
-      <h3><span>Split screen otomatis<span class="tip" data-tip="Bagian video yang menampilkan 2 orang otomatis dibuat atas-bawah. Bagian lain memakai framing yang dipilih di atas.">?</span></span>
-        <label class="switch"><input type="checkbox" id="split-on" aria-label="Split screen otomatis" ${E.split.enabled ? 'checked' : ''}></label></h3>
-      <div class="p-row"><label>Toleransi<span class="tip" data-tip="Split screen muncul lebih awal sebanyak detik ini. Contoh: AI mendeteksi 2 orang di detik 12, toleransi 2 dtk → split mulai di detik 10.">?</span></label>
-        <input type="range" min="0" max="5" step="0.25" id="split-lead" value="${E.split.early}" ${E.split.enabled ? '' : 'disabled'}>
-        <span class="val">${E.split.early.toFixed(2)}s</span></div>
-    </div>`}
     <div class="p-sec">
-      <h3><span>Volume audio</span><span class="muted small" id="vol-val">${E.volKf.length ? 'diatur keyframe' : E.volume + '%'}</span></h3>
-      ${E.volKf.length ? '' : `<div class="vol-row">${ic('volume')}<input class="p-range" type="range" min="0" max="200" step="5" data-k="volume" value="${E.volume}" aria-label="Volume audio">
-        <button type="button" class="btn sm ghost" data-p="vol-reset" title="Kembalikan ke 100%">100%</button></div>`}
-      ${kfPanelHtml('clip')}
+      <h3><span>Volume audio</span><span class="muted small" id="vol-val">${E.volume}%</span></h3>
+      <div class="vol-row">${ic('volume')}<input class="p-range" type="range" min="0" max="200" step="5" data-k="volume" value="${E.volume}" aria-label="Volume audio">
+        <button type="button" class="btn sm ghost" data-p="vol-reset" title="Kembalikan ke 100%">100%</button></div>
     </div>
     <div class="p-sec">
       <button class="btn sm ghost danger" data-p="reset">${ic('reset')} Reset ke hasil AI</button><span class="tip" data-tip="Membuang semua editan clip ini (trim, teks, media, efek, gaya), lalu menyiapkan dan merender ulang dari hasil analisa.">?</span>
     </div>
-  </div>`);
+  </div>`;
 }
 
 /* ---------- Editor teks terpadu: subtitle (gaya semua baris), hook, dan teks tambahan ---------- */
@@ -4774,25 +5883,6 @@ function textEditorHtml() {
 }
 
 // Tab Teks tanpa teks terpilih: format teks hanya sebagai tampilan (nonaktif, tidak terhubung ke teks mana pun)
-const TEXT_PREVIEW_CFG = { font: 'inter', size: 64, bold: false, spacing: 0, align: 'center', italic: false, underline: false,
-  color: '#FFFFFF', opacity: 100, stroke: '#000000', stroke_w: 0, bg: '#000000', bg_opacity: 0 };
-function textOverviewHtml() {
-  const sw = (k, on, label) => `<label class="switch"><input type="checkbox" data-k="${k}" aria-label="${label}" ${on ? 'checked' : ''}></label>`;
-  return `<div class="card p-card"><div class="p-sec">
-    <h3><span>Format teks</span></h3>
-    <fieldset class="ts-off" disabled>
-      <div class="p-field" style="margin-top:0">
-        <div class="p-label"><label>Teks</label></div>
-        <input class="input p-input" placeholder="Pilih teks untuk mengedit isinya">
-      </div>
-      ${textPanel('preview', TEXT_PREVIEW_CFG)}
-    </fieldset>
-  </div>
-  <div class="p-sec">
-    <h3><span>Teks hook</span></h3>
-    <div class="p-actions" style="margin-top:0"><button class="btn sm" data-p="add-hook" style="grid-column:1 / -1">${ic('gfx')} Tambah teks hook (template grafik)</button></div>
-  </div></div>`;
-}
 
 // Semua baris subtitle: teks bisa langsung diketik; ⋯ membuka detail (waktu, pecah, gabung, hapus)
 function linesPanel() {
@@ -4864,8 +5954,10 @@ function lineAction(act) {
 // Isi panel properti dibuat ulang tiap ganti pilihan; event dipasang sekali di elemen induknya
 function bindProps() {
   const P = $('props');
-  bindLayerDnd(P);
-  bindKf(P);
+  // Setelan grafik intro (lihat introPropsHtml)
+  P.addEventListener('click', e => { if (introPanelOn()) introClick(e); });
+  P.addEventListener('input', e => { if (introPanelOn()) introInput(e); });
+  P.addEventListener('change', e => { if (introPanelOn() && e.target.closest('[data-itc], [data-itch], #it-label, #it-w')) introChange(e); });
   P.addEventListener('input', e => {
     const gk = e.target.dataset.gfx || e.target.dataset.gfxc || e.target.dataset.gfxh;
     if (gk) {
@@ -4904,6 +5996,7 @@ function bindProps() {
       const c = cfgOf(e.target.dataset.wt), v = e.target.value;
       c.weight = /^\d+$/.test(v) ? +v : 0;
       c.bold = v === 'b';
+      if (c.weight) c.bold = false;
       changed(); draw();
       return;
     }
@@ -4943,7 +6036,9 @@ function bindProps() {
       const val = k === 'volume' ? null : e.target.closest('.p-field')?.querySelector('.val') || e.target.nextElementSibling;
       if (k === 'frame.radius') val.textContent = e.target.value + 'px';
       else if (/\.anim\.d(in|out)$/.test(k)) val.textContent = (+e.target.value).toFixed(2) + 's';
-      else if (/^transitions\./.test(k)) { val.textContent = (+e.target.value).toFixed(1) + 's'; renderTimeline(); }
+      else if (/\.anim\.tdur$/.test(k)) val.textContent = (+e.target.value).toFixed(1) + 's';
+      else if (/^transitions\./.test(k)) { val.textContent = (+e.target.value).toFixed(2) + 's'; renderTimeline(); }
+      else if (val && /^sfx\.\d+\.vol$/.test(k)) val.textContent = e.target.value + '%';
       else if (k === 'opening.dur') { val.textContent = (+e.target.value).toFixed(1) + 's'; renderTimeline(); draw(); }
       else if (/^footage\.\d+\.dur$/.test(k)) { val.textContent = (+e.target.value).toFixed(1) + 's'; renderTimeline(); updateTime(); }
       else if (val && /^effects\.\d+\.intensity$/.test(k)) val.textContent = e.target.value + '%';
@@ -4954,6 +6049,7 @@ function bindProps() {
       else if (val) val.textContent = k === 'style.pos' || /^media\.\d+\.w$/.test(k) ? Math.round(e.target.value * 100) + '%' : k === 'hook.duration' ? (+e.target.value).toFixed(1) + 's' : e.target.value;
     } else if (k && e.target.type === 'color') {
       setPath(k, e.target.value.toUpperCase());
+      if (e.target.nextElementSibling?.classList.contains('val')) e.target.nextElementSibling.textContent = e.target.value.toUpperCase();
     } else if (e.target.matches('.ln input')) {
       setLineText(+e.target.dataset.li, e.target.value);
       renderTimeline();
@@ -4969,7 +6065,7 @@ function bindProps() {
     draw();
   });
   P.addEventListener('change', e => {
-    if (e.target.id === 'split-on') return toggleSplit(e.target.checked);
+    if (e.target.id === 'follow-on') { E.follow = e.target.checked; changed(); renderProps(); draw(); return; }
     if (e.target.dataset.ts && e.target.type === 'number') {
       const v = e.target.dataset.ts.split('.').reduce((o, k) => o[k], E);
       e.target.value = v;
@@ -4990,6 +6086,7 @@ function bindProps() {
     if (k && e.target.type === 'checkbox') {
       setPath(k, e.target.checked);
       changed(); draw(); renderTimeline();
+      if (k === 'style.hl') renderProps();
       return;
     }
     const tk = e.target.dataset.time;
@@ -5005,6 +6102,15 @@ function bindProps() {
     markActiveLine();
   });
   P.addEventListener('click', e => {
+    const fo = e.target.closest('[data-fpk-tg]');
+    if (fo) return pickFont(fo.dataset.fpkTg, fo.dataset.fpkV);
+    const fb = e.target.closest('[data-fpk]');
+    if (fb) {
+      fpkOpen = fpkOpen === fb.dataset.fpk ? null : fb.dataset.fpk;
+      renderProps();
+      if (fpkOpen) P.querySelector('.fpk-opt.on')?.scrollIntoView({ block: 'nearest' });
+      return;
+    }
     const ts = e.target.closest('[data-seek]');
     if (ts) { seek(E.lines[+ts.dataset.seek].s + 0.01); markActiveLine(); return play(); }
     const b = e.target.closest('button');
@@ -5014,9 +6120,11 @@ function bindProps() {
         ms: E.media?.[sel.i]?.s, me: E.media?.[sel.i]?.e, xs: E.texts?.[sel.i]?.s, xe: E.texts?.[sel.i]?.e }[k];
       return applyTime(k, cur + Number(b.dataset.v));
     }
-    if (b.dataset.framing) return setFraming(b.dataset.framing);
+    if (b.dataset.kind) { E.kind = b.dataset.kind; return applyLayout(); }
+    if (b.dataset.split) { E.frame.split = +b.dataset.split; changed(); renderProps(); draw(); return; }
     if (b.dataset.caption) return setCaption(b.dataset.caption);
-    if (b.dataset.ratio) { E.frame.ratio = b.dataset.ratio; changed(); renderProps(); draw(); return; }
+    if (b.dataset.ratio) { E.frame.ratio = b.dataset.ratio; return applyLayout(); }
+    if (b.dataset.fbg) { E.frame.bg = b.dataset.fbg; changed(); renderProps(); draw(); return; }
     if (b.dataset.p === 'kin-rebuild') { changed(); return ensureKinetic(true).then(() => toast('Teks kinetik disusun ulang')); }
     if (b.dataset.anim) {
       const tg = animTarget();
@@ -5026,18 +6134,42 @@ function bindProps() {
       if (b.dataset.v !== 'none') playAnim(b.dataset.anim);
       return;
     }
+    if (b.dataset.subtpl) return applySubTpl(b.dataset.subtpl);
+    if (b.dataset.hls) { E.style.hl_style = b.dataset.hls; changed(); renderProps(); draw(); return; }
+    if (b.dataset.swa) {
+      E.style.wanim = b.dataset.swa;
+      changed(); renderProps(); draw();
+      const l = E.lines[sel.i];
+      if (l) { pause(); seek(l.s); play(); }
+      return;
+    }
+    if (b.dataset.sfx) {
+      // Efek teks subtitle: terapkan ke semua baris, lalu putar baris terpilih dari awal
+      E.style.fx = b.dataset.sfx;
+      changed(); renderProps(); draw();
+      const l = E.lines[sel.i];
+      if (l) { pause(); seek(l.s); play(); }
+      return;
+    }
+    if (b.dataset.tfx) {
+      const tg = animTarget();
+      if (!tg) return;
+      tg.obj.anim = { ...tg.def, ...(tg.obj.anim || {}), text: b.dataset.tfx };
+      changed(); renderProps(); draw();
+      if (b.dataset.tfx !== 'none') playAnim('in');
+      return;
+    }
+    if (b.dataset.p === 'sub-tpl') {
+      if (!E.lines.length) return toast('Subtitle belum siap');
+      const i = Math.max(0, activeLine());
+      return select({ type: 'line', i });
+    }
     if (b.dataset.p === 'anim-play') return playAnim('in');
     if (b.dataset.p === 'op-play') return playOpening();
     if (b.dataset.p === 'op-remove') return setOpening('');
     if (b.dataset.p === 'vol-reset') {
       E.volume = 100;
       changed(); applyVolume(); renderProps();
-      return;
-    }
-    if (b.dataset.ptab) {
-      propTab = b.dataset.ptab;
-      if ((propTab === 'clip' && textSelected()) || (!['anim', 'layer'].includes(propTab) && sel.type === 'media')) select({ type: 'clip' }); else renderProps();
-      P.scrollTop = 0;
       return;
     }
     if (b.dataset.p === 'media-remove') return removeMedia(sel.i);
@@ -5063,6 +6195,7 @@ function bindProps() {
     if (b.dataset.p === 'mu-full' && E.music[sel.i]) {
       const m = E.music[sel.i];
       // Mulai di awal clip; panjangnya sepanjang clip (atau sampai lagu habis kalau lagunya lebih pendek)
+      delete m.ref;
       m.s = E.trim[0];
       m.e = round3(Math.min(E.trim[1], m.s + m.dur - m.off));
       changed(); renderProps(); renderTimeline();
@@ -5070,11 +6203,21 @@ function bindProps() {
     }
     if (b.dataset.p === 'mu-remove' && E.music[sel.i]) return removeMusic(sel.i);
     if (b.dataset.p === 'fx-full' && E.effects[sel.i]) {
+      delete E.effects[sel.i].ref;
       Object.assign(E.effects[sel.i], { s: E.trim[0], e: E.trim[1] });
       changed(); renderProps(); renderTimeline(); draw();
       return;
     }
     if (b.dataset.p === 'foot-remove') return removeFootage(sel.i);
+    if (b.dataset.p === 'intro-open') return openIntro();
+    if (b.dataset.p === 'tr-sfx') { const j = junctions().find(x => x.id === sel.id); if (j) addPaperSfx(j); return; }
+    if (b.dataset.p === 'tr-sfx-swap') {
+      const j = junctions().find(x => x.id === sel.id), x = j && paperSfxOf(j), lib = paperLib();
+      if (x) { Object.assign(x, { file: lib.file, name: lib.name, dur: +lib.dur }); changed(); renderTimeline(); renderProps(); toast(`SFX diganti: ${lib.name}`); }
+      return;
+    }
+    if (b.dataset.p === 'sfx-play') return playSfxItem(sel.i);
+    if (b.dataset.p === 'sfx-remove') return removeSfx(sel.i);
     if (b.dataset.p === 'tr-remove') return removeTransition(sel.id);
     if (b.dataset.p === 'tr-play') return previewTransition(sel.id, true);
     if (b.dataset.p === 'foot-move') return moveFootage(sel.i);
@@ -5241,31 +6384,6 @@ async function setCaption(mode) {
   draw();
 }
 
-async function setFraming(layout) {
-  // Resep lama belum punya data webcam: deteksi dulu supaya preview streaming game langsung benar
-  if (layout === 'gaming' && E.cam === undefined && !E.pending) {
-    pause();
-    busy('Mencari webcam streamer…', 'Mendeteksi posisi wajah streamer di video. Biasanya beberapa detik.');
-    try {
-      const d = await api('edit_track', { id: PID, iid: IID });
-      E.segments = d.segments;
-      E.shots = d.shots;
-      E.cam = d.cam;
-      E.precise = d.precise;
-    } catch (err) {
-      toast(err.message);
-    } finally {
-      idle();
-    }
-  }
-  E.layout = layout;
-  if (layout === 'gaming' && E.cam === null) toast('Webcam tidak terdeteksi, memakai crop tengah');
-  changed();
-  renderProps();
-  renderTimeline();
-  draw();
-}
-
 /* ---------- Tooltip ---------- */
 
 const tipbox = document.createElement('div');
@@ -5307,47 +6425,41 @@ function splitSummary() {
   return { n: parts.length, secs };
 }
 
-async function toggleSplit(on) {
-  const sw = $('split-on');
-  if (sw) sw.disabled = true;
-  try {
-    if (on) {
-      if (E.pending) { renderProps(); return toast('Tunggu sampai deteksi wajah selesai'); }
-      pause();
-      if (!E.shots || !E.precise) {
-        busy('Mendeteksi posisi orang…', 'Mencari bagian video yang menampilkan 2 orang. Biasanya beberapa detik.');
-        const d = await api('edit_track', { id: PID, iid: IID });
-        E.segments = d.segments;
-        E.shots = d.shots;
-        E.cam = d.cam;
-        E.precise = d.precise;
-      } else {
-        busy('Menerapkan split screen…', 'Menyusun tampilan atas-bawah.');
-        await wait(600);
-      }
+// Jenis clip / layout berubah: turunkan layout & split, lalu siapkan data yang dibutuhkan split screen
+// (posisi webcam untuk streaming game, posisi 2 orang untuk podcast) kalau resepnya belum punya
+let layoutBusy = false;
+async function applyLayout() {
+  const wasSplit = E.split.enabled;
+  syncLayout();
+  const sp = E.frame.ratio === 'split', g = E.kind === 'gaming';
+  const need = sp && !E.pending && (g ? E.cam === undefined : !E.shots || !E.precise);
+  if (need && !layoutBusy) {
+    layoutBusy = true;
+    pause();
+    busy(g ? 'Mencari webcam streamer…' : 'Mendeteksi posisi orang…',
+      g ? 'Mendeteksi posisi wajah streamer di video. Biasanya beberapa detik.' : 'Mencari bagian video yang menampilkan 2 orang. Biasanya beberapa detik.');
+    try {
+      const d = await api('edit_track', { id: PID, iid: IID });
+      Object.assign(E, { segments: d.segments, shots: d.shots, cam: d.cam, precise: d.precise });
+    } catch (err) {
+      toast(err.message);
+    } finally {
+      idle();
+      layoutBusy = false;
     }
-    E.split.enabled = on;
-    // Subtitle paling enak di tengah (di antara dua orang) saat split aktif; kembalikan kalau dimatikan
-    const p = E.style.pos;
-    if (on && Math.abs(p - 0.71) < 0.02) E.style.pos = 0.56;
-    if (!on && Math.abs(p - 0.56) < 0.02) E.style.pos = 0.71;
-    changed();
-    renderProps();
-    renderTimeline();
-    draw();
-    if (on) {
-      const r = splitSummary();
-      toast(r.n ? `Split screen aktif · ${r.n} bagian dengan 2 orang (${Math.round(r.secs)} dtk)` : 'Tidak ada bagian dengan 2 orang di clip ini');
-    } else {
-      toast('Split screen dimatikan');
-    }
-  } catch (err) {
-    renderProps();
-    toast(err.message);
-  } finally {
-    idle();
-    const sw2 = $('split-on');
-    if (sw2) sw2.disabled = false;
+  }
+  // Subtitle paling enak di tengah (di antara dua orang) saat split 2 orang aktif; kembalikan kalau dimatikan
+  const p = E.style.pos;
+  if (E.split.enabled && !wasSplit && Math.abs(p - 0.71) < 0.02) E.style.pos = 0.56;
+  if (!E.split.enabled && wasSplit && Math.abs(p - 0.56) < 0.02) E.style.pos = 0.71;
+  changed();
+  renderProps();
+  renderTimeline();
+  draw();
+  if (sp && g && E.cam === null) toast('Webcam tidak terdeteksi, memakai bagian tengah video');
+  if (E.split.enabled && !wasSplit && E.shots) {
+    const r = splitSummary();
+    toast(r.n ? `Split screen · ${r.n} bagian dengan 2 orang (${Math.round(r.secs)} dtk)` : 'Tidak ada bagian dengan 2 orang di clip ini');
   }
 }
 
@@ -5396,7 +6508,7 @@ async function resetEdit() {
   } catch (err) { toast(err.message); }
 }
 
-const payload = () => ({ trim: E.trim, layout: E.layout, split: E.split, subtitles: E.subtitles, style: E.style, lines: E.lines, hook: E.media.some(m => m._fromHook && !m.file) ? { ...E.hook, enabled: true } : E.hook, overlay: E.overlay, media: E.media.map(m => Object.fromEntries(Object.entries(m).filter(([k]) => k[0] !== '_'))), volume: E.volume, volKf: E.volKf, opening: E.opening, texts: E.texts, cuts: E.cuts, gaps: E.gaps, effects: E.effects, footage: E.footage, music: E.music, transitions: E.transitions, tracks: E.tracks, layers: E.layers, caption: E.caption, kinetic: E.kinetic, frame: E.frame });
+const payload = () => ({ trim: E.trim, layout: E.layout, split: E.split, subtitles: E.subtitles, style: E.style, lines: E.lines, hook: E.media.some(m => m._fromHook && !m.file) ? { ...E.hook, enabled: true } : E.hook, overlay: E.overlay, media: E.media.map(m => Object.fromEntries(Object.entries(m).filter(([k]) => k[0] !== '_'))), volume: E.volume, volKf: E.volKf, opening: E.opening, sfx: E.sfx, texts: E.texts, cuts: E.cuts, gaps: E.gaps, effects: E.effects, footage: E.footage, music: E.music, transitions: E.transitions, tracks: E.tracks, layers: E.layers, caption: E.caption, kinetic: E.kinetic, frame: E.frame, kind: E.kind, follow: E.follow });
 
 /* ---------- Terapkan style clip ini ke clip lain (alur template) ---------- */
 // Bagian style yang bisa disalin; avail() = ada isinya di clip sumber
@@ -5414,7 +6526,7 @@ const STY_PARTS = [
   { k: 'filter', name: 'Filter warna', desc: 'Filter grading dipasang sepanjang clip tujuan', avail: () => SRC().effects.some(fx => EFFECTS[fx.type]?.kind === 'grade') },
   { k: 'fixed', name: 'Teks & logo tetap', desc: 'Elemen yang tampil sepanjang clip, mis. watermark atau @username', avail: () => SRC().media.some(m => !m.gfx && spanFull(m, SRC())) || SRC().texts.some(c => spanFull(c, SRC())) },
   { k: 'opening', name: 'Opening', desc: 'Animasi opening di awal video', avail: () => !!SRC().opening },
-  { k: 'audio', name: 'Musik & volume', desc: 'Musik latar, volume clip, & status bisu musik', avail: () => !!SRC().music.length || (SRC().volume ?? 100) !== 100 || !!SRC().volKf?.length },
+  { k: 'audio', name: 'Musik & volume', desc: 'Musik latar, volume clip, & status bisu musik', avail: () => !!SRC().music.length || (SRC().volume ?? 100) !== 100 },
 ];
 let styParts = new Set(['sub', 'hook', 'gfx', 'frame', 'filter', 'fixed', 'opening', 'audio']);
 try {
@@ -5553,6 +6665,8 @@ async function styleInto(T, parts, item) {
   }
   if (parts.has('frame')) {
     T.layout = E.layout;
+    T.kind = E.kind;
+    T.follow = E.follow;
     T.frame = clone(E.frame);
     T.split = clone(E.split);
   }
@@ -5571,10 +6685,10 @@ async function styleInto(T, parts, item) {
   if (parts.has('audio')) {
     T.volume = E.volume;
     // Keyframe: posisi relatif dari awal clip (yang jatuh di luar clip tujuan dibuang)
-    T.volKf = (E.volKf || []).map(k => ({ ...k, t: round3(t0 + k.t - s0) })).filter(k => k.t >= t0 && k.t <= t1);
+    T.volKf = [];
     T.music = E.music.map(m => {
       const sp = mapSpan(m);
-      return { ...clone(m), id: rid(), ...sp, e: round3(Math.min(sp.e, sp.s + m.dur - m.off)), kf: (m.kf || []).map(k => ({ ...k, t: round3(k.t + sp.s - m.s) })) };
+      return { ...clone(m), id: rid(), ...sp, e: round3(Math.min(sp.e, sp.s + m.dur - m.off)), kf: [] };
     });
     T.tracks.music = { ...(E.tracks.music || {}) };
   }
@@ -5605,6 +6719,7 @@ async function applyStyle() {
       await api(render ? 'edit_render' : 'edit_save', { id: PID, iid, edit: T });
       vcache.delete(iid); peeked.delete(iid);
       Object.assign(styState[iid], { status: render ? '✓ Diterapkan · render' : '✓ Diterapkan', cls: 'ok', pick: false });
+      markEdited(iid);
       ok++;
     } catch (err) {
       Object.assign(styState[iid], { status: '⚠ ' + err.message, cls: 'err' });
@@ -5633,7 +6748,7 @@ function presetSnapshot() {
   return clone({
     trim: E.trim, style: E.style, subtitles: E.subtitles, caption: E.caption, kinetic: { y: E.kinetic.y, x: E.kinetic.x ?? 0.5 },
     media: E.media.filter(m => m.gfx || spanFull(m, E)).map(strip), texts: E.texts.filter(c => spanFull(c, E)),
-    effects: E.effects.filter(fx => EFFECTS[fx.type]?.kind === 'grade'), layout: E.layout, frame: E.frame, split: E.split,
+    effects: E.effects.filter(fx => EFFECTS[fx.type]?.kind === 'grade'), layout: E.layout, frame: E.frame, split: E.split, kind: E.kind, follow: E.follow,
     volume: E.volume, volKf: E.volKf, opening: E.opening, music: E.music, tracks: { music: E.tracks.music || {} }, layers: E.layers,
   });
 }
@@ -5747,6 +6862,7 @@ $('btn-save').onclick = async () => {
     E.trim = d.edit.trim;
     E._migratedHook = false;
     setDirty(false);
+    markEdited();
     toast('Perubahan disimpan');
   } catch (err) { toast(err.message); $('btn-save').disabled = false; }
 };
@@ -5826,6 +6942,7 @@ async function renderClip(mode) {
     await api('edit_render', { id: PID, iid: IID, edit: payload(), no_music: mode === 'without', both_music: mode === 'both' });
     E._migratedHook = false;
     setDirty(false);
+    markEdited();
     toast(`Render${mode === 'without' ? ' tanpa musik' : mode === 'both' && hasMusic() ? ' dengan & tanpa musik' : hasMusic() ? ' dengan musik' : ''} dimulai · progresnya terlihat di daftar clip.`);
     loadProject();
   } catch (err) {
@@ -5837,7 +6954,8 @@ async function renderClip(mode) {
 
 /* ---------- Daftar clip proyek (pindah clip tanpa keluar editor) ---------- */
 
-let project = null, pjobs = {}, projTimer = null;
+let project = null, pjobs = {}, pedited = {}, pscores = {}, projTimer = null;
+let switching = null; // clip tujuan yang sedang dimuat (sudah disorot di daftar)
 
 async function loadProject() {
   clearTimeout(projTimer);
@@ -5845,10 +6963,18 @@ async function loadProject() {
     const d = await api('project', null, '&id=' + PID);
     project = d.project;
     pjobs = d.jobs;
+    pedited = d.edited || {};
+    pscores = d.scores || {};
     renderStrip();
   } catch { /* coba lagi di putaran berikutnya */ }
   const busyRender = project?.items.some(it => ACTIVE.includes(pjobs[it.job_id]?.status));
   projTimer = setTimeout(loadProject, busyRender ? 2500 : 15000);
+}
+// Clip ini baru disimpan: centang "sudah diedit" langsung menyala tanpa menunggu polling
+function markEdited(iid = IID) {
+  if (pedited[iid]) return;
+  pedited[iid] = true;
+  renderStrip();
 }
 
 // Status render singkat untuk kartu thumbnail: [kelas, teks, keterangan tooltip]
@@ -5863,29 +6989,34 @@ function clipStatus(it) {
 
 function renderStrip() {
   if (!project) return;
-  $('clips-info').textContent = project.items.length;
-  // Prioritas: clip yang belum diupload di atas; yang sudah diupload pindah ke bawah (nomor clip tetap)
+  const nEdited = project.items.filter(it => pedited[it.iid]).length;
+  $('reels-cnt').textContent = `${project.items.length} clip`;
+  $('reels-done').textContent = `${nEdited} dari ${project.items.length}`;
+  $('reels-bar').style.width = (project.items.length ? nEdited / project.items.length * 100 : 0) + '%';
+  // Prioritas: clip yang belum diupload di depan; yang sudah diupload pindah ke belakang (nomor clip tetap)
   const rows = project.items.map((it, i) => ({ it, i }));
   const pend = rows.filter(r => !r.it.uploaded), done = rows.filter(r => r.it.uploaded);
   const row = ({ it, i }) => {
-    const on = it.iid === IID;
+    const on = it.iid === (switching || IID), ed = !!pedited[it.iid], vs = pscores[it.iid];
     const [cls, txt, info] = clipStatus(it);
     const thumb = `api.php?action=frame&id=${project.analysis_id}&t=${Math.round((it.start + it.end) / 2 * 10) / 10}`;
-    const tip = `${it.title}\n${fmtDur(it.end - it.start)} · ${info}${on ? ' · sedang diedit' : ''}`;
-    return `<button class="cl ${on ? 'on' : ''}" data-clip="${it.iid}" title="${esc(tip)}">
-      <span class="th"><img src="${thumb}" alt="" loading="lazy"><span class="no">${i + 1}</span></span>
-      <span class="info"><b>${esc(it.title)}</b><small>${fmtDur(it.end - it.start)}<span class="st ${cls}" title="${info}">${txt}</span>${it.uploaded ? `<span class="st up" title="Sudah diupload ${esc(it.uploaded)}">${ic('check')} Upload</span>` : ''}</small></span></button>`;
+    const tip = `#${i + 1} ${it.title}\n${fmtDur(it.end - it.start)}${vs != null ? ` · skor viral ${vs}` : ''} · ${ed ? 'sudah diedit' : 'belum diedit'} · ${info}${on ? ' · sedang dibuka' : ''}`;
+    return `<button class="rc${on ? ' on' : ''}${it.iid === switching ? ' loading' : ''}" data-clip="${it.iid}" title="${esc(tip)}">
+      <img src="${thumb}" alt="" loading="lazy">
+      ${vs != null ? `<span class="vs ${vs >= 80 ? 'hi' : vs >= 60 ? 'mid' : ''}" title="Skor potensi viral dari AI (0–100)">${ic('sparkles')}${vs}</span>` : ''}
+      <span class="ck ${ed ? 'on' : ''}" title="${ed ? 'Sudah diedit' : 'Belum diedit'}">${ic('check')}</span>
+      <span class="cap"><b>${esc(it.title)}</b><small><span class="no">#${i + 1}</span><span class="du">${fmtDur(it.end - it.start)}</span>${cls !== 'ok' ? `<span class="st ${cls}" title="${info}">${txt}</span>` : ''}${it.uploaded ? `<span class="st up" title="Sudah diupload ${esc(it.uploaded)}">${ic('check')} Upload</span>` : ''}</small></span></button>`;
   };
-  setHTML($('clips-row'), pend.map(row).join('')
-    + (done.length ? `<div class="cl-sep">Sudah diupload <span>${done.length}</span></div>` + done.map(row).join('') : ''));
+  setHTML($('reels-row'), pend.map(row).join('')
+    + (done.length ? `<div class="rc-sep"><span>Sudah diupload</span><b>${done.length}</b></div>` + done.map(row).join('') : ''));
 }
 
-$('clips-row').addEventListener('click', e => {
+$('reels-row').addEventListener('click', e => {
   const c = e.target.closest('[data-clip]');
   if (c) switchClip(c.dataset.clip);
 });
 // Arahkan kursor ke clip = video-nya mulai dimuat di belakang, jadi saat diklik langsung tampil
-$('clips-row').addEventListener('pointerover', e => {
+$('reels-row').addEventListener('pointerover', e => {
   const c = e.target.closest('[data-clip]');
   if (c && c.dataset.clip !== IID) prefetchClip(c.dataset.clip);
 });
@@ -5938,17 +7069,17 @@ async function prefetchClip(iid) {
 }
 
 // Pindah ke clip lain tanpa layar hitam: tampilan clip sekarang tetap ada sampai frame clip baru siap, lalu ditukar sekaligus
-let switching = null;
 async function switchClip(iid) {
   if (iid === IID || switching === iid) return;
   switching = iid;
-  const card = document.querySelector(`[data-clip="${iid}"]`);
-  card?.classList.add('loading');
+  renderStrip();
+  document.querySelector(`[data-clip="${iid}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
   try {
     if (dirty && E) {
       try {
         await flushGfx();
         await api('edit_save', { id: PID, iid: IID, edit: payload() });
+        markEdited();
       } catch (err) {
         if (!confirm(`Perubahan clip ini gagal disimpan (${err.message}). Tetap pindah clip?`)) return;
       }
@@ -5966,7 +7097,7 @@ async function switchClip(iid) {
     commitClip(iid, d, v);
   } finally {
     if (switching === iid) switching = null;
-    document.querySelector(`[data-clip="${iid}"]`)?.classList.remove('loading');
+    renderStrip();
   }
 }
 
@@ -5991,6 +7122,7 @@ function commitClip(iid, d, v) {
   showPending(d);
   renderStrip();
   loadProject();
+  upgradeProxy(iid);
 }
 
 function openClip(iid, force) {
@@ -6027,10 +7159,10 @@ document.addEventListener('keydown', e => {
   if (!e.metaKey && !e.ctrlKey && !e.altKey && (e.key.toLowerCase() === 'f' || e.code === 'Backquote')) { e.preventDefault(); togglePvFullscreen(); }
   if (e.key === 'ArrowLeft') { pause(); seekV(curV() - (e.shiftKey ? 1 : 0.1)); }
   if (e.key === 'ArrowRight') { pause(); seekV(curV() + (e.shiftKey ? 1 : 0.1)); }
-  if ((e.key === 'Delete' || e.key === 'Backspace') && ['line', 'hook', 'media', 'text', 'video', 'effect', 'footage', 'transition', 'music', 'opening'].includes(sel.type)) { e.preventDefault(); deleteSelectedText(); }
+  if ((e.key === 'Delete' || e.key === 'Backspace') && ['line', 'hook', 'media', 'text', 'video', 'effect', 'footage', 'transition', 'music', 'opening', 'sfx'].includes(sel.type)) { e.preventDefault(); deleteSelectedText(); }
   if (e.key === 'Enter' && !e.target.closest('button, a') && ['line', 'hook', 'text'].includes(sel.type)) { e.preventDefault(); startInlineEdit(); }
   if (e.key === 'Enter' && !e.target.closest('button, a') && sel.type === 'media' && E.media[sel.i]?.gfx) { e.preventDefault(); startGfxEdit(sel.i); }
-  if (e.key === 'Escape' && ['line', 'hook', 'text', 'media', 'video', 'effect', 'footage', 'transition', 'music', 'opening'].includes(sel.type)) select({ type: 'clip' });
+  if (e.key === 'Escape' && ['line', 'hook', 'text', 'media', 'video', 'effect', 'footage', 'transition', 'music', 'opening', 'sfx'].includes(sel.type)) select({ type: 'clip' });
   if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key.toLowerCase() === 'b') { e.preventDefault(); setRangeEdge('a'); }
   if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key.toLowerCase() === 'e') { e.preventDefault(); setRangeEdge('b'); }
   if (!e.metaKey && !e.ctrlKey && !e.altKey && (e.key === 'i' || e.key === 'o')) setRangeEdge(e.key === 'i' ? 'a' : 'b');

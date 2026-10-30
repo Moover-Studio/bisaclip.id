@@ -246,7 +246,7 @@ async function load() {
   history.replaceState(null, '', month === today.slice(0, 7) ? 'calendar.php' : `calendar.php?month=${month}`);
   $('title').textContent = parse(month).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
   $('days').innerHTML = '<div class="empty" style="grid-column:1/-1"><span class="spin"></span></div>';
-  try { data = await api('upload_calendar', null, `&month=${month}`); }
+  try { data = await api('upload_calendar', null, `&month=${month}`); data.accounts = []; accFilter = 'all'; } // fitur akun dihapus: semua clip, jam rekomendasi umum
   catch (err) { $('days').innerHTML = `<div class="empty" style="grid-column:1/-1">${esc(err.message)}</div>`; return; }
   // Tanggal terpilih: hari ini (kalau di bulan ini), atau tanggal terakhir yang ada upload-nya
   const dates = [...new Set(data.clips.map(c => c.date))];

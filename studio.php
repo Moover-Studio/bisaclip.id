@@ -51,6 +51,11 @@ if (!valid_job_id($id)) {
     font-size: 10px; font-weight: 800; vertical-align: 2px; }
   .cpt { align-self: flex-start; display: inline-block; padding: 2px 8px; margin-bottom: -2px; border-radius: 999px; font-size: 10.5px; font-weight: 700;
     background: rgba(91, 79, 214, .2); color: #c9c3ff; }
+  .tags-row { display: flex; flex-wrap: wrap; gap: 5px; }
+  .cpt.brand { background: rgba(31, 157, 92, .2); color: #8fe0b4; cursor: help; }
+  .brand-note { margin-bottom: 14px; padding: 10px 14px; border-radius: 12px; border: 1px solid rgba(242, 153, 74, .35); background: rgba(242, 153, 74, .08);
+    font-size: 13px; line-height: 1.5; }
+  .brand-note.ok { border-color: rgba(31, 157, 92, .35); background: rgba(31, 157, 92, .08); }
   .cp-row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
   .dl-two { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
   .dl-two .btn { min-width: 0; padding-left: 6px; padding-right: 6px; }
@@ -486,6 +491,16 @@ function flowHtml() {
 
 /* ---------- Render halaman ---------- */
 
+// Mode campaign brand: berapa clip terkait brand yang ditemukan AI dibanding yang diminta
+function brandNoteHtml() {
+  const r = D.analysis?.brand_result;
+  if (!r || !project) return '';
+  const n = project.items.filter(it => it.brand_fit).length;
+  if (!r.found) return `<div class="brand-note"><b>Tidak ada momen terkait ${esc(r.name)}.</b> Video ini tidak membahas brand atau topik terkaitnya, jadi AI tidak memaksakan clip brand. Coba video lain atau tambahkan topik terkait.</div>`;
+  if (n < r.want) return `<div class="brand-note"><b>Hanya ${n} clip terkait ${esc(r.name)}</b> (diminta ${r.want}). AI tidak menemukan momen lain yang cukup nyambung.</div>`;
+  return `<div class="brand-note ok"><b>${n} clip terkait ${esc(r.name)}</b> ditandai badge hijau "Brand". Arahkan kursor ke badge untuk melihat alasannya.</div>`;
+}
+
 function render() {
   const v = project?.video || D.analysis || {};
   const title = v.title || D.analysis?.url || 'Video';
@@ -508,6 +523,7 @@ function render() {
       <div class="body">
         <aside class="card flow" id="flow"></aside>
         <div class="main">
+          <div id="brand-box"></div>
           <div id="clean-box"></div>
           <div class="sec-h" id="h-pend" hidden><h2>Belum diupload</h2><span class="n" id="n-pend"></span></div>
           <div class="grid" id="grid"><div class="empty grid-empty"><span class="spin"></span>Clip akan muncul di sini setelah analisa selesai.</div></div>
@@ -521,6 +537,7 @@ function render() {
       </div>`;
   }
   setHTML($('flow'), flowHtml());
+  setHTML($('brand-box'), brandNoteHtml());
   renderAccountLine();
   if (!project) { $('stats').innerHTML = ''; return; }
 
@@ -756,7 +773,9 @@ function cardHtml(it, i) {
     <div class="screen">${screen}<span class="badge">#${i + 1}</span>
       <span class="ed ${edited[it.iid] ? 'yes' : ''}">${edited[it.iid] ? '✓ Sudah diedit' : 'Belum diedit'}</span></div>
     <div class="c-body">
-      ${it.concept && it.concept !== 'Lainnya' ? `<span class="cpt">${esc(it.concept)}</span>` : ''}
+      ${(it.concept && it.concept !== 'Lainnya') || it.brand_fit ? `<div class="tags-row">${it.brand_fit
+        ? `<span class="cpt brand" title="${esc(it.brand_angle || '')}">Brand · ${it.brand_fit === 'hard' ? 'Hard sell' : 'Soft sell'}</span>` : ''}${it.concept && it.concept !== 'Lainnya'
+        ? `<span class="cpt">${esc(it.concept)}</span>` : ''}</div>` : ''}
       <div class="c-title">${capLang === 'en' && it.en ? '<span class="en">EN</span>' : ''}${esc(tx(it).title)}</div>
       <div class="c-meta">${fmtDur(dur)} · ${esc(framingName(it.layout === 'split' ? 'speaker' : it.layout))}${it.split || it.layout === 'split' ? ' + Split' : ''}${it.subtitles ? ' · Subtitle' : ''}${upscaled(j) ? ' · <span title="AI upscale 2K (1440×2560)">2K</span>' : ''}${j.status === 'done' && j.size ? ' · ' + fmtSize(j.size) : ''}</div>
       <div class="c-actions">
@@ -819,14 +838,9 @@ $('app').addEventListener('click', async e => {
   } catch (err) { toast(err.message); }
 });
 
-// Akun pemilik room (read-only): avatar + nama, menuju profil akun
+// Fitur akun dihapus: label akun pemilik room selalu disembunyikan
 function renderAccountLine() {
-  const A = D.account;
-  $('acc-line').hidden = !A;
-  if (!A) return;
-  $('acc-line').href = `account.php?id=${A.id}`;
-  $('acc-line').title = `Akun: ${A.name}`;
-  $('acc-line').innerHTML = `${accAvatar(A)}<span class="nm">${esc(A.name)}</span>`;
+  $('acc-line').hidden = true;
 }
 
 // Simpan status upload satu clip, lalu tampilkan ulang (kartu pindah bagian)
