@@ -395,6 +395,7 @@ ensure_dirs();
         <div class="set-menu card" id="set-menu" role="menu" hidden>
           <a role="menuitem" href="settings.php?tab=storage"><span class="ic"><?= icon('layers') ?></span><span><b>Manajemen storage</b><small>Hapus video sumber &amp; render lama</small></span></a>
           <a role="menuitem" href="settings.php?tab=compress"><span class="ic"><?= icon('film') ?></span><span><b>Kompresi hasil clip</b><small>Ukuran file &amp; codec render</small></span></a>
+          <a role="menuitem" href="settings.php?tab=keys"><span class="ic"><?= icon('lock') ?></span><span><b>API key</b><small>Gemini &amp; ElevenLabs</small></span></a>
         </div>
       </div>
     </div>
@@ -411,8 +412,8 @@ ensure_dirs();
     <a class="act3" href="project.php"><span class="ic"><?= icon('layers') ?></span><b>Edit manual</b><span class="go"><?= icon('arrow-right') ?></span></a>
     <button class="act3" type="button" data-open="download"><span class="ic"><?= icon('download') ?></span><b>YT Downloader</b><span class="go"><?= icon('arrow-right') ?></span></button>
   </div>
-  <a class="camp-cta" href="campaign.php"><span class="ic"><?= icon('film') ?></span>
-    <span><b>Punya footage sendiri untuk campaign?</b><small>Unggah bahan dari komputer, tulis angle-nya, AI menyusun clip + hook</small></span>
+  <a class="camp-cta" href="panduan.php"><span class="ic"><?= icon('book-open') ?></span>
+    <span><b>Baru pakai BisaClip?</b><small>Lihat cara kerja, fitur, dan tips supaya clip kamu bagus</small></span>
     <?= icon('arrow-right') ?></a>
   <img class="home-banner" src="assets/banner-home.jpg?v=<?= filemtime(__DIR__ . '/assets/banner-home.jpg') ?>" width="1920" height="400"
     alt="Selamat datang di BisaClip — nge-clip tidak pernah semudah ini">

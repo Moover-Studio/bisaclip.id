@@ -33,7 +33,7 @@ const store = {
 };
 
 // Ikon tombol dari sprite assets/icons.svg, mis. `${ic('download')} Simpan`
-const ICON_V = '2026-10-28-lucide';  // naikkan saat assets/icons.svg berubah supaya cache browser diperbarui
+const ICON_V = '2026-10-30-lucide';  // naikkan saat assets/icons.svg berubah supaya cache browser diperbarui
 const ic = n => `<svg class="i" aria-hidden="true"><use href="assets/icons.svg?v=${ICON_V}#${n}"/></svg>`;
 // Avatar akun: foto profil kalau ada, selain itu inisial berwarna (class .av diatur tiap halaman)
 const accAvatar = (a, style = '') => a.avatar
