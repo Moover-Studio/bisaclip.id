@@ -1552,14 +1552,26 @@ const fontLabel = k => (FONTS.find(f => f.k === (k || 'arial-black')) || FONTS[0
 /* Pemilih font visual: tiap pilihan bertuliskan nama font dalam bentuk font itu sendiri */
 let fpkOpen = null; // target panel teks yang daftar font-nya sedang terbuka
 function fontListHtml(tg, c) {
-  const cur = tg === 'hl' ? c.font : c.font || 'arial-black';
-  return `<div class="fpk-list" role="listbox" aria-label="Font">${tg === 'hl' ? `<button type="button" class="fpk-opt fpk-same${cur ? '' : ' on'}" data-fpk-v="" data-fpk-tg="hl"><span class="fpk-s">Sama dengan subtitle</span></button>` : ''}${FONT_CATS.map(([cat, n]) => {
+  const opt = tg === 'hl' || tg === 'gfx', cur = opt ? c.font : c.font || 'arial-black';
+  return `<div class="fpk-list" role="listbox" aria-label="Font">${opt ? `<button type="button" class="fpk-opt fpk-same${cur ? '' : ' on'}" data-fpk-v="" data-fpk-tg="${tg}"><span class="fpk-s">${tg === 'hl' ? 'Sama dengan subtitle' : 'Bawaan template'}</span></button>` : ''}${FONT_CATS.map(([cat, n]) => {
     const list = FONTS.filter(f => f.cat === cat);
     return list.length ? `<div class="fpk-cat">${n}</div>${list.map(f => `<button type="button" class="fpk-opt${f.k === cur ? ' on' : ''}" role="option"
       aria-selected="${f.k === cur}" data-fpk-v="${f.k}" data-fpk-tg="${tg}" title="${esc(f.label)}"><span class="fpk-s" style='font-family:${fontFamily(f.k)}'>${esc(f.label)}</span></button>`).join('')}` : '';
   }).join('')}</div>`;
 }
 function pickFont(tg, k) {
+  if (tg === 'gfx') {
+    // Font teks utama template grafik; ketebalan yang tidak ada di font baru kembali ke bawaan
+    const m = E.media[sel.i];
+    if (!m?.gfx) return;
+    m.gfx.tf = k;
+    const ws = k ? FONTS.find(f => f.k === k)?.w || [] : [400, 500, 600, 700, 800, 900];
+    if (m.gfx.tw && !ws.includes(+m.gfx.tw)) m.gfx.tw = '';
+    fpkOpen = null;
+    changed(); renderProps(); scheduleGfx(m, true);
+    if (!m.ref) syncGfxOthers(m);
+    return;
+  }
   if (tg === 'hl') { E.style.hl_font = k; fpkOpen = null; changed(); renderProps(); draw(); return; } // font highlight subtitle
   const c = cfgOf(tg);
   c.font = k;
@@ -1737,10 +1749,13 @@ function migrateHook() {
   const m = { id: Math.random().toString(36).slice(2, 10), file: '', name: 'Grafik ' + GFX.hook.name, s: round3(t0),
     e: round3(Math.min(t1, t0 + Math.min(H.duration || 3.5, Math.max(0.5, t1 - t0 - 0.1)))), x: H.x ?? 0.5, y: 0.17, w: 0.87,
     gfx: { type: 'hook', label: '', text: String(H.text).trim(), c1: '#FFFFFF', c2: (H.bg || '#FFFFFF').toUpperCase(), c3: (H.color || '#111111').toUpperCase() },
-    anim: { ...(H.anim || HOOK_ANIM) }, _fromHook: true };
+    anim: { ...GFX_ANIM }, _fromHook: true };
   E.media.push(m);
   H.enabled = false;
   E._migratedHook = true;
+  // Template yang terakhir dipilih di proyek ini dipakai juga untuk clip ini (teks tetap hook clip ini)
+  const look = gfxLook();
+  if (look && GFX[look.type]) { setGfxLook(m, look); scheduleGfx(m, true); return; }
   // Posisi vertikal disamakan dengan tepi atas hook lama setelah tinggi grafik diketahui
   gfxCanvas(m.gfx, 1).then(c => {
     const top = H.y != null ? H.y * 1920 : (frameGeom().blur ? 330 : 230);
@@ -1788,19 +1803,112 @@ function startGfxEdit(i) {
   ta.select();
 }
 
+// Template grafik: default tanpa animasi; satu clip hanya punya satu template (pilih template lain = ganti template)
+const GFX_ANIM = { in: 'none', out: 'none', din: 0.4, dout: 0.4 };
+const GFX_LOOK_KEYS = ['type', 'label', 'c1', 'c2', 'c3', 'c4', 'c5', 'ls', 'ts', 'lh', 'tw', 'ta', 'tf', 'fill'];
+// Kalimat hook clip ini (hasil AI); kalau kosong pakai judul clip
+const clipHookText = () => String(E.hook?.text || '').trim() || String(project?.items?.find(x => x.iid === IID)?.title || '').trim();
+// Grafik template utama clip ini (bukan bagian intro / footage)
+const mainGfx = () => E.media.find(m => m.gfx && !m.ref);
+// Posisi, ukuran & waktu bawaan per jenis template: hook di detik-detik awal, lainnya sepanjang clip
+function gfxGeom(m, type) {
+  const [t0, t1] = E.trim, pre = GFX[type], hook = /^hook/.test(type);
+  Object.assign(m, { x: 0.5, y: pre.full ? 0.85 : hook ? 0.17 : 0.3, w: pre.full ? 1 : hook ? 0.87 : 0.84 });
+  m.s = round3(t0);
+  m.e = round3(hook ? Math.min(t1, t0 + Math.min(E.hook?.duration || 3.5, Math.max(0.5, t1 - t0 - 0.1))) : t1);
+}
+// Ganti template: teks & font dipertahankan; warna & label mengikuti template baru; posisi/waktu ikut jenis template kalau jenisnya berubah
+function setGfxType(m, type) {
+  const pre = GFX[type], g = m.gfx, sameCat = GFX[g.type]?.cat === pre.cat;
+  Object.assign(g, { type, c1: pre.c1, c2: pre.c2, c3: pre.c3, label: pre.noLabel ? '' : (sameCat && g.label) || pre.label });
+  if (pre.c4) Object.assign(g, { c4: pre.c4, c5: pre.c5 }); else { delete g.c4; delete g.c5; }
+  if (!sameCat) { gfxGeom(m, type); delete g.ext; }
+  m.name = 'Grafik ' + pre.name;
+}
+// Tampilan template (tanpa teks) + posisi & waktu relatif, dipakai clip lain di proyek ini
+const lookKey = () => 'ed-gfx-look-' + PID;
+function gfxLook() { try { return JSON.parse(localStorage.getItem(lookKey()) || 'null'); } catch { return null; } }
+function lookOf(m) {
+  const g = Object.fromEntries(GFX_LOOK_KEYS.filter(k => m.gfx[k] !== undefined).map(k => [k, m.gfx[k]]));
+  return { ...g, x: m.x, y: m.y, w: m.w, opacity: m.opacity, anim: m.anim || null, ds: round3(m.s - E.trim[0]),
+    de: m.e >= E.trim[1] - 0.3 ? null : round3(m.e - m.s) };   // de null = sampai akhir clip
+}
+function setGfxLook(m, look, trim = E.trim) {
+  const { x, y, w, opacity, anim, ds, de, ...g } = look;
+  GFX_LOOK_KEYS.forEach(k => delete m.gfx[k]);
+  Object.assign(m.gfx, g);
+  Object.assign(m, { x, y, w, anim: anim ? { ...anim } : { ...GFX_ANIM }, name: 'Grafik ' + (GFX[g.type]?.name || '') });
+  if (opacity != null) m.opacity = opacity;
+  const [t0, t1] = trim;
+  m.s = round3(Math.min(t1 - 0.5, t0 + Math.max(0, ds || 0)));
+  m.e = round3(de == null ? t1 : Math.min(t1, m.s + Math.max(0.5, de)));
+}
+
 function addGraphic(type) {
   if (!E || !$('cv')) return toast('Tunggu editor selesai dimuat.');
   if (isLocked('media')) return toast('Track Media sedang dikunci.');
-  // Grafik baru langsung sepanjang clip (hook: hanya di detik-detik awal)
-  const [t0, t1] = E.trim, pre = GFX[type], s = type === 'hook' ? Math.max(t0, Math.min(t1 - 0.5, t)) : t0;
-  const m = { id: Math.random().toString(36).slice(2, 10), file: '', name: 'Grafik ' + pre.name, s: round3(s), e: round3(type === 'hook' ? Math.min(t1, s + 5) : t1),
-    x: 0.5, y: pre.full ? 0.85 : 0.3, w: pre.full ? 1 : 0.84, gfx: { type, label: pre.label, text: pre.text, c1: pre.c1, c2: pre.c2, c3: pre.c3, ...(pre.c4 ? { c4: pre.c4, c5: pre.c5 } : {}) },
-    anim: { in: 'up', out: 'fade', din: 0.5, dout: 0.4 } };
-  E.media.push(m);
+  const cur = sel.type === 'media' && E.media[sel.i]?.gfx && !E.media[sel.i].ref ? E.media[sel.i] : mainGfx();
   pause();
+  if (cur) {
+    // Sudah ada template: ganti, bukan menambah
+    setGfxType(cur, type);
+    changed(); select({ type: 'media', i: E.media.indexOf(cur) }); renderTimeline(); scheduleGfx(cur, true);
+    return syncGfxOthers(cur);
+  }
+  const pre = GFX[type];
+  const m = { id: Math.random().toString(36).slice(2, 10), file: '', name: 'Grafik ' + pre.name, s: 0, e: 0, x: 0.5, y: 0.3, w: 0.84,
+    gfx: { type, label: pre.label, text: clipHookText().slice(0, 200) || pre.text, c1: pre.c1, c2: pre.c2, c3: pre.c3, ...(pre.c4 ? { c4: pre.c4, c5: pre.c5 } : {}) },
+    anim: { ...GFX_ANIM } };
+  gfxGeom(m, type);
+  E.media.push(m);
+  if (E.hook) E.hook.enabled = false;   // hook lama tidak tampil dobel
   changed();
   select({ type: 'media', i: E.media.length - 1 });
   scheduleGfx(m, true);
+  syncGfxOthers(m);
+}
+
+// Template yang dipilih ikut terpasang di clip lain proyek ini, masing-masing dengan kalimat hook clipnya sendiri.
+// Berjalan di latar (ditunda sebentar supaya klik beruntun hanya diterapkan sekali); pilihan terbaru membatalkan yang lama.
+let gfxSyncT = null, gfxSyncGen = 0;
+function syncGfxOthers(m) {
+  try { localStorage.setItem(lookKey(), JSON.stringify(lookOf(m))); } catch {}
+  clearTimeout(gfxSyncT);
+  gfxSyncT = setTimeout(() => runGfxSync(lookOf(m), E.trim), 1200);
+}
+async function runGfxSync(look, srcTrim) {
+  const gen = ++gfxSyncGen, others = (project?.items || []).filter(it => it.iid !== IID);
+  let n = 0;
+  for (const it of others) {
+    if (gen !== gfxSyncGen) return;
+    try {
+      const d = await api('edit_get', null, `&id=${PID}&iid=${it.iid}&peek=1`);
+      const T = d.edit;
+      if (!T) continue;   // editor clip itu belum siap: template dipasang saat clip dibuka
+      T.media = T.media || [];
+      const main = T.media.find(x => x.gfx && !x.ref);
+      const text = (main?.gfx.text || String(T.hook?.text || '').trim() || String(it.title || '').trim()).slice(0, 200);
+      if (!text) continue;
+      const c = main || { id: Math.random().toString(36).slice(2, 10), file: '', gfx: { text } };
+      setGfxLook(c, look, T.trim);
+      c.gfx.text = text;
+      // Satu template per clip: grafik template lain di clip itu dilepas
+      T.media = T.media.filter(x => !x.gfx || x.ref || x === c);
+      if (!main) T.media.push(c);
+      if (T.hook) T.hook.enabled = false;
+      // Banner selebar layar: tepi atas sama dengan clip ini, pita dihitung ulang untuk teks clip tujuan
+      if (GFX[c.gfx.type]?.full) {
+        const top = look.y * 1920 - (await gfxCanvas({ ...c.gfx, ext: 0 }, 1)).height * (1080 * look.w / (GFX_W + 36)) / 2;
+        await fitBand(c, top);
+      }
+      c.file = await gfxFile(c.gfx);
+      if (gen !== gfxSyncGen) return;
+      await api('edit_save', { id: PID, iid: it.iid, edit: T });
+      vcache.delete(it.iid); peeked.delete(it.iid);
+      n++;
+    } catch {}
+  }
+  if (n && gen === gfxSyncGen) toast(`Template grafik juga dipasang di ${n} clip lain, dengan hook masing-masing`);
 }
 
 async function renderGfxList() {
@@ -1842,10 +1950,14 @@ function gfxPanelHtml(m) {
       <div class="p-row"><label>Ukuran label</label><input type="range" min="60" max="200" step="5" data-gfx="ls" value="${g.ls ?? 100}"><span class="val">${g.ls ?? 100}%</span></div>`}
     <div class="p-field"><div class="p-label"><label>${pre.noLabel ? 'Teks hook' : 'Judul'}</label><span class="cnt">${g.text.length}/200</span></div><textarea class="input p-input" data-gfx="text" rows="3" maxlength="200" spellcheck="false">${esc(g.text)}</textarea>
       ${pre.rich ? '<div class="p-hint">Apit kata dengan <b>*tanda bintang*</b> untuk warna sorotan, mis. *sahabat sendiri*. Label = baris sumber di bawah.</div>' : ''}</div>
+    <div class="p-field"><div class="p-label"><label>Font teks</label></div>
+      <button type="button" class="ts-f fpk-btn${fpkOpen === 'gfx' ? ' on' : ''}" data-fpk="gfx" aria-expanded="${fpkOpen === 'gfx'}" style='font-family:${g.tf ? fontFamily(g.tf) : '"Clip Montserrat", sans-serif'}'>
+        <span>${g.tf ? esc(fontLabel(g.tf)) : 'Bawaan template'}</span>${ic('chevron-down').replace('class="i"', 'class="i chev"')}</button>
+      ${fpkOpen === 'gfx' ? fontListHtml('gfx', { font: g.tf || '' }) : ''}</div>
     <div class="gt-row">
       <div class="gt-al">${[['', 'Bawaan', 'reset'], ['left', 'Rata kiri', 'align-left'], ['center', 'Rata tengah', 'align-center'], ['right', 'Rata kanan', 'align-right']].map(([v, t, i]) =>
         `<button type="button" class="tb ${(g.ta || '') === v ? 'on' : ''}" data-gfx-align="${v}" title="${t}">${ic(i)}</button>`).join('')}</div>
-      <div class="ts-f gt-wt"><select data-gfx="tw" aria-label="Ketebalan teks">${[['', 'Tebal bawaan'], ['400', 'Regular'], ['500', 'Medium'], ['600', 'Semi bold'], ['700', 'Bold'], ['800', 'Extra bold'], ['900', 'Black']].map(([v, t]) =>
+      <div class="ts-f gt-wt"><select data-gfx="tw" aria-label="Ketebalan teks">${[['', 'Tebal bawaan'], ...(g.tf ? FONTS.find(f => f.k === g.tf)?.w || [] : [400, 500, 600, 700, 800, 900]).map(w => [String(w), WEIGHT_NAMES[w]])].map(([v, t]) =>
         `<option value="${v}" ${(g.tw || '') === v ? 'selected' : ''}>${t}</option>`).join('')}</select>${ic('chevron-down').replace('class="i"', 'class="i chev"')}</div>
     </div>
     <div class="p-row"><label>Ukuran teks</label><input type="range" min="60" max="160" step="5" data-gfx="ts" value="${g.ts ?? 100}"><span class="val">${g.ts ?? 100}%</span></div>
@@ -6181,14 +6293,11 @@ function bindProps() {
       return;
     }
     if (b.dataset.gfxType && E.media[sel.i]?.gfx) {
-      // Ganti template: teks dipertahankan, warna & label mengikuti template baru
-      const m = E.media[sel.i], t = GFX[b.dataset.gfxType], g = m.gfx;
-      Object.assign(g, { type: b.dataset.gfxType, c1: t.c1, c2: t.c2, c3: t.c3, label: t.noLabel ? '' : (g.label || t.label) });
-      if (t.c4) Object.assign(g, { c4: t.c4, c5: t.c5 }); else { delete g.c4; delete g.c5; }
-      // Template selebar layar: lebar grafik 100%; kembali ke template biasa: ukuran bawaan
-      if (t.full) m.w = 1; else if (m.w >= 0.99) m.w = 0.84;
-      m.name = 'Grafik ' + t.name;
+      // Ganti template: teks & font dipertahankan, warna & label mengikuti template baru; clip lain ikut
+      const m = E.media[sel.i];
+      setGfxType(m, b.dataset.gfxType);
       changed(); renderProps(); renderTimeline(); scheduleGfx(m, true);
+      if (!m.ref) syncGfxOthers(m);
       return;
     }
     if (b.dataset.p === 'fx-remove') return removeEffect(sel.i);

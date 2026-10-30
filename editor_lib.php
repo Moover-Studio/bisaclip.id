@@ -1546,6 +1546,7 @@ function gfx_sanitize($g): ?array
         'lh' => (int) max(70, min(160, (int) ($g['lh'] ?? 100))), // jarak baris teks utama, persen
         'tw' => in_array((string) ($g['tw'] ?? ''), ['400', '500', '600', '700', '800', '900'], true) ? (string) $g['tw'] : '',
         'ta' => in_array((string) ($g['ta'] ?? ''), ['left', 'center', 'right'], true) ? (string) $g['ta'] : '',
+        'tf' => isset(SUB_FONT_LIST[(string) ($g['tf'] ?? '')]) ? (string) $g['tf'] : '', // font teks utama; kosong = bawaan template
         'fill' => ($g['fill'] ?? true) !== false,                  // banner: pita sampai bawah layar
         'ext' => (int) max(0, min(4000, (int) ($g['ext'] ?? 0))),  // panjang tambahan pita (px desain)
     ];

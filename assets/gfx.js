@@ -86,9 +86,17 @@ function shade(hex, f) {
   return `rgb(${c(n >> 16)},${c(n >> 8 & 255)},${c(n & 255)})`;
 }
 // Gambar grafik ke canvas baru (skala = kerapatan piksel). Mengembalikan canvas.
+// Font teks utama pilihan (p.tf = kunci font subtitle): [keluarga file bawaan, keluarga per ketebalan, daftar ketebalan asli].
+// Butuh FONTS di halaman (editor); tanpa itu / kosong = font bawaan template (Montserrat)
+function gfxTitleFont(p) {
+  const f = p.tf && typeof FONTS !== 'undefined' ? FONTS.find(x => x.k === p.tf) : null;
+  return f ? { fam: f.family, wf: f.wf, ws: f.w || [] } : null;
+}
 async function gfxCanvas(p, scale = 2) {
   await Promise.all(['800', 'italic 800', '900', '700'].map(w => document.fonts.load(`${w} 40px "Clip Montserrat"`).catch(() => {})));
-  if (p.tw) await document.fonts.load(`${p.tw} 40px "ClipW Montserrat"`).catch(() => {});
+  const TF = gfxTitleFont(p), tw = p.tw && (!TF || TF.ws.includes(+p.tw)) ? p.tw : '';
+  if (tw) await document.fonts.load(`${tw} 40px "${TF ? TF.wf : 'ClipW Montserrat'}"`).catch(() => {});
+  if (TF) await document.fonts.load(`40px "${TF.fam}"`).catch(() => {});
   if (String(p.type).startsWith('quote')) await Promise.all(['Clip Anton', 'Clip Roboto Slab', 'Clip Playfair Display']
     .map(f => document.fonts.load(`700 40px "${f}"`).catch(() => {})));
   const meas = document.createElement('canvas').getContext('2d');
@@ -101,10 +109,11 @@ async function gfxCanvas(p, scale = 2) {
   const k = Math.max(0.6, Math.min(2, (p.ls ?? 100) / 100));
   // Teks utama: ukuran (ts %), jarak baris (lh %), ketebalan (tw) & perataan (ta); kosong = bawaan template
   const ts = Math.max(0.6, Math.min(1.6, (p.ts ?? 100) / 100)), lhf = Math.max(0.7, Math.min(1.6, (p.lh ?? 100) / 100));
-  // Ketebalan pilihan memakai file ketebalan asli Montserrat (keluarga "ClipW Montserrat"); bawaan = font template
-  const titleFont = (st, sz) => p.tw
-    ? `${/italic/.test(st) ? 'italic ' : ''}${p.tw} ${sz * ts}px "ClipW Montserrat", "Clip Montserrat", sans-serif`
-    : gfxFont(st, sz * ts);
+  // Ketebalan pilihan memakai file ketebalan asli (keluarga "ClipW …"); font pilihan tanpa ketebalan = file bawaan font itu
+  // (tanpa tebal sintetis); keduanya kosong = font template
+  const titleFont = (st, sz) => tw
+    ? `${/italic/.test(st) ? 'italic ' : ''}${tw} ${sz * ts}px "${TF ? TF.wf : 'ClipW Montserrat'}", "${TF ? TF.fam : 'Clip Montserrat'}", sans-serif`
+    : TF ? `${sz * ts}px "${TF.fam}", "Clip Montserrat", sans-serif` : gfxFont(st, sz * ts);
   const LH = base => base * ts * lhf;
   const place = (def, left, right) => {
     const align = p.ta || def;
@@ -178,7 +187,7 @@ async function gfxCanvas(p, scale = 2) {
     H = bh;
   } else if (T.startsWith('quote')) {
     // Kartu kutipan. Teks utama huruf kapital (font Anton), *kata* = warna sorotan; label = baris sumber di bawah garis
-    const qf = p.tw ? titleFont('', 56) : `${56 * ts}px "Clip Anton", "Arial Narrow", sans-serif`;
+    const qf = tw || TF ? titleFont('', 56) : `${56 * ts}px "Clip Anton", "Arial Narrow", sans-serif`;
     const ff = `600 ${28 * k}px "Clip Roboto Slab", Georgia, serif`;
     meas.font = qf;
     const SX = 24, SY = 22;                       // geser bayangan blok: ke kiri-bawah
