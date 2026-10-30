@@ -2,7 +2,8 @@
 # Pasang BisaClip di Mac (Apple Silicon). Jalankan dari folder aplikasi:   bash install/setup-mac.sh
 # Opsi:  path ke file library, mis.  bash install/setup-mac.sh ~/Downloads/bisaclip-library.tar.gz
 #        (tanpa path: dicari otomatis di folder aplikasi, Desktop, dan Downloads)
-# Aman dijalankan ulang: yang sudah terpasang dilewati.
+#        --no-library   lewati pemasangan file library (dipakai install/update-mac.sh)
+# Aman dijalankan ulang: yang sudah terpasang dilewati, dan data yang sudah ada (preset, musik, dll.) tidak pernah ditimpa.
 set -euo pipefail
 
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -53,16 +54,22 @@ ok "OpenCV $(storage/venv/bin/python -c 'import cv2;print(cv2.__version__)')"
 
 # ---------- 4. Library editing dari Mac lama ----------
 say "Mencari file library (bisaclip-library.tar.gz)…"
-LIB="${1:-}"
-if [[ -z "$LIB" ]]; then
+LIB="" NO_LIB=0
+for a in "$@"; do [[ "$a" == --no-library ]] && NO_LIB=1 || LIB="$a"; done
+if [[ $NO_LIB -eq 1 ]]; then
+  ok "Dilewati (update): data library di Mac ini tetap"
+elif [[ -z "$LIB" ]]; then
   for c in "$APP_DIR/bisaclip-library.tar.gz" "$HOME/Desktop/bisaclip-library.tar.gz" "$HOME/Downloads/bisaclip-library.tar.gz"; do
     [[ -f "$c" ]] && { LIB="$c"; break; }
   done
 fi
-if [[ -n "$LIB" ]]; then
+if [[ $NO_LIB -eq 1 ]]; then
+  :
+elif [[ -n "$LIB" ]]; then
   [[ -f "$LIB" ]] || die "File library tidak ditemukan: $LIB"
+  # -k: file yang sudah ada di Mac ini TIDAK ditimpa (preset & musik baru tetap aman kalau skrip dijalankan ulang)
   # -m: tanggal file tidak dikembalikan (folder buatan Apache dimiliki user daemon), -o: pemilik = user ini
-  tar -xmozf "$LIB" -C "$APP_DIR" || die "Gagal membuka file library. Coba: sudo chmod -R a+rwX storage previews, lalu ulangi."
+  tar -xkmozf "$LIB" -C "$APP_DIR" || die "Gagal membuka file library. Coba: sudo chmod -R a+rwX storage previews, lalu ulangi."
   ok "Library dipasang dari $LIB (musik: $(ls previews/music 2>/dev/null | wc -l | tr -d ' '), SFX: $(ls previews/sfx 2>/dev/null | wc -l | tr -d ' '))"
 else
   warn "Tidak ada file library: musik, SFX & preset mulai kosong. (Buat di Mac lama: bash install/export-library.sh)"
@@ -83,7 +90,7 @@ fi
 ok "Model deteksi wajah"
 
 # ---------- 6. AI upscale 2K (opsional) ----------
-if [[ ! -x tools/superres ]]; then
+if [[ ! -x tools/superres || tools/superres.swift -nt tools/superres ]]; then
   if xcrun --find swiftc >/dev/null 2>&1; then
     say "Membuat tool AI upscale 2K…"
     xcrun swiftc -O tools/superres.swift -o tools/superres && ok "AI upscale siap"

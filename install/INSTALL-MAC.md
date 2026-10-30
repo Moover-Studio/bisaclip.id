@@ -32,3 +32,19 @@ Hasilnya `bisaclip-library.tar.gz` di Desktop. Opsi:
    Aman dijalankan ulang.
 4. Buka XAMPP → **Manage Servers** → Start **Apache Web Server**, lalu buka http://localhost/bisaclip
 5. Kalau API key tidak ikut dibawa, isi di **Pengaturan → API key** (http://localhost/bisaclip/settings.php?tab=keys).
+
+## Update ke versi terbaru
+
+Jangan hapus atau timpa folder aplikasi dengan ZIP baru: preset, musik, SFX, API key, room & project tersimpan di folder itu.
+Cukup jalankan:
+
+```
+cd /Applications/XAMPP/xamppfiles/htdocs/bisaclip
+bash install/update-mac.sh
+```
+
+Skrip ini mengambil kode terbaru dari GitHub (lewat git kalau folder hasil `git clone`, atau unduh ZIP kalau tidak),
+lalu mengganti **kode saja**. Folder `storage/`, `previews/`, `downloads/` & `avatars/` tidak disentuh.
+Sebelum update, preset & pengaturan dicadangkan ke `~/BisaClip-backup/`. Kebutuhan baru (kalau ada) ikut dipasang otomatis.
+
+Kalau terlanjur install pakai ZIP di folder lain, jalankan skrip ini dari folder yang sedang dipakai (yang berisi data kamu).
