@@ -1001,7 +1001,7 @@ switch ($action) {
         $url = trim((string) ($in['url'] ?? ''));
         $url = require_video_url($url);
         if (trim((string) @file_get_contents(STORAGE_DIR . '/gemini.key')) === '') {
-            respond(['error' => 'Layanan AI belum dikonfigurasi.'], 400);
+            respond(['error' => 'API key Gemini belum diisi. Buka Pengaturan → API key.'], 400);
         }
         // Pengaturan dari modal "Buat Clip": rentang durasi clip (detik) & jumlah maksimal
         $clipMin = (int) ($in['clip_min'] ?? CLIP_MIN_SEC);
@@ -1063,7 +1063,7 @@ switch ($action) {
             respond(['error' => 'Proyek tidak ditemukan.'], 404);
         }
         if (trim((string) @file_get_contents(STORAGE_DIR . '/gemini.key')) === '') {
-            respond(['error' => 'Layanan AI belum dikonfigurasi.'], 400);
+            respond(['error' => 'API key Gemini belum diisi. Buka Pengaturan → API key.'], 400);
         }
         $prev = !empty($an['more_job']) ? read_job($an['more_job']) : null;
         if ($prev && in_array($prev['status'], ['queued', 'downloading', 'converting', 'analyzing'], true)) {
@@ -1133,7 +1133,7 @@ switch ($action) {
             respond(['error' => 'Isi nama brand dulu.'], 400);
         }
         if (trim((string) @file_get_contents(STORAGE_DIR . '/gemini.key')) === '') {
-            respond(['error' => 'Layanan AI belum dikonfigurasi.'], 400);
+            respond(['error' => 'API key Gemini belum diisi. Buka Pengaturan → API key.'], 400);
         }
         require_once __DIR__ . '/gemini.php';
         $cat = BRAND_CATEGORIES[$in['category'] ?? ''][0] ?? '';
@@ -1486,6 +1486,48 @@ switch ($action) {
             respond(['error' => 'Pilihan kompresi tidak dikenal.'], 400);
         }
         respond(['settings' => write_settings(['clip_codec' => $codec])]);
+
+    case 'keys':
+        // Status API key (hanya 4 karakter terakhir yang dikirim ke browser)
+        $mask = fn(string $k) => $k === '' ? '' : '••••' . substr($k, -4);
+        respond(['gemini' => $mask(trim((string) @file_get_contents(STORAGE_DIR . '/gemini.key'))),
+            'elevenlabs' => $mask(elevenlabs_key())]);
+
+    case 'keys_save':
+        // Simpan API key ke storage/<nama>.key (ditulis oleh Apache sendiri, jadi pasti bisa dibaca). Kosong = hapus.
+        $in = input();
+        $name = (string) ($in['name'] ?? '');
+        $key = trim((string) ($in['key'] ?? ''));
+        if (!in_array($name, ['gemini', 'elevenlabs'], true)) {
+            respond(['error' => 'Jenis API key tidak dikenal.'], 400);
+        }
+        if ($key !== '' && !preg_match('/^[\w.-]{20,200}$/', $key)) {
+            respond(['error' => 'Format API key tidak valid. Salin ulang tanpa spasi atau tanda kutip.'], 400);
+        }
+        if ($key !== '') {
+            // Cek ke server sebelum disimpan supaya key yang salah langsung ketahuan
+            [$url, $hdr] = $name === 'gemini'
+                ? [GEMINI_BASE . '/v1beta/models?pageSize=1', 'x-goog-api-key: ' . $key]
+                : ['https://api.elevenlabs.io/v1/user/subscription', 'xi-api-key: ' . $key];
+            $ch = curl_init($url);
+            curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_HTTPHEADER => [$hdr], CURLOPT_TIMEOUT => 20, CURLOPT_CONNECTTIMEOUT => 10]);
+            $ok = curl_exec($ch) !== false;
+            $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+            if (!$ok) {
+                respond(['error' => 'Tidak bisa menghubungi server untuk mengecek key. Periksa internet lalu coba lagi.'], 400);
+            }
+            if (in_array($code, [400, 401, 403], true)) {
+                respond(['error' => 'API key ditolak server. Pastikan key yang disalin benar dan masih aktif.'], 400);
+            }
+        }
+        $file = STORAGE_DIR . "/$name.key";
+        if ($key === '') {
+            @unlink($file);
+        } elseif (@file_put_contents($file, $key . "\n", LOCK_EX) === false) {
+            respond(['error' => 'Gagal menyimpan key: folder storage tidak bisa ditulis. Jalankan ulang install/setup-mac.sh.'], 500);
+        }
+        respond(['ok' => true]);
 
     case 'accounts':
         // Daftar akun + ringkasan: jumlah room, clip, clip sudah diupload, upload terakhir
@@ -2006,7 +2048,7 @@ switch ($action) {
             respond(['error' => 'Proyek tidak ditemukan.'], 404);
         }
         if (trim((string) @file_get_contents(STORAGE_DIR . '/gemini.key')) === '') {
-            respond(['error' => 'Layanan AI belum dikonfigurasi.'], 400);
+            respond(['error' => 'API key Gemini belum diisi. Buka Pengaturan → API key.'], 400);
         }
         require_once __DIR__ . '/gemini.php';
         set_time_limit(180);

@@ -18,7 +18,7 @@ function gemini_key(): string
 {
     $key = trim((string) @file_get_contents(STORAGE_DIR . '/gemini.key'));
     if ($key === '') {
-        throw new RuntimeException('Layanan AI belum dikonfigurasi.');
+        throw new RuntimeException('API key Gemini belum diisi. Buka Pengaturan → API key.');
     }
     return $key;
 }

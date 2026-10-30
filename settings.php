@@ -2,7 +2,7 @@
 require __DIR__ . '/config.php';
 require_local();
 ensure_dirs();
-$tab = ($_GET['tab'] ?? '') === 'compress' ? 'compress' : 'storage';
+$tab = in_array($_GET['tab'] ?? '', ['compress', 'keys'], true) ? $_GET['tab'] : 'storage';
 ?>
 <!doctype html>
 <html lang="id">
@@ -75,6 +75,16 @@ $tab = ($_GET['tab'] ?? '') === 'compress' ? 'compress' : 'storage';
   .rp-row .tt small { display: block; font-size: 11.5px; color: var(--muted); margin-top: 1px; }
   .rp-row .v { font-size: 13px; font-weight: 700; color: #4fd28a; font-variant-numeric: tabular-nums; }
   @media (max-width: 640px) { .rp-row { grid-template-columns: 20px minmax(0, 1fr) auto; } .rp-row img, .rp-row .ph { display: none; } }
+  /* API key */
+  .keys { display: grid; gap: 10px; margin-top: 16px; }
+  .key { padding: 14px 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-2); }
+  .key .kh { display: flex; align-items: center; gap: 8px; font-size: 14.5px; }
+  .key .kd { font-size: 12.5px; color: var(--muted); line-height: 1.5; margin-top: 4px; }
+  .key .kd a { color: var(--accent-fg); }
+  .key .kf { display: flex; gap: 8px; margin-top: 12px; }
+  .key .kf .input { flex: 1; min-width: 0; }
+  .key .pill.ok { background: rgba(79, 210, 138, .14); color: #4fd28a; }
+  .key .pill.no { background: rgba(245, 165, 36, .14); color: #f5a524; }
   @media (max-width: 640px) { .act { grid-template-columns: 44px minmax(0, 1fr); } .act .btn.go { grid-column: 1 / -1; } .act details { grid-column: 1 / -1; } }
 </style>
 </head>
@@ -88,10 +98,11 @@ $tab = ($_GET['tab'] ?? '') === 'compress' ? 'compress' : 'storage';
   <div class="card head">
     <div class="eyebrow"><span class="grad-text">Pengaturan</span></div>
     <h1>Pengaturan BisaClip</h1>
-    <p>Atur cara BisaClip menyimpan hasil clip di komputer kamu.</p>
+    <p>Atur API key layanan AI dan cara BisaClip menyimpan hasil clip di komputer kamu.</p>
     <nav class="tabs" aria-label="Bagian pengaturan">
       <a href="?tab=storage" class="<?= $tab === 'storage' ? 'on' : '' ?>"><?= icon('layers') ?> Manajemen storage</a>
       <a href="?tab=compress" class="<?= $tab === 'compress' ? 'on' : '' ?>"><?= icon('film') ?> Kompresi hasil clip</a>
+      <a href="?tab=keys" class="<?= $tab === 'keys' ? 'on' : '' ?>"><?= icon('lock') ?> API key</a>
     </nav>
   </div>
 
@@ -105,6 +116,23 @@ $tab = ($_GET['tab'] ?? '') === 'compress' ? 'compress' : 'storage';
     <h2>Bersihkan storage</h2>
     <p>Data room, judul, caption, kalender, dan editan clip tidak ikut terhapus.</p>
     <div id="acts"></div>
+  </section>
+  <?php elseif ($tab === 'keys'): ?>
+  <section class="card sec">
+    <h2>API key</h2>
+    <p>Disimpan hanya di komputer ini. Key dicek ke server dulu sebelum disimpan.</p>
+    <div class="keys">
+      <div class="key" data-key="gemini">
+        <div class="kh"><b>Gemini</b><span class="pill" data-st>…</span></div>
+        <div class="kd">Wajib untuk mencari momen viral, judul &amp; caption. Gratis di <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a></div>
+        <div class="kf"><input class="input" type="password" autocomplete="off" spellcheck="false" placeholder="Tempel API key Gemini"><button class="btn primary" data-save>Simpan</button><button class="btn" data-del hidden>Hapus</button></div>
+      </div>
+      <div class="key" data-key="elevenlabs">
+        <div class="kh"><b>ElevenLabs</b><span class="pill" data-st>…</span></div>
+        <div class="kd">Opsional, untuk membuat sound effect dengan AI. Ambil di <a href="https://elevenlabs.io/app/settings/api-keys" target="_blank" rel="noopener">elevenlabs.io</a></div>
+        <div class="kf"><input class="input" type="password" autocomplete="off" spellcheck="false" placeholder="Tempel API key ElevenLabs"><button class="btn primary" data-save>Simpan</button><button class="btn" data-del hidden>Hapus</button></div>
+      </div>
+    </div>
   </section>
   <?php else: ?>
   <section class="card sec">
@@ -137,6 +165,40 @@ $('opts')?.addEventListener('change', async e => {
 });
 if (TAB === 'compress') api('settings').then(d => { S = d; paint(); })
   .catch(err => { $('opts').innerHTML = `<div class="empty">${esc(err.message)}</div>`; });
+
+/* ---------- API key ---------- */
+async function loadKeys() {
+  const d = await api('keys');
+  document.querySelectorAll('.key').forEach(el => {
+    const v = d[el.dataset.key], st = el.querySelector('[data-st]');
+    st.className = 'pill ' + (v ? 'ok' : 'no');
+    st.textContent = v ? 'Terpasang ' + v : 'Belum diisi';
+    el.querySelector('[data-del]').hidden = !v;
+  });
+}
+if (TAB === 'keys') {
+  loadKeys().catch(err => toast(err.message));
+  document.querySelector('.keys').addEventListener('click', async e => {
+    const b = e.target.closest('[data-save],[data-del]'), el = b?.closest('.key');
+    if (!b || b.disabled) return;
+    const inp = el.querySelector('input'), del = 'del' in b.dataset;
+    if (del ? !confirm('Hapus API key ini?') : !inp.value.trim()) return inp.focus();
+    const label = b.textContent;
+    b.disabled = true;
+    b.innerHTML = '<span class="spin"></span>';
+    try {
+      await api('keys_save', { name: el.dataset.key, key: del ? '' : inp.value });
+      inp.value = '';
+      toast(del ? 'API key dihapus' : 'API key valid & disimpan');
+      await loadKeys();
+    } catch (err) { toast(err.message); }
+    b.disabled = false;
+    b.textContent = label;
+  });
+  document.querySelector('.keys').addEventListener('keydown', e => {
+    if (e.key === 'Enter' && e.target.matches('input')) e.target.closest('.key').querySelector('[data-save]').click();
+  });
+}
 
 /* ---------- Manajemen storage ---------- */
 const GROUPS = [

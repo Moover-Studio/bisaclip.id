@@ -31,4 +31,4 @@ Hasilnya `bisaclip-library.tar.gz` di Desktop. Opsi:
    Skrip memasang Homebrew & semua tool, menyiapkan Python, mengunduh model AI, memasang library, lalu mengecek semuanya.
    Aman dijalankan ulang.
 4. Buka XAMPP → **Manage Servers** → Start **Apache Web Server**, lalu buka http://localhost/bisaclip
-5. Kalau API key tidak ikut dibawa, isi di menu **Pengaturan**.
+5. Kalau API key tidak ikut dibawa, isi di **Pengaturan → API key** (http://localhost/bisaclip/settings.php?tab=keys).
