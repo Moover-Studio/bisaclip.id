@@ -48,3 +48,16 @@ lalu mengganti **kode saja**. Folder `storage/`, `previews/`, `downloads/` & `av
 Sebelum update, preset & pengaturan dicadangkan ke `~/BisaClip-backup/`. Kebutuhan baru (kalau ada) ikut dipasang otomatis.
 
 Kalau terlanjur install pakai ZIP di folder lain, jalankan skrip ini dari folder yang sedang dipakai (yang berisi data kamu).
+
+## Salin library (musik, SFX, preset) ke Mac yang sudah terpasang
+
+1. Di Mac utama: `bash install/export-library.sh` → menghasilkan `bisaclip-library.tar.gz` di Desktop.
+2. Salin file itu ke Desktop / Downloads Mac tujuan (AirDrop, flashdisk, Google Drive).
+3. Di Mac tujuan:
+   ```
+   cd /Applications/XAMPP/xamppfiles/htdocs/bisaclip
+   bash install/import-library.sh
+   ```
+
+Musik, SFX, preset & preset brand milik Mac tujuan tetap ada; yang baru ditambahkan (tidak ada yang ditimpa).
+Aman dijalankan berkali-kali, misalnya setiap kali library di Mac utama bertambah.

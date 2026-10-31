@@ -66,11 +66,9 @@ fi
 if [[ $NO_LIB -eq 1 ]]; then
   :
 elif [[ -n "$LIB" ]]; then
-  [[ -f "$LIB" ]] || die "File library tidak ditemukan: $LIB"
-  # -k: file yang sudah ada di Mac ini TIDAK ditimpa (preset & musik baru tetap aman kalau skrip dijalankan ulang)
-  # -m: tanggal file tidak dikembalikan (folder buatan Apache dimiliki user daemon), -o: pemilik = user ini
-  tar -xkmozf "$LIB" -C "$APP_DIR" || die "Gagal membuka file library. Coba: sudo chmod -R a+rwX storage previews, lalu ulangi."
-  ok "Library dipasang dari $LIB (musik: $(ls previews/music 2>/dev/null | wc -l | tr -d ' '), SFX: $(ls previews/sfx 2>/dev/null | wc -l | tr -d ' '))"
+  # File yang sudah ada tidak ditimpa; daftar musik / SFX / preset digabung (lihat install/import-library.sh)
+  bash install/import-library.sh "$LIB" || die "Gagal memasang file library."
+  ok "Musik: $(ls previews/music 2>/dev/null | wc -l | tr -d ' ') file, SFX: $(ls previews/sfx 2>/dev/null | wc -l | tr -d ' ') file"
 else
   warn "Tidak ada file library: musik, SFX & preset mulai kosong. (Buat di Mac lama: bash install/export-library.sh)"
 fi

@@ -109,6 +109,20 @@ Yang dilakukan skrip ini:
 
 ---
 
+## Salin library musik, SFX & preset dari Mac lain
+
+1. Di Mac yang sudah punya library: `bash install/export-library.sh`. Hasilnya `bisaclip-library.tar.gz` di Desktop.
+2. Salin file itu ke Desktop atau Downloads Mac tujuan (AirDrop, flashdisk, atau Google Drive).
+3. Di Mac tujuan:
+   ```bash
+   cd /Applications/XAMPP/xamppfiles/htdocs/bisaclip
+   bash install/import-library.sh
+   ```
+
+Library milik Mac tujuan tetap ada; yang baru ditambahkan tanpa menimpa apa pun.
+
+---
+
 ## Kalau ada masalah
 
 | Masalah | Solusi |
