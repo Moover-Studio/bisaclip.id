@@ -1032,7 +1032,7 @@ switch ($action) {
         $in = input();
         $url = trim((string) ($in['url'] ?? ''));
         $url = require_video_url($url);
-        if (trim((string) @file_get_contents(STORAGE_DIR . '/gemini.key')) === '') {
+        if (gemini_api_key() === '') {
             respond(['error' => 'API key Gemini belum diisi. Buka Pengaturan → API key.'], 400);
         }
         // Pengaturan dari modal "Buat Clip": rentang durasi clip (detik) & jumlah maksimal
@@ -1094,7 +1094,7 @@ switch ($action) {
         if (!$project || !$an || ($an['status'] ?? '') !== 'done') {
             respond(['error' => 'Proyek tidak ditemukan.'], 404);
         }
-        if (trim((string) @file_get_contents(STORAGE_DIR . '/gemini.key')) === '') {
+        if (gemini_api_key() === '') {
             respond(['error' => 'API key Gemini belum diisi. Buka Pengaturan → API key.'], 400);
         }
         $prev = !empty($an['more_job']) ? read_job($an['more_job']) : null;
@@ -1164,7 +1164,7 @@ switch ($action) {
         if ($name === '') {
             respond(['error' => 'Isi nama brand dulu.'], 400);
         }
-        if (trim((string) @file_get_contents(STORAGE_DIR . '/gemini.key')) === '') {
+        if (gemini_api_key() === '') {
             respond(['error' => 'API key Gemini belum diisi. Buka Pengaturan → API key.'], 400);
         }
         require_once __DIR__ . '/gemini.php';
@@ -1523,6 +1523,7 @@ switch ($action) {
         // Status API key (hanya 4 karakter terakhir yang dikirim ke browser)
         $mask = fn(string $k) => $k === '' ? '' : '••••' . substr($k, -4);
         respond(['gemini' => $mask(trim((string) @file_get_contents(STORAGE_DIR . '/gemini.key'))),
+            'gemini_default' => trim((string) @file_get_contents(STORAGE_DIR . '/gemini.default.key')) !== '',
             'elevenlabs' => $mask(elevenlabs_key())]);
 
     case 'keys_save':
@@ -2099,7 +2100,7 @@ switch ($action) {
         if (!$project) {
             respond(['error' => 'Proyek tidak ditemukan.'], 404);
         }
-        if (trim((string) @file_get_contents(STORAGE_DIR . '/gemini.key')) === '') {
+        if (gemini_api_key() === '') {
             respond(['error' => 'API key Gemini belum diisi. Buka Pengaturan → API key.'], 400);
         }
         require_once __DIR__ . '/gemini.php';

@@ -109,5 +109,5 @@ say "Cek kesiapan…"
 "$XAMPP_PHP" install/doctor.php || true
 printf '\nLangkah terakhir:\n  1. Buka aplikasi XAMPP (manager-osx) → tab Manage Servers → Start "Apache Web Server"\n'
 printf '  2. Buka http://localhost/bisaclip\n'
-[[ -s storage/gemini.key ]] || printf '  3. Masukkan API key Gemini di Pengaturan → tab API key (http://localhost/bisaclip/settings.php?tab=keys)\n'
+[[ -s storage/gemini.key || -s storage/gemini.default.key ]] || printf '  3. Masukkan API key Gemini di Pengaturan → tab API key (http://localhost/bisaclip/settings.php?tab=keys)\n'
 printf '\n'

@@ -124,7 +124,8 @@ $tab = in_array($_GET['tab'] ?? '', ['compress', 'keys'], true) ? $_GET['tab'] :
     <div class="keys">
       <div class="key" data-key="gemini">
         <div class="kh"><b>Gemini</b><span class="pill" data-st>…</span></div>
-        <div class="kd">Wajib untuk mencari momen viral, judul &amp; caption. Gratis di <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a></div>
+        <div class="kd">Wajib untuk mencari momen viral, judul &amp; caption. Kalau kosong, BisaClip memakai key bawaan (kuota gratis bersama).
+          Key sendiri gratis di <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a> dan lebih lega kuotanya.</div>
         <div class="kf"><input class="input" type="password" autocomplete="off" spellcheck="false" placeholder="Tempel API key Gemini"><button class="btn primary" data-save>Simpan</button><button class="btn" data-del hidden>Hapus</button></div>
       </div>
       <div class="key" data-key="elevenlabs">
@@ -170,9 +171,9 @@ if (TAB === 'compress') api('settings').then(d => { S = d; paint(); })
 async function loadKeys() {
   const d = await api('keys');
   document.querySelectorAll('.key').forEach(el => {
-    const v = d[el.dataset.key], st = el.querySelector('[data-st]');
-    st.className = 'pill ' + (v ? 'ok' : 'no');
-    st.textContent = v ? 'Terpasang ' + v : 'Belum diisi';
+    const v = d[el.dataset.key], st = el.querySelector('[data-st]'), def = !v && el.dataset.key === 'gemini' && d.gemini_default;
+    st.className = 'pill ' + (v || def ? 'ok' : 'no');
+    st.textContent = v ? 'Terpasang ' + v : def ? 'Memakai key bawaan' : 'Belum diisi';
     el.querySelector('[data-del]').hidden = !v;
   });
 }

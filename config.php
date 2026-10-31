@@ -155,6 +155,16 @@ function ensure_dirs(): void
     }
 }
 
+/**
+ * API key Gemini yang dipakai: milik user (storage/gemini.key, diisi di Pengaturan) atau key bawaan internal
+ * (storage/gemini.default.key, ikut file library dari export-library.sh; tidak pernah masuk git). Kosong = belum ada.
+ */
+function gemini_api_key(): string
+{
+    $own = trim((string) @file_get_contents(STORAGE_DIR . '/gemini.key'));
+    return $own !== '' ? $own : trim((string) @file_get_contents(STORAGE_DIR . '/gemini.default.key'));
+}
+
 function require_local(): void
 {
     $ip = $_SERVER['REMOTE_ADDR'] ?? '';

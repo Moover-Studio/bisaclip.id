@@ -6,6 +6,7 @@
 # Jalankan di Mac lama, dari folder aplikasi:   bash install/export-library.sh
 # Opsi:  --with-keys     ikut sertakan API key Gemini & ElevenLabs (file jadi rahasia, jangan dibagikan)
 #        --with-models   ikut sertakan model AI (±550 MB) supaya Mac baru tidak perlu mengunduh
+# Key Gemini bawaan (storage/gemini.default.key) selalu ikut: file hasilnya jangan dibagikan ke luar tim.
 # Hasil: ~/Desktop/bisaclip-library.tar.gz
 set -euo pipefail
 
@@ -42,6 +43,8 @@ if [[ -f storage/presets.json ]]; then
     [[ -f "previews/overlays/$f" ]] && echo "previews/overlays/$f" >> "$LIST"
   done
 fi
+# Key Gemini bawaan internal (dipakai kalau user belum mengisi key sendiri) selalu ikut
+add storage/gemini.default.key
 if [[ $WITH_KEYS -eq 1 ]]; then add storage/gemini.key; add storage/elevenlabs.key; fi
 if [[ $WITH_MODELS -eq 1 ]]; then add storage/models; fi
 

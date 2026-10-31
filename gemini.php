@@ -16,7 +16,7 @@ const GEMINI_MODELS = [
 
 function gemini_key(): string
 {
-    $key = trim((string) @file_get_contents(STORAGE_DIR . '/gemini.key'));
+    $key = gemini_api_key();
     if ($key === '') {
         throw new RuntimeException('API key Gemini belum diisi. Buka Pengaturan → API key.');
     }
