@@ -1566,6 +1566,7 @@ function gfx_sanitize($g): ?array
         'c3' => $hex($g['c3'] ?? '', '#111111'),
         'c4' => $hex($g['c4'] ?? '', ''),   // latar label (banner); kosong = ikut warna kartu
         'c5' => $hex($g['c5'] ?? '', ''),   // teks label (banner); kosong = ikut warna judul
+        'hc' => $hex($g['hc'] ?? '', ''),   // warna sorotan teks *kata*; kosong = bawaan template
         'ls' => (int) max(60, min(200, (int) ($g['ls'] ?? 100))), // ukuran label, persen
         'ts' => (int) max(60, min(160, (int) ($g['ts'] ?? 100))), // ukuran teks utama, persen
         'lh' => (int) max(70, min(160, (int) ($g['lh'] ?? 100))), // jarak baris teks utama, persen

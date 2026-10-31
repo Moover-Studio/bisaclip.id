@@ -1976,7 +1976,7 @@ function startGfxEdit(i) {
 
 // Template grafik: default tanpa animasi; satu clip hanya punya satu template (pilih template lain = ganti template)
 const GFX_ANIM = { in: 'none', out: 'none', din: 0.4, dout: 0.4 };
-const GFX_LOOK_KEYS = ['type', 'label', 'c1', 'c2', 'c3', 'c4', 'c5', 'ls', 'ts', 'lh', 'tw', 'ta', 'tf', 'fill'];
+const GFX_LOOK_KEYS = ['type', 'label', 'c1', 'c2', 'c3', 'c4', 'c5', 'hc', 'ls', 'ts', 'lh', 'tw', 'ta', 'tf', 'fill'];
 // Kalimat hook clip ini (hasil AI); kalau kosong pakai judul clip
 const clipHookText = () => String(E.hook?.text || '').trim() || String(project?.items?.find(x => x.iid === IID)?.title || '').trim();
 // Grafik template utama clip ini (bukan bagian intro / footage)
@@ -1993,6 +1993,7 @@ function setGfxType(m, type) {
   const pre = GFX[type], g = m.gfx, sameCat = GFX[g.type]?.cat === pre.cat;
   Object.assign(g, { type, c1: pre.c1, c2: pre.c2, c3: pre.c3, label: pre.noLabel ? '' : (sameCat && g.label) || pre.label });
   if (pre.c4) Object.assign(g, { c4: pre.c4, c5: pre.c5 }); else { delete g.c4; delete g.c5; }
+  delete g.hc;
   if (!sameCat) { gfxGeom(m, type); delete g.ext; }
   m.name = 'Grafik ' + pre.name;
 }
@@ -2109,7 +2110,7 @@ ensureGfxThumbs();
 function gfxPanelHtml(m) {
   const g = m.gfx, pre = GFX[g.type] || GFX.clipnews;
   // Warna label kosong (grafik lama) = ikut warna kartu / judul
-  const cv = k => g[k] || (k === 'c4' ? g.c1 : k === 'c5' ? g.c3 : '#FFFFFF');
+  const cv = k => g[k] || (k === 'hc' ? gfxHi(g) : k === 'c4' ? g.c1 : k === 'c5' ? g.c3 : '#FFFFFF');
   const col = (k, n) => `<div class="ts-c"><label>${n}</label><div class="ts-f hex"><label class="sw" style="--c:${cv(k)}"><input type="color" data-gfxc="${k}" value="${cv(k).toLowerCase()}"></label>
     <input data-gfxh="${k}" value="${cv(k).slice(1)}" maxlength="7" spellcheck="false" aria-label="Kode warna"><span class="u">Hex</span></div></div>`;
   return `<div class="card p-card"><div class="p-sec">
@@ -2120,7 +2121,7 @@ function gfxPanelHtml(m) {
     ${pre.noLabel ? '' : `<div class="p-field"><div class="p-label"><label>Label</label><span class="cnt">${g.label.length}/40</span></div><input class="input p-input" data-gfx="label" value="${esc(g.label)}" maxlength="40" spellcheck="false"></div>
       <div class="p-row"><label>Ukuran label</label><input type="range" min="60" max="200" step="5" data-gfx="ls" value="${g.ls ?? 100}"><span class="val">${g.ls ?? 100}%</span></div>`}
     <div class="p-field"><div class="p-label"><label>${pre.noLabel ? 'Teks hook' : 'Judul'}</label><span class="cnt">${g.text.length}/200</span></div><textarea class="input p-input" data-gfx="text" rows="3" maxlength="200" spellcheck="false">${esc(g.text)}</textarea>
-      ${pre.rich ? '<div class="p-hint">Apit kata dengan <b>*tanda bintang*</b> untuk warna sorotan, mis. *sahabat sendiri*. Label = baris sumber di bawah.</div>' : ''}</div>
+      <div class="p-hint">Apit kata dengan <b>*tanda bintang*</b> untuk warna berbeda, mis. <b>Ternyata *ini* penyebabnya</b>.${pre.rich ? ' Label = baris sumber di bawah.' : ''}</div></div>
     <div class="p-field"><div class="p-label"><label>Font teks</label></div>
       <button type="button" class="ts-f fpk-btn${fpkOpen === 'gfx' ? ' on' : ''}" data-fpk="gfx" aria-expanded="${fpkOpen === 'gfx'}" style='font-family:${g.tf ? fontFamily(g.tf) : '"Clip Montserrat", sans-serif'}'>
         <span>${g.tf ? esc(fontLabel(g.tf)) : 'Bawaan template'}</span>${ic('chevron-down').replace('class="i"', 'class="i chev"')}</button>
@@ -2133,7 +2134,7 @@ function gfxPanelHtml(m) {
     </div>
     <div class="p-row"><label>Ukuran teks</label><input type="range" min="60" max="160" step="5" data-gfx="ts" value="${g.ts ?? 100}"><span class="val">${g.ts ?? 100}%</span></div>
     <div class="p-row"><label>Jarak baris</label><input type="range" min="70" max="160" step="5" data-gfx="lh" value="${g.lh ?? 100}"><span class="val">${g.lh ?? 100}%</span></div>
-    <div class="ts-stack" style="margin-top:16px">${pre.cn[0] ? col('c1', pre.cn[0]) : ''}${col('c2', pre.cn[1])}${col('c3', pre.cn[2])}${pre.cn[3] && !pre.noLabel ? col('c4', pre.cn[3]) + col('c5', pre.cn[4]) : ''}</div>
+    <div class="ts-stack" style="margin-top:16px">${pre.cn[0] ? col('c1', pre.cn[0]) : ''}${col('c2', pre.cn[1])}${col('c3', pre.cn[2])}${col('hc', 'Warna sorotan')}${pre.cn[3] && !pre.noLabel ? col('c4', pre.cn[3]) + col('c5', pre.cn[4]) : ''}</div>
     ${m.ref ? refNoteHtml : `<div class="p-row" style="margin-top:16px"><label>Mulai</label>${stepper('ms', m.s)}</div>
     <div class="p-row"><label>Selesai</label>${stepper('me', m.e)}</div>`}
     <div class="p-row"><label>Ukuran</label><input type="range" min="0.3" max="1" step="0.01" data-k="media.${sel.i}.w" value="${m.w}"><span class="val">${Math.round(m.w * 100)}%</span></div>
@@ -6862,16 +6863,13 @@ const payload = () => ({ trim: E.trim, layout: E.layout, split: E.split, subtitl
 
 /* ---------- Terapkan style clip ini ke clip lain (alur template) ---------- */
 // Bagian style yang bisa disalin; avail() = ada isinya di clip sumber
-const isHookGfx = m => /^hook/.test(m.gfx?.type || '');
-const isTplGfx = m => !!m.gfx && !isHookGfx(m);   // template grafik berita / judul (bukan hook AI)
 const spanFull = (it, ed) => it.s <= ed.trim[0] + 0.3 && it.e >= ed.trim[1] - 0.3;   // tampil sepanjang clip
 // Sumber style: clip yang sedang diedit (E), atau preset yang dipilih di menu Preset
 let styFrom = null;
 const SRC = () => styFrom?.edit || E;
 const STY_PARTS = [
   { k: 'sub', name: 'Subtitle', desc: 'Font, ukuran, warna, posisi, & mode teks kinetik', avail: () => true },
-  { k: 'hook', name: 'Hook / judul AI', desc: 'Template, warna, posisi, & animasi grafik hook (kalimat tiap clip tetap)', avail: () => SRC().media.some(isHookGfx) },
-  { k: 'gfx', name: 'Template grafik', desc: 'Grafik berita / judul: template, label, warna, posisi, ukuran, & animasi', avail: () => SRC().media.some(isTplGfx) },
+  { k: 'gfx', name: 'Template grafik', desc: 'Hook / news / banner: template, warna, font, posisi & ukuran. Mengganti grafik yang ada (1 per clip)', avail: () => SRC().media.some(m => m.gfx && !m.ref) },
   { k: 'frame', name: 'Framing & bingkai', desc: 'Mode kamera, rasio, sudut membulat, split screen', avail: () => true },
   { k: 'filter', name: 'Filter warna', desc: 'Filter grading dipasang sepanjang clip tujuan', avail: () => SRC().effects.some(fx => EFFECTS[fx.type]?.kind === 'grade') },
   { k: 'fixed', name: 'Teks & logo tetap', desc: 'Elemen yang tampil sepanjang clip, mis. watermark atau @username', avail: () => SRC().media.some(m => !m.gfx && spanFull(m, SRC())) || SRC().texts.some(c => spanFull(c, SRC())) },
@@ -6882,6 +6880,7 @@ let styParts = new Set(['sub', 'hook', 'gfx', 'frame', 'filter', 'fixed', 'openi
 try {
   const v = JSON.parse(localStorage.getItem('ed-sty-parts'));
   if (Array.isArray(v)) styParts = new Set(v);
+  if (styParts.has('hook')) styParts.add('gfx');
   // Bagian "Template grafik" baru: ikut tercentang sekali untuk pengguna yang sudah punya pilihan tersimpan
   if (!localStorage.getItem('ed-sty-gfx')) { styParts.add('gfx'); localStorage.setItem('ed-sty-gfx', '1'); }
 } catch {}
@@ -6919,7 +6918,7 @@ function renderStyParts() {
     return `<label class="sty-opt${ok ? '' : ' na'}"><input type="checkbox" data-part="${p.k}" ${ok && styParts.has(p.k) ? 'checked' : ''} ${ok ? '' : 'disabled'}>
       <span><b>${p.name}</b><small>${ok ? p.desc : styFrom ? 'Tidak ada di preset ini' : 'Tidak ada di clip ini'}</small></span></label>`
       + (p.k === 'gfx' && ok && styParts.has('gfx') ? `<div class="sty-sub"><span>Teks grafik:</span>
-        <label><input type="radio" name="sty-gfxtext" value="title" ${styGfxText === 'title' ? 'checked' : ''}> Judul clip masing-masing</label>
+        <label><input type="radio" name="sty-gfxtext" value="title" ${styGfxText === 'title' ? 'checked' : ''}> Hook clip masing-masing</label>
         <label><input type="radio" name="sty-gfxtext" value="same" ${styGfxText === 'same' ? 'checked' : ''}> Sama persis</label></div>` : '');
   }).join('');
 }
@@ -6976,40 +6975,21 @@ async function styleInto(T, parts, item) {
       try { T.kinetic.beats = (await api('kinetic', { lines: T.lines, trim: T.trim, y: T.kinetic.y, x: T.kinetic.x })).beats; } catch {}
     }
   }
-  if (parts.has('hook')) {
-    const src = E.media.find(isHookGfx);
-    if (src) {
-      const look = { type: src.gfx.type, c1: src.gfx.c1, c2: src.gfx.c2, c3: src.gfx.c3 };
-      let targets = T.media.filter(isHookGfx);
-      // Hook AI clip tujuan yang belum pernah dibuka di editor: jadikan grafik hook dengan gaya clip sumber
-      if (!targets.length && T.hook?.enabled && String(T.hook.text || '').trim()) {
-        const m = { id: rid(), file: '', name: src.name, gfx: { label: '', text: String(T.hook.text).trim(), ...look },
-          s: round3(t0), e: round3(Math.min(t1, t0 + (src.e - src.s))) };
-        T.media.push(m);
-        T.hook.enabled = false;
-        targets = [m];
-      }
-      for (const m of targets) {
-        Object.assign(m.gfx, look);
-        Object.assign(m, { x: src.x, y: src.y, w: src.w, anim: clone(src.anim || null) });
-        m.file = await gfxFile(m.gfx);
-      }
-    }
-  }
   if (parts.has('gfx')) {
-    // Template grafik berita / judul: template, label, warna, posisi, ukuran, animasi & waktu tampil (relatif ke awal clip).
-    // Salinan memakai id sumber, jadi menerapkan ulang mengganti salinan lama (tidak dobel)
-    const src = E.media.filter(isTplGfx), ids = new Set(src.map(m => m.id));
-    T.media = T.media.filter(m => !ids.has(m.id));
-    for (const m of src) {
-      const c = { ...clone(m), ...mapSpan(m) };
-      const title = String(item?.title || '').trim();
+    // Template grafik (hook / news / banner / kutipan): satu per clip, jadi grafik template yang sudah ada di clip tujuan diganti
+    // (tidak dobel). Teks: hook / grafik clip tujuan sendiri (bawaan) atau sama persis dengan sumber.
+    const src = E.media.find(m => m.gfx && !m.ref);
+    if (src) {
+      const main = T.media.find(m => m.gfx && !m.ref);
+      const own = main?.gfx.text || String(T.hook?.text || '').trim() || String(item?.title || '').trim();
+      const c = { ...clone(src), ...mapSpan(src), id: main?.id || rid() };
+      if (styGfxText !== 'same' && own) c.gfx.text = own.slice(0, 200);
+      T.media = T.media.filter(m => !m.gfx || m.ref);
+      if (T.hook) T.hook.enabled = false;
       // Banner selebar layar: tepi atas sama dengan clip sumber, pita dihitung ulang untuk teks clip tujuan
-      const top = isFullGfx(m) ? m.y * 1920 - (await gfxCanvas(m.gfx, 1)).height * (1080 * m.w / (GFX_W + 36)) / 2 : null;
-      const retitle = styGfxText === 'title' && title && title !== c.gfx.text;
-      if (retitle) c.gfx.text = title.slice(0, 200);
+      const top = isFullGfx(src) ? src.y * 1920 - (await gfxCanvas(src.gfx, 1)).height * (1080 * src.w / (GFX_W + 36)) / 2 : null;
       if (top !== null) await fitBand(c, top);
-      if (retitle || top !== null) c.file = await gfxFile(c.gfx); // gambar ulang dengan judul / pita clip tujuan
+      c.file = await gfxFile(c.gfx);
       T.media.push(c);
     }
   }

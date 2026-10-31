@@ -80,6 +80,9 @@ function richLines(g, text, maxW) {
   if (cur.length) lines.push(cur);
   return lines.length ? lines : [[{ w: ' ', runs: [{ t: ' ', hi: false }] }]];
 }
+// Warna sorotan teks (*kata*): pilihan user (hc); bawaan = aksen kartu kutipan, atau kuning di teks terang / merah di teks gelap
+const isLightHex = hex => { const n = parseInt(String(hex || '#000000').slice(1), 16); return (0.299 * (n >> 16) + 0.587 * (n >> 8 & 255) + 0.114 * (n & 255)) > 150; };
+const gfxHi = p => p.hc || (String(p.type).startsWith('quote') ? p.c1 : isLightHex(p.c3) ? '#FFD43B' : '#E3262E');
 // Sedikit lebih gelap / terang untuk gradasi kotak
 function shade(hex, f) {
   const n = parseInt(hex.slice(1), 16), c = v => Math.max(0, Math.min(255, Math.round(v + (f < 0 ? v : 255 - v) * f)));
@@ -104,7 +107,9 @@ async function gfxCanvas(p, scale = 2) {
   let H = 0;
   const text = (font, upper) => { meas.font = font; return upper ? String(p.text || '').toUpperCase() : String(p.text || ''); };
   const label = String(p.label || '');
-  const T = p.type;
+  const T = p.type, HI = gfxHi(p);
+  // Teks utama di semua template: *kata* = warna sorotan (lihat richLines); lebar baris untuk ukuran kotak
+  const lineW = ws => meas.measureText(ws.map(w => w.w).join(' ')).width;
   // Ukuran label (kotak + teks label), 60–200% dari ukuran bawaan template
   const k = Math.max(0.6, Math.min(2, (p.ls ?? 100) / 100));
   // Teks utama: ukuran (ts %), jarak baris (lh %), ketebalan (tw) & perataan (ta); kosong = bawaan template
@@ -122,10 +127,10 @@ async function gfxCanvas(p, scale = 2) {
   if (T === 'clipnews') {
     const bf = gfxFont('italic 800', 42 * k); meas.font = bf;
     const bw = Math.min(W - 22, meas.measureText(label).width + 56 * k), bh = 74 * k;
-    const hf = titleFont('italic 800', 46), lines = wrapText(meas, text(hf, true), W - 88), lh = LH(60), pl = place('left', 44, W - 44);
+    const hf = titleFont('italic 800', 46), lines = richLines(meas, text(hf, true), W - 88), lh = LH(60), pl = place('left', 44, W - 44);
     const by = bh * 0.62, bhh = 40 + bh * 0.38 + lines.length * lh + 34;
     ops.push({ k: 'box', x: 0, y: by, w: W, h: bhh, r: 16, fill: p.c2, grad: true, shadow: true });
-    lines.forEach((l, i) => ops.push({ k: 'text', x: pl.x, align: pl.align, y: by + 40 + bh * 0.38 + i * lh + lh * 0.78, t: l, font: hf, fill: p.c3 }));
+    lines.forEach((l, i) => ops.push({ k: 'rich', x: pl.x, align: pl.align, y: by + 40 + bh * 0.38 + i * lh + lh * 0.78, words: l, font: hf, fill: p.c3, hi: HI }));
     if (label) {
       ops.push({ k: 'box', x: 22, y: 0, w: bw, h: bh, r: 12, fill: p.c1, shadow: true });
       ops.push({ k: 'text', x: 22 + bw / 2, y: bh * 0.7, t: label, font: bf, fill: '#FFFFFF', align: 'center' });
@@ -134,10 +139,10 @@ async function gfxCanvas(p, scale = 2) {
   } else if (T === 'news') {
     const tf = gfxFont('900', 32 * k); meas.font = tf;
     const tw = Math.min(W, meas.measureText(label.toUpperCase()).width + 36 * k), th = label ? 52 * k : 0;
-    const hf = titleFont('800', 48), lines = wrapText(meas, text(hf, true), W - 64), lh = LH(60), pl = place('left', 32, W - 32);
+    const hf = titleFont('800', 48), lines = richLines(meas, text(hf, true), W - 64), lh = LH(60), pl = place('left', 32, W - 32);
     const bh = lines.length * lh + 52;
     ops.push({ k: 'box', x: 0, y: th, w: W, h: bh, r: 0, fill: p.c2, shadow: true });
-    lines.forEach((l, i) => ops.push({ k: 'text', x: pl.x, align: pl.align, y: th + 26 + i * lh + lh * 0.8, t: l, font: hf, fill: p.c3 }));
+    lines.forEach((l, i) => ops.push({ k: 'rich', x: pl.x, align: pl.align, y: th + 26 + i * lh + lh * 0.8, words: l, font: hf, fill: p.c3, hi: HI }));
     if (label) {
       ops.push({ k: 'box', x: 0, y: 0, w: tw, h: th, r: 0, fill: p.c1 });
       ops.push({ k: 'text', x: 18 * k, y: th * 0.72, t: label.toUpperCase(), font: tf, fill: '#FFFFFF' });
@@ -146,10 +151,10 @@ async function gfxCanvas(p, scale = 2) {
   } else if (T === 'viral') {
     const bf = gfxFont('900', 52 * k); meas.font = bf;
     const bw = Math.min(W, meas.measureText(label).width + 64 * k), bh = label ? 92 * k : 0;
-    const hf = titleFont('800', 54), lines = wrapText(meas, text(hf, false), W - 72), lh = LH(66), pl = place('center', 36, W - 36);
+    const hf = titleFont('800', 54), lines = richLines(meas, text(hf, false), W - 72), lh = LH(66), pl = place('center', 36, W - 36);
     const by = Math.max(0, bh - 16 * k), bhh = lines.length * lh + 56 + (label ? 16 : 0);
     ops.push({ k: 'box', x: 0, y: by, w: W, h: bhh, r: 8, fill: p.c2, shadow: true });
-    lines.forEach((l, i) => ops.push({ k: 'text', x: pl.x, y: by + 28 + (label ? 16 : 0) + i * lh + lh * 0.78, t: l, font: hf, fill: p.c3, align: pl.align }));
+    lines.forEach((l, i) => ops.push({ k: 'rich', x: pl.x, y: by + 28 + (label ? 16 : 0) + i * lh + lh * 0.78, words: l, font: hf, fill: p.c3, hi: HI, align: pl.align }));
     if (label) {
       ops.push({ k: 'box', x: (W - bw) / 2, y: 0, w: bw, h: bh, r: 8, fill: p.c1, shadow: true });
       ops.push({ k: 'text', x: W / 2, y: bh * 0.68, t: label, font: bf, fill: '#FFFFFF', align: 'center' });
@@ -162,14 +167,14 @@ async function gfxCanvas(p, scale = 2) {
     const lf = gfxFont('700', 30 * k), hf = titleFont('700', 62); meas.font = lf;
     const tabW = Math.min(W - 120, meas.measureText(label).width + (SH.tr === 'pill' ? 56 : 40) * k), tabH = label ? 54 * k : 0;
     meas.font = hf;
-    const cx = 40, cw = W - 80, lines = wrapText(meas, String(p.text || ''), cw - 90), lh = LH(76), pl = place('center', cx + 45, cx + cw - 45);
+    const cx = 40, cw = W - 80, lines = richLines(meas, String(p.text || ''), cw - 90), lh = LH(76), pl = place('center', cx + 45, cx + cw - 45);
     const cy = tabH / 2, ch = (label ? 34 + tabH / 2 : 40) + lines.length * lh + 34;
     // Pita sampai bawah layar: diperpanjang sebesar ext (dihitung fitBand dari posisi grafik)
     const bandY = cy + ch * 0.58, bottom = cy + ch + 46 + (p.fill !== false ? Math.max(0, p.ext || 0) : 0);
     ops.push({ k: 'box', x: -M, y: bandY, w: W + M * 2, h: bottom - bandY + M, r: 0, fill: p.c1 });
     ops.push({ k: 'box', x: -M, y: bandY, w: W + M * 2, h: 7, r: 0, fill: p.c2 });
     ops.push({ k: 'box', x: cx, y: cy, w: cw, h: ch, r: SH.r, fill: p.c1, line: p.c2, lw: 9, shadow: true });
-    lines.forEach((l, i) => ops.push({ k: 'text', x: pl.x, y: cy + (label ? 34 + tabH / 2 : 40) + i * lh + lh * 0.8, t: l, font: hf, fill: p.c3, align: pl.align }));
+    lines.forEach((l, i) => ops.push({ k: 'rich', x: pl.x, y: cy + (label ? 34 + tabH / 2 : 40) + i * lh + lh * 0.8, words: l, font: hf, fill: p.c3, hi: HI, align: pl.align }));
     if (label) {
       const tx = SH.tab === 'left' ? cx + 34 : (W - tabW) / 2;
       ops.push({ k: 'box', x: tx, y: 0, w: tabW, h: tabH, r: SH.tr === 'pill' ? tabH / 2 : SH.tr * k, fill: p.c4 || p.c1, line: p.c2, lw: 4 * k });
@@ -179,11 +184,11 @@ async function gfxCanvas(p, scale = 2) {
   } else if (T.startsWith('hook')) {
     // Teks hook: kotak membulat selebar teks (polos / gradasi), atau tanpa kotak dengan garis tepi tebal; teks tebal rata tengah
     const outline = T === 'hook_outline', hf = titleFont(outline ? '900' : '800', outline ? 56 : 50); meas.font = hf;
-    const lines = wrapText(meas, String(p.text || ''), W - 120), lh = LH(outline ? 68 : 62);
-    const bw = Math.min(W, Math.max(...lines.map(l => meas.measureText(l).width)) + 96), bh = lines.length * lh + 52;
+    const lines = richLines(meas, String(p.text || ''), W - 120), lh = LH(outline ? 68 : 62);
+    const bw = Math.min(W, Math.max(...lines.map(lineW)) + 96), bh = lines.length * lh + 52;
     if (!outline) ops.push({ k: 'box', x: (W - bw) / 2, y: 0, w: bw, h: bh, r: 14, fill: p.c2, shadow: true, grad2: T === 'hook_grad' ? p.c1 : null });
     const pl = place('center', (W - bw) / 2 + 48, (W + bw) / 2 - 48);
-    lines.forEach((l, i) => ops.push({ k: 'text', x: pl.x, y: 26 + i * lh + lh * 0.78, t: l, font: hf, fill: p.c3, align: pl.align, stroke: outline ? p.c2 : null }));
+    lines.forEach((l, i) => ops.push({ k: 'rich', x: pl.x, y: 26 + i * lh + lh * 0.78, words: l, font: hf, fill: p.c3, hi: HI, align: pl.align, stroke: outline ? p.c2 : null }));
     H = bh;
   } else if (T.startsWith('quote')) {
     // Kartu kutipan. Teks utama huruf kapital (font Anton), *kata* = warna sorotan; label = baris sumber di bawah garis
@@ -200,7 +205,7 @@ async function gfxCanvas(p, scale = 2) {
     const ch = top - cy + textH + (label ? 26 : 0) + foot + 40;
     ops.push({ k: 'box', x: cx - SX, y: cy + SY, w: cw, h: ch, r: 30, fill: p.c1 });
     ops.push({ k: 'box', x: cx, y: cy, w: cw, h: ch, r: 30, fill: p.c2, line: '#111111', lw: 9 });
-    lines.forEach((ws, i) => ops.push({ k: 'rich', x: pl.x, align: pl.align, y: top + i * lh + lh * 0.82, words: ws, font: qf, fill: p.c3, hi: p.c1 }));
+    lines.forEach((ws, i) => ops.push({ k: 'rich', x: pl.x, align: pl.align, y: top + i * lh + lh * 0.82, words: ws, font: qf, fill: p.c3, hi: HI }));
     if (label) {
       const ly = top + textH + 22;
       ops.push({ k: 'line', x1: cx + padX, y1: ly, x2: cx + cw - padX, y2: ly, stroke: p.c1, lw: 5, dash: [2, 12] });
@@ -215,10 +220,10 @@ async function gfxCanvas(p, scale = 2) {
   } else if (T === 'breaking') {
     const tf = gfxFont('900', 30 * k); meas.font = tf;
     const tw = Math.min(W, meas.measureText(label.toUpperCase()).width + 40 * k), th = label ? 50 * k : 0;
-    const hf = titleFont('800', 50), lines = wrapText(meas, text(hf, false), W - 64), lh = LH(62), pl = place('left', 32, W - 32);
+    const hf = titleFont('800', 50), lines = richLines(meas, text(hf, false), W - 64), lh = LH(62), pl = place('left', 32, W - 32);
     const bh = lines.length * lh + 56;
     ops.push({ k: 'box', x: 0, y: th, w: W, h: bh, r: 10, fill: p.c2, grad: true, shadow: true });
-    lines.forEach((l, i) => ops.push({ k: 'text', x: pl.x, align: pl.align, y: th + 28 + i * lh + lh * 0.8, t: l, font: hf, fill: p.c3 }));
+    lines.forEach((l, i) => ops.push({ k: 'rich', x: pl.x, align: pl.align, y: th + 28 + i * lh + lh * 0.8, words: l, font: hf, fill: p.c3, hi: HI }));
     if (label) {
       ops.push({ k: 'box', x: 0, y: 0, w: tw, h: th + 10, r: 10, fill: p.c1 });
       ops.push({ k: 'text', x: 20 * k, y: th * 0.72, t: label.toUpperCase(), font: tf, fill: p.c2 });
@@ -226,12 +231,12 @@ async function gfxCanvas(p, scale = 2) {
     H = th + bh;
   } else {
     const lf = gfxFont('800', 28 * k), hf = titleFont('700', 46); meas.font = hf;
-    const lines = wrapText(meas, String(p.text || ''), W - 100), lh = LH(58), top = label ? 36 + 38 * k : 36, pl = place('left', 50, W - 40);
+    const lines = richLines(meas, String(p.text || ''), W - 100), lh = LH(58), top = label ? 36 + 38 * k : 36, pl = place('left', 50, W - 40);
     const bh = top + lines.length * lh + 34;
     ops.push({ k: 'box', x: 0, y: 0, w: W, h: bh, r: 18, fill: p.c2, alpha: .9, shadow: true });
     ops.push({ k: 'box', x: 0, y: 0, w: 10, h: bh, r: [18, 0, 0, 18], fill: p.c1 });
     if (label) ops.push({ k: 'text', x: 50, y: 30 + 28 * k, t: label.toUpperCase(), font: lf, fill: p.c1, spacing: 3 * k });
-    lines.forEach((l, i) => ops.push({ k: 'text', x: pl.x, align: pl.align, y: top + i * lh + lh * 0.78, t: l, font: hf, fill: p.c3 }));
+    lines.forEach((l, i) => ops.push({ k: 'rich', x: pl.x, align: pl.align, y: top + i * lh + lh * 0.78, words: l, font: hf, fill: p.c3, hi: HI }));
     H = bh;
   }
   const cv2 = document.createElement('canvas');
@@ -263,12 +268,20 @@ async function gfxCanvas(p, scale = 2) {
       g.font = o.font; g.textAlign = 'left';
       const sp = g.measureText(' ').width, widths = o.words.map(w => g.measureText(w.w).width);
       const total = widths.reduce((a, b) => a + b, 0) + sp * Math.max(0, o.words.length - 1);
-      let x = o.align === 'center' ? o.x - total / 2 : o.align === 'right' ? o.x - total : o.x;
-      o.words.forEach((w, i) => {
-        let rx = x;
-        for (const r of w.runs) { g.fillStyle = r.hi ? o.hi : o.fill; g.fillText(r.t, rx, o.y); rx += g.measureText(r.t).width; }
-        x += widths[i] + sp;
-      });
+      const x0 = o.align === 'center' ? o.x - total / 2 : o.align === 'right' ? o.x - total : o.x;
+      // Garis tepi (hook outline) digambar dulu untuk seluruh baris, baru isi huruf, supaya garis tidak menimpa huruf sebelahnya
+      for (const pass of o.stroke ? ['stroke', 'fill'] : ['fill']) {
+        let x = x0;
+        o.words.forEach((w, i) => {
+          let rx = x;
+          for (const r of w.runs) {
+            if (pass === 'stroke') { g.lineJoin = 'round'; g.lineWidth = 12; g.strokeStyle = o.stroke; g.strokeText(r.t, rx, o.y); }
+            else { g.fillStyle = r.hi ? o.hi : o.fill; g.fillText(r.t, rx, o.y); }
+            rx += g.measureText(r.t).width;
+          }
+          x += widths[i] + sp;
+        });
+      }
     } else {
       g.font = o.font; g.fillStyle = o.fill; g.textAlign = o.align || 'left';
       if (o.alpha != null) g.globalAlpha = o.alpha;
