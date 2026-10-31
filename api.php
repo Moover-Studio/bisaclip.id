@@ -875,6 +875,37 @@ function save_music_upload(): array
     return [$name, $dur];
 }
 
+/**
+ * Hapus file overlay (+ gambar kecilnya) kalau sudah tidak dipakai di data mana pun yang tersimpan:
+ * resep & pustaka media semua proyek, project manual, campaign, dan preset. Dipakai media Split mix (konsep ganti, bukan menumpuk).
+ */
+function overlay_gc(string $file): bool
+{
+    if (!preg_match('/^[a-f0-9]{40}\.(png|jpg|webp|mp4|mov|webm|m4v)$/', $file) || !is_file(OVERLAY_DIR . "/$file")) {
+        return false;
+    }
+    $sha = substr($file, 0, 40);
+    $files = array_filter([STORAGE_DIR . '/presets.json', STORAGE_DIR . '/mproj_presets.json', STORAGE_DIR . '/brands.json'], 'is_file');
+    foreach ([PROJECTS_DIR, STORAGE_DIR . '/manual', STORAGE_DIR . '/campaigns'] as $dir) {
+        if (!is_dir($dir)) {
+            continue;
+        }
+        foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS)) as $f) {
+            if ($f->isFile() && $f->getExtension() === 'json') {
+                $files[] = $f->getPathname();
+            }
+        }
+    }
+    foreach ($files as $f) {
+        if (str_contains((string) @file_get_contents($f), $sha)) {
+            return false;
+        }
+    }
+    @unlink(OVERLAY_DIR . "/$file");
+    @unlink(OVERLAY_DIR . "/$sha.thumb.jpg");
+    return true;
+}
+
 function media_library_path(string $pid): string
 {
     return PROJECTS_DIR . "/$pid/media.json";
@@ -963,6 +994,7 @@ switch ($action) {
             'thumbnail' => $info['thumbnail'] ?? '',
             'is_live' => (bool) ($info['is_live'] ?? false),
             'language' => strtolower(explode('-', (string) ($info['language'] ?? ''))[0]),
+            'style' => detect_clip_style($info),   // jenis clip terdeteksi otomatis: podcast / gaming
             'qualities' => $qualities,
         ]);
 
@@ -1864,6 +1896,21 @@ switch ($action) {
         }
         respond(['segments' => $edit['segments'], 'shots' => $edit['shots'], 'cam' => $edit['cam'] ?? null, 'precise' => true]);
 
+    case 'mix_upload':
+        // Media panel bawah Split mix: satu slot per clip (tidak masuk pustaka Media); foto atau video
+        $isVideo = ($_FILES['file']['error'] ?? 1) === UPLOAD_ERR_OK
+            && str_starts_with((string) @mime_content_type($_FILES['file']['tmp_name'] ?? ''), 'video/');
+        if ($isVideo) {
+            [$name] = save_video_upload();
+        } else {
+            [$name] = save_image_upload();
+        }
+        respond(['file' => $name, 'kind' => $isVideo ? 'video' : 'image', 'name' => mb_substr(basename((string) ($_FILES['file']['name'] ?? 'media')), 0, 80)]);
+
+    case 'mix_gc':
+        // Media Split mix yang batal dipakai (diganti sebelum disimpan): hapus kalau tidak dipakai di data tersimpan mana pun
+        respond(['deleted' => overlay_gc((string) (input()['file'] ?? ''))]);
+
     case 'overlay_upload':
         [$name, $w, $h] = save_image_upload();
         respond(['file' => $name, 'w' => $w, 'h' => $h]);
@@ -2023,6 +2070,11 @@ switch ($action) {
             respond(['error' => $e->getMessage()], 400);
         }
         write_edit($project['id'], $item['iid'], $edit);
+        // Media Split mix yang diganti / dilepas: file lamanya dihapus kalau tidak dipakai lagi
+        $oldMix = (string) ($current['frame']['mix']['file'] ?? '');
+        if ($oldMix !== '' && $oldMix !== (string) ($edit['frame']['mix']['file'] ?? '')) {
+            overlay_gc($oldMix);
+        }
         // Data kartu di Studio ikut diperbarui
         $item['start'] = $edit['trim'][0];
         $item['end'] = $edit['trim'][1];

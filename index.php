@@ -410,7 +410,7 @@ ensure_dirs();
   <div class="acts3">
     <button class="act3" type="button" data-open="clip"><span class="ic"><?= icon('scissors') ?></span><b>Buat clip</b><span class="go"><?= icon('arrow-right') ?></span></button>
     <a class="act3" href="project.php"><span class="ic"><?= icon('layers') ?></span><b>Edit manual</b><span class="go"><?= icon('arrow-right') ?></span></a>
-    <button class="act3" type="button" data-open="download"><span class="ic"><?= icon('download') ?></span><b>YT Downloader</b><span class="go"><?= icon('arrow-right') ?></span></button>
+    <button class="act3" type="button" data-open="download"><span class="ic"><?= icon('download') ?></span><b>Unduh asset</b><span class="go"><?= icon('arrow-right') ?></span></button>
   </div>
   <a class="camp-cta" href="panduan.php"><span class="ic"><?= icon('book-open') ?></span>
     <span><b>Baru pakai BisaClip?</b><small>Lihat cara kerja, fitur, dan tips supaya clip kamu bagus</small></span>
@@ -771,7 +771,7 @@ function renderSide() {
   $('ms-dur').textContent = v.duration ? fmtDur(v.duration) : '';
   $('m-video').textContent = v.title || 'Video';
   $('ms-ch').textContent = v.uploader || '';
-  const rows = [['Durasi', v.duration ? fmtDur(v.duration) : '–'], ['Bahasa', v.language ? LANG_NAMES[v.language] || v.language.toUpperCase() : 'Otomatis'],
+  const rows = [['Durasi', v.duration ? fmtDur(v.duration) : '–'], ['Jenis', v.style === 'gaming' ? 'Streaming game' : 'Podcast / obrolan'], ['Bahasa', v.language ? LANG_NAMES[v.language] || v.language.toUpperCase() : 'Otomatis'],
     q ? ['Kualitas', qName(q.height) + (q.fps > 30 ? q.fps : '')] : null, v.is_live ? ['Status', 'Live'] : null].filter(Boolean);
   $('ms-meta').innerHTML = rows.map(([k, val]) => `<dt>${k}</dt><dd>${esc(val)}</dd>`).join('');
   $('ms-url').href = v.url;
@@ -785,6 +785,8 @@ $('ms-copy').onclick = async () => {
 async function openModal() {
   renderSide();
   clipCfg.touched = false;
+  // Jenis clip (podcast / streaming game) terdeteksi otomatis dari kategori video YouTube
+  clipCfg.style = video.style === 'gaming' ? 'gaming' : 'podcast';
   // Video lebih pendek dari preset terpilih: pindah ke preset terpanjang yang muat
   const dur = video.duration || 0;
   if (dur && !PRESETS[clipCfg.preset].custom && PRESETS[clipCfg.preset].min > dur) {

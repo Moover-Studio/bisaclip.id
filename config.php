@@ -421,6 +421,20 @@ const CLIP_CONCEPTS = [
     ],
 ];
 
+/**
+ * Jenis clip dari info video yt-dlp: 'gaming' kalau YouTube mengategorikan videonya "Gaming", selain itu 'podcast'.
+ * Tanpa kategori (jarang): tebak dari kata kunci khas video game di judul & tag.
+ */
+function detect_clip_style(array $info): string
+{
+    $cats = array_map(fn($c) => strtolower((string) $c), (array) ($info['categories'] ?? []));
+    if ($cats) {
+        return in_array('gaming', $cats, true) ? 'gaming' : 'podcast';
+    }
+    $text = strtolower(($info['title'] ?? '') . ' ' . implode(' ', array_map('strval', (array) ($info['tags'] ?? []))));
+    return preg_match('/\b(gameplay|walkthrough|let\'?s play|speedrun|mabar|push rank|ranked|#gaming)\b/', $text) ? 'gaming' : 'podcast';
+}
+
 /** Konsep yang valid untuk style tertentu (urutan sesuai daftar). */
 function clip_concepts_pick(string $style, array $keys): array
 {

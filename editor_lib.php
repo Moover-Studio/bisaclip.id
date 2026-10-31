@@ -77,6 +77,12 @@ function frame_geom(array $edit): array
     $f = ($edit['layout'] ?? '') === 'gaming' ? [] : ($edit['frame'] ?? []); // streaming game selalu layar penuh
     $ratio = ($edit['layout'] ?? '') === 'letterbox' && empty($f['ratio']) ? '3:4' : ($f['ratio'] ?? 'full');
     $ratio = $ratio === 'split' ? 'full' : $ratio; // split screen selalu layar penuh
+    if ($ratio === 'mix') {
+        // Split mix: area video = panel atas, panel bawah diisi media user (lihat mix_graph di clip.php)
+        $h = split_top($edit);
+        $r = (int) ($f['radius'] ?? 0);
+        return [1080 / $h, $h, 0, $r, true];
+    }
     $a = FRAME_RATIOS[$ratio] ?? 9 / 16;
     $h = $ratio === 'full' ? 1920 : (int) round(1080 / $a / 2) * 2;
     $r = (int) ($f['radius'] ?? 0);
@@ -291,12 +297,15 @@ function upgrade_layout(array $edit): array
         $edit['follow'] = false;
     } elseif ($l === 'gaming' && $ratio !== 'split') {
         [$f['ratio'], $f['split'], $edit['kind']] = ['split', 70, 'gaming'];
-    } elseif (($l === 'split' || !empty($edit['split']['enabled'])) && $ratio !== 'split') {
-        [$f['ratio'], $f['split']] = ['split', 50];
+    } elseif ($l === 'split' || ($ratio === 'split' && $l !== 'gaming' && ($edit['kind'] ?? '') !== 'gaming')) {
+        // Split 2 orang versi lama (layout / bingkai Split di clip podcast) → layout Full + Auto split
+        $f['ratio'] = 'full';
+        $edit['split'] = ['enabled' => true] + (array) ($edit['split'] ?? []);
     }
     $edit['kind'] ??= $l === 'gaming' ? 'gaming' : 'podcast';
     $edit['frame'] = $f + ['ratio' => 'full', 'radius' => 0];
-    $edit['layout'] = $l === 'gaming' || ($edit['frame']['ratio'] === 'split' && $edit['kind'] === 'gaming') ? 'gaming' : 'speaker';
+    // Bingkai "split" = Split game (gameplay atas + webcam bawah); "mix" = Split mix (clip atas + media user bawah)
+    $edit['layout'] = $edit['frame']['ratio'] === 'split' ? 'gaming' : 'speaker';
     return $edit;
 }
 
@@ -703,13 +712,27 @@ function retrack_edit(string $pid, string $iid): array
     return $latest;
 }
 
+/** Media panel bawah Split mix: file gambar / video di folder overlay; null kalau tidak valid. */
+function mix_sanitize($m): ?array
+{
+    $file = (string) ($m['file'] ?? '');
+    if (!preg_match('/^[a-f0-9]{40}\.(png|jpg|webp|mp4|mov|webm|m4v)$/', $file) || !is_file(OVERLAY_DIR . "/$file")) {
+        return null;
+    }
+    $f = fn($k, $lo, $hi, $d) => round(max($lo, min($hi, is_numeric($m[$k] ?? null) ? (float) $m[$k] : $d)), 4);
+    return ['file' => $file, 'kind' => preg_match('/\.(png|jpg|webp)$/', $file) ? 'image' : 'video', 'name' => mb_substr((string) ($m['name'] ?? ''), 0, 80),
+        // Ukuran (skala dari "memenuhi panel") & titik tengah (pecahan panel) hasil seret / tarik sudut di editor
+        's' => $f('s', 0.2, 4, 1), 'cx' => $f('cx', -1, 2, 0.5), 'cy' => $f('cy', -1, 2, 0.5)];
+}
+
 /** Pengaturan split screen otomatis (resep lama dengan layout "split" dianggap ikuti pembicara + split aktif). */
 function split_cfg(array $edit): array
 {
-    $cfg = $edit['split'] ?? [];
+    // Auto split (toggle) hanya berlaku di layout Full
+    $e = upgrade_layout($edit);
+    $cfg = $e['split'] ?? [];
     return [
-        'enabled' => (!empty($cfg['enabled']) || ($edit['layout'] ?? '') === 'split' || ($edit['frame']['ratio'] ?? '') === 'split' && ($edit['kind'] ?? '') !== 'gaming')
-            && ($edit['layout'] ?? '') !== 'gaming',
+        'enabled' => !empty($cfg['enabled']) && ($e['frame']['ratio'] ?? 'full') === 'full' && $e['layout'] !== 'gaming',
         // Toleransi = split muncul sekian detik LEBIH AWAL dari shot 2 orang yang terdeteksi AI
         'early' => max(0, min(5, (float) ($cfg['early'] ?? 0))),
     ];
@@ -867,23 +890,25 @@ function sanitize_edit(array $in, array $current): array
     $up = upgrade_layout(['layout' => (string) ($in['layout'] ?? $cur['layout']), 'frame' => (array) ($in['frame'] ?? $cur['frame']),
         'split' => (array) ($in['split'] ?? []), 'kind' => $in['kind'] ?? $cur['kind'], 'follow' => $in['follow'] ?? $cur['follow'] ?? true]);
     $fr = (array) $up['frame'];
-    $ratio = in_array($fr['ratio'] ?? '', [...array_keys(FRAME_RATIOS), 'split'], true) ? $fr['ratio'] : 'full';
+    $ratio = in_array($fr['ratio'] ?? '', [...array_keys(FRAME_RATIOS), 'split', 'mix'], true) ? $fr['ratio'] : 'full';
     $edit['kind'] = $up['kind'] === 'gaming' ? 'gaming' : 'podcast';
     $edit['follow'] = $up['follow'] !== false;
     $edit['frame'] = [
         'ratio' => $ratio,
         'radius' => (int) max(0, min(120, (int) ($fr['radius'] ?? 0))),
         'bg' => ($fr['bg'] ?? '') === 'blur' ? 'blur' : 'solid',
-        'split' => in_array((int) ($fr['split'] ?? 0), SPLIT_RATIOS, true) ? (int) $fr['split'] : ($edit['kind'] === 'gaming' ? 70 : 50),
+        'split' => in_array((int) ($fr['split'] ?? 0), SPLIT_RATIOS, true) ? (int) $fr['split'] : ($ratio === 'split' ? 70 : 50),
+        'mix' => mix_sanitize($fr['mix'] ?? null),   // Split mix: media panel bawah
     ];
-    $edit['layout'] = $ratio === 'split' && $edit['kind'] === 'gaming' ? 'gaming' : 'speaker';
+    $edit['layout'] = $ratio === 'split' ? 'gaming' : 'speaker';
     // Gaya teks ucapan: subtitle biasa atau teks kinetik (beat bertumpuk)
     $edit['caption'] = ($in['caption'] ?? '') === 'kinetic' ? 'kinetic' : 'subtitle';
     $edit['kinetic'] = kinetic_sanitize($in['kinetic'] ?? null, $p0, $p1);
     // Kualitas render: standard | hd (dipertajam) | ultra (sumber resolusi tertinggi)
     $edit['quality'] = in_array($in['quality'] ?? '', ['standard', 'hd', 'ultra'], true) ? $in['quality'] : ($current['quality'] ?? 'hd');
-    $sp = (array) ($in['split'] ?? []);
-    $edit['split'] = ['enabled' => $ratio === 'split' && $edit['kind'] !== 'gaming', 'early' => round($num($sp['early'] ?? 0, 0, 5), 2)];
+    $sp = (array) ($up['split'] ?? []);
+    // Auto split (toggle): split 2 orang otomatis, hanya untuk layout Full
+    $edit['split'] = ['enabled' => !empty($sp['enabled']) && $ratio === 'full', 'early' => round($num($sp['early'] ?? 0, 0, 5), 2)];
     $edit['subtitles'] = !empty($in['subtitles']);
     $edit['volume'] = (int) $num($in['volume'] ?? 100, 0, 200); // volume audio clip, persen
     $edit['volKf'] = kf_sanitize($in['volKf'] ?? [], $p0, $p1, 200); // keyframe volume audio clip (kosong = volume tetap)

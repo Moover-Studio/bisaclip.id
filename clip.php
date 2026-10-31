@@ -328,6 +328,36 @@ function split_graph(array $items, int $W, int $H, int $vi, float $dur, int $top
     return implode(";\n", $parts);
 }
 
+/**
+ * Split mix: sumber [mxm] seukuran panel bawah berisi media user (foto diam / video diulang tanpa suara) dengan ukuran & posisi
+ * dari editor (s = skala dari "memenuhi panel", cx/cy = titik tengah), di atas latar hitam. Sama dengan mixRect() di editor.
+ * Kosong kalau layout bukan Split mix atau belum ada media.
+ */
+function mix_graph(?array $edit, int $topH): string
+{
+    $m = $edit['frame']['mix'] ?? null;
+    $path = OVERLAY_DIR . '/' . ($m['file'] ?? '');
+    if (($edit['frame']['ratio'] ?? '') !== 'mix' || !$m || !is_file($path)) {
+        return '';
+    }
+    $info = json_decode((string) shell_exec(escapeshellarg(FFPROBE) . ' -v error -select_streams v:0 -show_entries stream=width,height -of json '
+        . escapeshellarg($path)), true);
+    $iw = (int) ($info['streams'][0]['width'] ?? 0);
+    $ih = (int) ($info['streams'][0]['height'] ?? 0);
+    if (!$iw || !$ih) {
+        return '';
+    }
+    $ph = 1920 - $topH;
+    $k = max(1080 / $iw, $ph / $ih) * (float) ($m['s'] ?? 1);
+    $w = (int) min(8640, max(2, round($iw * $k / 2) * 2));
+    $h = (int) min(8640, max(2, round($ih * $k / 2) * 2));
+    $x = (int) round(1080 * (float) ($m['cx'] ?? 0.5) - $w / 2);
+    $y = (int) round($ph * (float) ($m['cy'] ?? 0.5) - $h / 2);
+    $src = "movie=$path" . (($m['kind'] ?? '') === 'video' ? ':loop=0,setpts=N/FRAME_RATE/TB' : '');
+    return "$src,scale=$w:$h:flags=lanczos,setsar=1,format=yuva420p[mxs];\n"
+        . "color=c=black:s=1080x$ph:r=60,format=yuva420p[mxb];\n[mxb][mxs]overlay=$x:$y:eof_action=repeat:format=auto[mxm]";
+}
+
 /** Filtergraph: potong per segmen, crop ke pembicara, skala 1080x1920, lalu gabungkan lagi → [cv]. */
 const CAM_PAN = 0.9;        // durasi kamera bergeser halus untuk perpindahan kecil (detik)
 const CAM_DEADZONE = 0.02;  // pergeseran lebih kecil dari 2% lebar/tinggi video diabaikan (tidak bergetar)
@@ -471,7 +501,7 @@ function camera_expr(array $keys, int $axis, float $t0): string
     return $e;
 }
 
-function speaker_graph(array $segs, int $W, int $H, int $vi, float $dur, float $aspect = 9 / 16, int $outH = 1920, ?array $cuts = null): string
+function speaker_graph(array $segs, int $W, int $H, int $vi, float $dur, float $aspect = 9 / 16, int $outH = 1920, ?array $cuts = null, ?int $outY = null): string
 {
     $runs = camera_runs($segs, $cuts, $W, $H, $aspect);
     $n = count($runs);
@@ -486,8 +516,8 @@ function speaker_graph(array $segs, int $W, int $H, int $vi, float $dur, float $
             . "scale=1080:$outH:flags=lanczos,setsar=1[c$i]";
     }
     $cat = implode('', array_map(fn($i) => "[c$i]", range(0, $n - 1))) . "concat=n=$n:v=1:a=0";
-    // Layout bingkai: area video di tengah layar hitam
-    $parts[] = $outH < 1920 ? "$cat,pad=1080:1920:0:" . (int) ((1920 - $outH) / 2) . ':black[cv]' : "{$cat}[cv]";
+    // Layout bingkai: area video di tengah layar hitam (Split mix: di panel atas, $outY = 0)
+    $parts[] = $outH < 1920 ? "$cat,pad=1080:1920:0:" . ($outY ?? (int) ((1920 - $outH) / 2)) . ':black[cv]' : "{$cat}[cv]";
     return implode(";\n", $parts);
 }
 
@@ -1043,16 +1073,20 @@ function run_clip(string $id, array $job, string $cancelFlag): void
         $overlay = $layered ? overlay_graph($edit, 'cv', 'co', false) : '';
         // Masker bingkai (bar hitam & sudut membulat) di atas video + efek, di bawah media & teks
         // Background blur: area video yang sama diperbesar memenuhi layar & diblur, tampil di luar bingkai (alpha masker)
-        $frameBlur = $frameMask && $fH < 1920 && ($edit['frame']['bg'] ?? '') === 'blur';
-        $masked = fn(string $from) => !$frameMask ? "[$from]null[fmo];\n" : ($frameBlur
+        $frameBlur = $frameMask && $fH < 1920 && ($edit['frame']['bg'] ?? '') === 'blur' && ($edit['frame']['ratio'] ?? '') !== 'mix';
+        // Split mix: media user mengisi panel bawah, di atas masker & di bawah media / teks / subtitle
+        $mixG = $frameMask && $layout !== 'split' ? mix_graph($edit, $fH) : '';
+        $masked0 = fn(string $from) => !$frameMask ? "[$from]null[fmo];\n" : ($frameBlur
             ? "[$from]split[fga][fgb];\n[fgb]crop=1080:$fH:0:$fY0,scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,"
                 . "boxblur=25:3,eq=brightness=-0.08,format=rgba[fbg];\nmovie=$frameMask,format=rgba,alphaextract[fma];\n"
                 . "[fbg][fma]alphamerge[fbm];\n[fga][fbm]overlay=0:0:format=auto[fmo];\n"
             : "movie=$frameMask,format=rgba[fmk];\n[$from][fmk]overlay=0:0:format=auto[fmo];\n");
+        $masked = fn(string $from) => $mixG === '' ? $masked0($from)
+            : str_replace('[fmo]', '[fmq]', $masked0($from)) . "$mixG;\n[fmq][mxm]overlay=0:$fH:eof_action=repeat:format=auto[fmo];\n";
         if (($layout === 'speaker' || $layout === 'split') && $segments) {
             $graph = ($layout === 'split'
                 ? split_graph($segments, (int) $video['width'], (int) $video['height'], $vi, $dur, $edit ? split_top($edit) : 960)
-                : speaker_graph($segments, (int) $video['width'], (int) $video['height'], $vi, $dur, $fAspect, $fH, $edit ? edit_cut_times($edit) : null))
+                : speaker_graph($segments, (int) $video['width'], (int) $video['height'], $vi, $dur, $fAspect, $fH, $edit ? edit_cut_times($edit) : null, $fY0))
                 . ";\n[cv]unsharp=5:5:0.5[cv0]";
             $graph .= $overlay ? ";\n" . overlay_graph($edit, 'cv0', 'co', false) : '';
             $graph .= ";\n" . $masked($overlay ? 'co' : 'cv0') . $finish('fmo');

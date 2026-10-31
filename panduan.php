@@ -112,7 +112,7 @@ require_local();
         <p>Editor timeline untuk menyusun video sendiri dari footage, gambar, musik, teks, dan transisi.</p><span class="go">Buka editor <?= icon('arrow-right') ?></span></a>
       <a class="feat" href="campaign.php"><span class="ic"><?= icon('film') ?></span><b>Clip dari footage sendiri</b>
         <p>Unggah footage dari komputer, tulis angle kontennya, AI memilih adegan yang cocok dan menyusunnya lengkap dengan hook.</p><span class="go">Buka campaign <?= icon('arrow-right') ?></span></a>
-      <a class="feat" href="index.php"><span class="ic"><?= icon('download') ?></span><b>YT Downloader</b>
+      <a class="feat" href="index.php"><span class="ic"><?= icon('download') ?></span><b>Unduh asset</b>
         <p>Unduh video atau audio YouTube dengan kualitas maksimal, tanpa membuat clip.</p><span class="go">Mulai dari Beranda <?= icon('arrow-right') ?></span></a>
       <a class="feat" href="calendar.php"><span class="ic"><?= icon('calendar') ?></span><b>Kalender upload</b>
         <p>Jadwal jam upload terbaik tiap hari, mengikuti hari kerja, libur nasional, dan cuti bersama.</p><span class="go">Lihat kalender <?= icon('arrow-right') ?></span></a>
@@ -129,7 +129,7 @@ require_local();
       <li><?= icon('check') ?><span><b>Durasi 30–60 detik</b> paling aman untuk TikTok, Reels, dan Shorts.</span></li>
       <li><?= icon('check') ?><span><b>Mulai dari clip dengan skor viral tertinggi.</b> Skor terlihat di galeri clip pada editor.</span></li>
       <li><?= icon('check') ?><span><b>Pakai template subtitle</b> di editor supaya gaya teks konsisten di semua clip, lalu simpan sebagai preset.</span></li>
-      <li><?= icon('check') ?><span><b>Untuk streaming game</b>, pilih jenis clip "Streaming game" dan layout Split: game di atas, webcam di bawah.</span></li>
+      <li><?= icon('check') ?><span><b>Video streaming game terdeteksi otomatis.</b> AI memakai konsep momen khusus game, dan clip langsung memakai layout Split game: game di atas, webcam di bawah.</span></li>
     </ul>
   </section>
 
