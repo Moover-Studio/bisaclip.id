@@ -5263,13 +5263,14 @@ function bindTimelineDrop() {
  * dari gambar di layar, sehingga di pergantian shot crop kamera sempat salah posisi (terlihat seperti kedipan / glitch).
  * Framing (kamera, split) memakai waktu frame ini supaya selalu cocok dengan gambarnya — sama seperti hasil render.
  */
-let vfT = null;
+let vfT = null, vfAt = 0;
 function watchFrames(v) {
   if (!v?.requestVideoFrameCallback || v._vf) return;
   v._vf = true;
   const onFrame = (now, md) => {
     if (v === vid && E) {
       vfT = E.pad[0] + md.mediaTime;
+      vfAt = performance.now();
       if (playing && !fp) draw();
     }
     v.requestVideoFrameCallback(onFrame);
@@ -5298,7 +5299,9 @@ function loop() {
     if (g) { if (g[1] >= E.trim[1] - 0.02) { t = g[0]; endMain(); } else { t = g[1]; vid.currentTime = t - E.pad[0]; } }
     if (t >= E.trim[1] && !fp) { t = E.trim[1]; endMain(); }
     updateTime();
-    draw();
+    // Saat diputar, gambar hanya di callback frame video (gambar & waktu frame pasti cocok). Kalau digambar juga di sini,
+    // drawImage bisa sudah mengambil frame shot baru sementara vfT masih frame lama: sekejap crop kamera salah orang.
+    if (!(vid._vf && now - vfAt < 150)) draw();
     if (sel.type === 'lines') markActiveLine();
   }
   // Rentang putar: berhenti di penanda akhir
