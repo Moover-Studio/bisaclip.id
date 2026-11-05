@@ -1490,7 +1490,7 @@ if (!valid_job_id($pid) || !preg_match('/^[a-f0-9]{8}$/', $iid)) {
           <button class="btn sm primary" type="submit">Simpan</button>
         </form>
         <div class="ps-list" id="preset-list"></div>
-        <div class="mu-note">Preset menyimpan style clip: subtitle, grafik template &amp; hook (posisi, warna, teks), framing, filter, teks &amp; logo tetap, dan musik. Bisa dipakai di semua proyek.</div>
+        <div class="mu-note">Preset menyimpan style clip: subtitle, grafik template &amp; hook (posisi, warna, teks), framing, filter, teks tambahan, teks &amp; logo tetap, dan musik. Bisa dipakai di semua proyek.</div>
       </div>
       <div class="lp-pane" id="lp-gfx" hidden>
         <div class="lp-title">Template grafik</div>
@@ -6886,21 +6886,26 @@ const STY_PARTS = [
   { k: 'gfx', name: 'Template grafik', desc: 'Hook / news / banner: template, warna, font, posisi & ukuran. Mengganti grafik yang ada (1 per clip)', avail: () => SRC().media.some(m => m.gfx && !m.ref) },
   { k: 'frame', name: 'Framing & bingkai', desc: 'Mode kamera, rasio, sudut membulat, split screen', avail: () => true },
   { k: 'filter', name: 'Filter warna', desc: 'Filter grading dipasang sepanjang clip tujuan', avail: () => SRC().effects.some(fx => EFFECTS[fx.type]?.kind === 'grade') },
+  { k: 'texts', name: 'Teks tambahan', desc: 'Semua teks tambahan (Judul / Teks biasa / Teks kotak): gaya, posisi & waktu dari awal clip', avail: () => SRC().texts.some(c => !c.ref) },
   { k: 'fixed', name: 'Teks & logo tetap', desc: 'Elemen yang tampil sepanjang clip, mis. watermark atau @username', avail: () => SRC().media.some(m => !m.gfx && spanFull(m, SRC())) || SRC().texts.some(c => spanFull(c, SRC())) },
   { k: 'opening', name: 'Opening', desc: 'Animasi opening di awal video', avail: () => !!SRC().opening },
   { k: 'audio', name: 'Musik & volume', desc: 'Musik latar, volume clip, & status bisu musik', avail: () => !!SRC().music.length || (SRC().volume ?? 100) !== 100 },
 ];
-let styParts = new Set(['sub', 'hook', 'gfx', 'frame', 'filter', 'fixed', 'opening', 'audio']);
+let styParts = new Set(['sub', 'hook', 'gfx', 'texts', 'frame', 'filter', 'fixed', 'opening', 'audio']);
 try {
   const v = JSON.parse(localStorage.getItem('ed-sty-parts'));
   if (Array.isArray(v)) styParts = new Set(v);
   if (styParts.has('hook')) styParts.add('gfx');
   // Bagian "Template grafik" baru: ikut tercentang sekali untuk pengguna yang sudah punya pilihan tersimpan
   if (!localStorage.getItem('ed-sty-gfx')) { styParts.add('gfx'); localStorage.setItem('ed-sty-gfx', '1'); }
+  if (!localStorage.getItem('ed-sty-texts')) { styParts.add('texts'); localStorage.setItem('ed-sty-texts', '1'); }
 } catch {}
 // Teks template grafik di clip tujuan: 'title' = judul clip masing-masing, 'same' = persis sama dengan clip ini
 let styGfxText = 'title';
 try { if (localStorage.getItem('ed-sty-gfxtext') === 'same') styGfxText = 'same'; } catch {}
+// Teks tambahan di clip tujuan: 'copy' = salin teks + gaya + waktu, 'style' = gaya & posisi saja ke teks tambahan yang sudah ada
+let styTxtMode = 'copy';
+try { if (localStorage.getItem('ed-sty-txtmode') === 'style') styTxtMode = 'style'; } catch {}
 const styState = {};   // iid -> { ready, pick, status, cls }
 let styBusy = false;
 
@@ -6933,7 +6938,10 @@ function renderStyParts() {
       <span><b>${p.name}</b><small>${ok ? p.desc : styFrom ? 'Tidak ada di preset ini' : 'Tidak ada di clip ini'}</small></span></label>`
       + (p.k === 'gfx' && ok && styParts.has('gfx') ? `<div class="sty-sub"><span>Teks grafik:</span>
         <label><input type="radio" name="sty-gfxtext" value="title" ${styGfxText === 'title' ? 'checked' : ''}> Hook clip masing-masing</label>
-        <label><input type="radio" name="sty-gfxtext" value="same" ${styGfxText === 'same' ? 'checked' : ''}> Sama persis</label></div>` : '');
+        <label><input type="radio" name="sty-gfxtext" value="same" ${styGfxText === 'same' ? 'checked' : ''}> Sama persis</label></div>` : '')
+      + (p.k === 'texts' && ok && styParts.has('texts') ? `<div class="sty-sub"><span>Teks tambahan:</span>
+        <label><input type="radio" name="sty-txtmode" value="copy" ${styTxtMode === 'copy' ? 'checked' : ''}> Salin teks &amp; gaya</label>
+        <label><input type="radio" name="sty-txtmode" value="style" ${styTxtMode === 'style' ? 'checked' : ''}> Gaya saja (teks clip tujuan tetap)</label></div>` : '');
   }).join('');
 }
 function renderStyClips() {
@@ -7025,6 +7033,21 @@ async function styleInto(T, parts, item) {
     T.texts = T.texts.filter(c => !ids.has(c.id)).concat(E.texts.filter(c => spanFull(c, E)).map(c => ({ ...clone(c), s: round3(t0), e: round3(t1) })));
     T.layers = clone(E.layers);
   }
+  if (parts.has('texts')) {
+    const srcT = E.texts.filter(c => !c.ref);
+    if (styTxtMode === 'style') {
+      // Gaya & posisi teks sumber ke teks tambahan clip tujuan (urutan sama; kelebihannya pakai gaya teks sumber terakhir).
+      // Isi teks & waktunya tetap milik clip tujuan
+      T.texts.filter(c => !c.ref).forEach((c, i) => {
+        const { id, s, e, text, ref, ...look } = clone(srcT[Math.min(i, srcT.length - 1)]);
+        Object.assign(c, look);
+      });
+    } else {
+      // Salinan memakai id sumber, jadi menerapkan ulang mengganti salinan lama (tidak dobel); waktu relatif dari awal clip
+      const ids = new Set(srcT.map(c => c.id));
+      T.texts = T.texts.filter(c => !ids.has(c.id)).concat(srcT.map(c => ({ ...clone(c), ...mapSpan(c) })));
+    }
+  }
   if (parts.has('opening')) T.opening = clone(E.opening);
   if (parts.has('audio')) {
     T.volume = E.volume;
@@ -7091,7 +7114,7 @@ function presetSnapshot() {
   const strip = m => Object.fromEntries(Object.entries(m).filter(([k]) => k[0] !== '_'));
   return clone({
     trim: E.trim, style: E.style, subtitles: E.subtitles, caption: E.caption, kinetic: { y: E.kinetic.y, x: E.kinetic.x ?? 0.5 },
-    media: E.media.filter(m => m.gfx || spanFull(m, E)).map(strip), texts: E.texts.filter(c => spanFull(c, E)),
+    media: E.media.filter(m => m.gfx || spanFull(m, E)).map(strip), texts: E.texts.filter(c => !c.ref),
     effects: E.effects.filter(fx => EFFECTS[fx.type]?.kind === 'grade'), layout: E.layout, frame: E.frame, split: E.split, kind: E.kind, follow: E.follow,
     volume: E.volume, volKf: E.volKf, opening: E.opening, music: E.music, tracks: { music: E.tracks.music || {} }, layers: E.layers,
   });
@@ -7179,11 +7202,12 @@ $('sty').addEventListener('click', e => { if (e.target === $('sty')) closeStyle(
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('sty').hidden) closeStyle(); });
 $('sty-parts').addEventListener('change', e => {
   if (e.target.name === 'sty-gfxtext') { styGfxText = e.target.value; try { localStorage.setItem('ed-sty-gfxtext', styGfxText); } catch {} return; }
+  if (e.target.name === 'sty-txtmode') { styTxtMode = e.target.value; try { localStorage.setItem('ed-sty-txtmode', styTxtMode); } catch {} return; }
   const k = e.target.dataset.part;
   if (!k) return;
   e.target.checked ? styParts.add(k) : styParts.delete(k);
   try { localStorage.setItem('ed-sty-parts', JSON.stringify([...styParts])); } catch {}
-  if (k === 'gfx') renderStyParts();
+  if (k === 'gfx' || k === 'texts') renderStyParts();
   renderStyClips();
 });
 $('sty-clips').addEventListener('change', e => {
