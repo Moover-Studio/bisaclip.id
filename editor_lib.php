@@ -1136,7 +1136,7 @@ function sanitize_edit(array $in, array $current): array
     // Kontrol track timeline: sembunyikan / kunci (+ bisukan untuk video & musik). Subtitle memakai saklar 'subtitles'.
     $tr = (array) ($in['tracks'] ?? []);
     $edit['tracks'] = [];
-    foreach (['media', 'text', 'fx', 'sub', 'video', 'music', 'sfx'] as $k) {
+    foreach (['media', 'gfx', 'text', 'fx', 'sub', 'video', 'music', 'sfx'] as $k) {
         $t = (array) ($tr[$k] ?? []);
         $edit['tracks'][$k] = ['lock' => !empty($t['lock'])] + (!in_array($k, ['sub', 'music', 'sfx'], true) ? ['hide' => !empty($t['hide'])] : [])
             + (in_array($k, ['video', 'music', 'sfx'], true) ? ['mute' => !empty($t['mute'])] : []);
@@ -1768,13 +1768,12 @@ function overlay_graph(array $edit, string $in, string $out, bool $withMedia = t
 
 /**
  * Media & grafik di timeline sebagai overlay [$in] -> [$out]. $k = faktor skala layar (1 = 1080x1920, 4/3 = 2K).
- * Mengembalikan '' kalau tidak ada media (atau track Media disembunyikan).
+ * Mengembalikan '' kalau tidak ada media. Track Media (gambar) & Grafik (template grafik) bisa disembunyikan sendiri-sendiri.
  */
 function media_graph(array $edit, string $in, string $out, float $k = 1.0): string
 {
-    if (!empty($edit['tracks']['media']['hide'])) {
-        return '';
-    }
+    $hideMed = !empty($edit['tracks']['media']['hide']);
+    $hideGfx = !empty($edit['tracks']['gfx']['hide']);
     $t0 = (float) $edit['trim'][0];
     $dur = (float) $edit['trim'][1] - $t0;
     $kx = fn($e) => $e === '0' || abs($k - 1) < 1e-6 ? $e : sprintf('%.4f*(%s)', $k, $e);
@@ -1784,7 +1783,7 @@ function media_graph(array $edit, string $in, string $out, float $k = 1.0): stri
     foreach (array_values($edit['media'] ?? []) as $i => $m) {
         $s = max(0, $m['s'] - $t0);
         $e = min($dur, $m['e'] - $t0);
-        if ($e - $s < 0.05 || !overlay_file_ok($m['file'] ?? null)) {
+        if ($e - $s < 0.05 || !overlay_file_ok($m['file'] ?? null) || (!empty($m['gfx']) ? $hideGfx : $hideMed)) {
             continue;
         }
         $w = max(2, (int) round(1080 * $k * $m['w'] / 2) * 2);

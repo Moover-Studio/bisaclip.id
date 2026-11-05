@@ -376,13 +376,13 @@ if (!valid_job_id($pid) || !preg_match('/^[a-f0-9]{8}$/', $iid)) {
   .tl-gut .t-music { top: 176px; height: 24px; }
   .tl-gut .t-sfx { top: 206px; height: 22px; }
   /* Track disembunyikan: item pudar; dikunci: item tidak bisa dipilih / digeser (klik = pindah playhead) */
-  .sc-inner.h-media .sc-media, .sc-inner.h-text .sc-text, .sc-inner.h-fx .sc-fx, .sc-inner.h-sub .sc-lbl,
+  .sc-inner.h-media .sc-media:not(.sc-gfx), .sc-inner.h-gfx .sc-gfx, .sc-inner.h-text .sc-text, .sc-inner.h-fx .sc-fx, .sc-inner.h-sub .sc-lbl,
   .sc-inner.h-video .film, .sc-inner.h-video .sc-foot { opacity: .3; }
-  .sc-inner.l-media .sc-media, .sc-inner.l-text .sc-text, .sc-inner.l-fx .sc-fx, .sc-inner.l-sub .sc-lbl,
+  .sc-inner.l-media .sc-media:not(.sc-gfx), .sc-inner.l-gfx .sc-gfx, .sc-inner.l-text .sc-text, .sc-inner.l-fx .sc-fx, .sc-inner.l-sub .sc-lbl,
   .sc-inner.l-video .sc-foot, .sc-inner.l-video .sc-tr, .sc-inner.l-video .sc-clip .handle { pointer-events: none; }
-  .sc-inner.l-media .sc-media, .sc-inner.l-text .sc-text, .sc-inner.l-fx .sc-fx, .sc-inner.l-sub .sc-lbl, .sc-inner.l-video .sc-foot {
+  .sc-inner.l-media .sc-media:not(.sc-gfx), .sc-inner.l-gfx .sc-gfx, .sc-inner.l-text .sc-text, .sc-inner.l-fx .sc-fx, .sc-inner.l-sub .sc-lbl, .sc-inner.l-video .sc-foot {
     background-image: repeating-linear-gradient(135deg, rgba(0, 0, 0, .28) 0 4px, transparent 4px 8px); }
-  .phone.l-media .mimg, .phone.l-text .tbox, .phone.l-sub .sub { pointer-events: none; }
+  .phone.l-media .mimg:not(.gfx), .phone.l-gfx .mimg.gfx, .phone.l-text .tbox, .phone.l-sub .sub { pointer-events: none; }
   .sc-inner { position: relative; height: 232px; cursor: pointer; touch-action: none; overflow: visible; }
   /* Penggaris waktu di atas track */
   .ruler { position: absolute; left: 0; right: 0; top: 0; height: 20px; pointer-events: none; }
@@ -638,7 +638,7 @@ if (!valid_job_id($pid) || !preg_match('/^[a-f0-9]{8}$/', $iid)) {
   .sc-media .mh::after { content: ""; position: absolute; left: 4px; top: 7px; bottom: 7px; width: 2px; border-radius: 1px; background: #fff; }
   .sc-media .mh.l { left: 0; }
   .sc-media .mh.r { right: 0; }
-  .tlx:has(.sc-media.on) .sc-media:not(.on), .tlx:has(.sc-text.on) .sc-text:not(.on), .tlx:has(.sc-fx.on) .sc-fx:not(.on) { opacity: .45; }
+  .tlx:has(.sc-media.on:not(.sc-gfx)) .sc-media:not(.on, .sc-gfx), .tlx:has(.sc-gfx.on) .sc-gfx:not(.on), .tlx:has(.sc-text.on) .sc-text:not(.on), .tlx:has(.sc-fx.on) .sc-fx:not(.on) { opacity: .45; }
   .sc-media.on, .sc-text.on, .sc-fx.on { filter: brightness(1.1) saturate(1.1); }
   .sc-media.on { box-shadow: none; z-index: 4; }
   .sc-media.out { opacity: .4; }
@@ -1210,6 +1210,7 @@ if (!valid_job_id($pid) || !preg_match('/^[a-f0-9]{8}$/', $iid)) {
      Netral bernuansa navy; warna track satu keluarga biru: biru, indigo, cyan, sky. */
   :root {
     --c-media: #2563C9; --c-media-rgb: 37, 99, 201;
+    --c-gfx: #1C7FB0;
     --c-text: #4A4DCB; --c-text-rgb: 74, 77, 203;
     --c-fx: #0B8297; --c-fx-rgb: 11, 130, 151;
     --c-music: #5B4FD6; --c-music-rgb: 91, 79, 214;
@@ -1323,20 +1324,22 @@ if (!valid_job_id($pid) || !preg_match('/^[a-f0-9]{8}$/', $iid)) {
   :root .sc-lbl.on { background: var(--accent-soft); color: #fff; box-shadow: inset 0 0 0 1px rgba(110, 168, 255, .45); }
   :root .sc-lbl.narrow { color: transparent; }
   .film, .sc-clip, .sc-foot { border-radius: 7px; }
-  /* Posisi track (dari atas): 4 track utama terlihat langsung — Gambar 22 · Video 52 · Subtitle 96 · Musik 126 —
-     lalu Teks 156 · Efek 186 · SFX 216 (scroll vertikal). Baris 26 px, video 40 px. Dipakai juga oleh area drop
+  /* Posisi track (dari atas): 5 track utama terlihat langsung — Gambar 22 · Video 52 · Subtitle 96 · Grafik 126 · Musik 156 —
+     lalu Teks 186 · Efek 216 · SFX 246 (scroll vertikal). Baris 26 px, video 40 px. Dipakai juga oleh area drop
      (bindTimelineDrop) & track kosong (--top) di JS. */
-  .sc-inner { height: 246px; }
+  .sc-inner { height: 276px; }
   /* align-items: flex-start: area track setinggi isinya (tidak dipotong setinggi kotak scroll) supaya semua track ikut ter-scroll */
-  .scrub { max-height: 176px; overflow-y: auto; overflow-x: hidden; scrollbar-width: thin; align-items: flex-start; }
+  .scrub { max-height: 206px; overflow-y: auto; overflow-x: hidden; scrollbar-width: thin; align-items: flex-start; }
   .tl-gut .t-media { top: 22px; height: 26px; } .tl-gut .t-video { top: 52px; height: 40px; } .tl-gut .t-sub { top: 96px; height: 26px; }
-  .tl-gut .t-music { top: 126px; height: 26px; } .tl-gut .t-text { top: 156px; height: 26px; } .tl-gut .t-fx { top: 186px; height: 26px; }
-  .tl-gut .t-sfx { top: 216px; height: 26px; }
+  .tl-gut .t-gfx { top: 126px; height: 26px; } .tl-gut .t-music { top: 156px; height: 26px; } .tl-gut .t-text { top: 186px; height: 26px; }
+  .tl-gut .t-fx { top: 216px; height: 26px; } .tl-gut .t-sfx { top: 246px; height: 26px; }
   .tl-gut .ti { width: 22px; height: 22px; } .tl-gut .ti .i { width: 14px; height: 14px; }
   .tl-gut .tc { width: 20px; height: 20px; }
   .sc-media, .tl-drop.med, .sc-mempty { top: var(--top, 22px); height: 26px; }
-  .sc-media { top: 22px; } .sc-music { top: 126px; height: 26px; } .sc-text { top: 156px; height: 26px; } .sc-fx { top: 186px; height: 26px; }
-  .sc-sfx { top: 216px; height: 26px; }
+  .sc-media { top: 22px; } .sc-music { top: 156px; height: 26px; } .sc-text { top: 186px; height: 26px; } .sc-fx { top: 216px; height: 26px; }
+  .sc-sfx { top: 246px; height: 26px; }
+  /* Template grafik: track sendiri, terpisah dari gambar & teks tambahan */
+  .sc-media.sc-gfx { top: 126px; background: var(--c-gfx); }
   .sc-media, .sc-text, .sc-fx, .sc-music { font-size: 11.5px; border-radius: 8px; }
   .sc-media .mth { width: 18px; height: 18px; }
   .film, .sc-foot, .sc-dim, .sc-clip, .sc-seg, .sc-cut, .sc-gap { top: 52px; height: 40px; }
@@ -2018,7 +2021,7 @@ function setGfxLook(m, look, trim = E.trim) {
 
 function addGraphic(type) {
   if (!E || !$('cv')) return toast('Tunggu editor selesai dimuat.');
-  if (isLocked('media')) return toast('Track Media sedang dikunci.');
+  if (isLocked('gfx')) return toast('Track Grafik sedang dikunci.');
   const cur = sel.type === 'media' && E.media[sel.i]?.gfx && !E.media[sel.i].ref ? E.media[sel.i] : mainGfx();
   pause();
   if (cur) {
@@ -2149,12 +2152,14 @@ function gfxPanelHtml(m) {
 }
 
 /* ---------- Kontrol track timeline: sembunyikan / bisukan / kunci ---------- */
-const TRACKS = [['media', 'trk-media', 'Media'], ['text', 'trk-text', 'Teks'], ['fx', 'trk-fx', 'Efek'], ['video', 'trk-video', 'Video'], ['sub', 'trk-sub', 'Subtitle'], ['music', 'music', 'Musik'], ['sfx', 'volume', 'SFX']];
+const TRACKS = [['media', 'trk-media', 'Media'], ['gfx', 'gfx', 'Grafik'], ['text', 'trk-text', 'Teks'], ['fx', 'trk-fx', 'Efek'], ['video', 'trk-video', 'Video'], ['sub', 'trk-sub', 'Subtitle'], ['music', 'music', 'Musik'], ['sfx', 'volume', 'SFX']];
 const trk = k => (E.tracks[k] ||= {});
 const isHidden = k => k === 'sub' ? !E.subtitles : !!E.tracks?.[k]?.hide;
 const isLocked = k => !!E.tracks?.[k]?.lock;
 const isMuted = () => !!E.tracks?.video?.mute;
 const musicMuted = () => !!E.tracks?.music?.mute;
+// Item E.media: template grafik punya track sendiri ('gfx'), gambar biasa di track 'media'
+const medTrack = m => m?.gfx ? 'gfx' : 'media';
 // Track dari jenis pilihan
 // Urutan lapisan di atas video, paling atas dulu: teks (+hook), subtitle, media & grafik
 const layerOrder = () => {
@@ -2206,7 +2211,7 @@ function bindTrackCtl() {
     else trk(k)[c] = !trk(k)[c];
     changed();
     // Item terpilih di track yang baru dikunci / disembunyikan dilepas
-    if ((c === 'lock' || c === 'hide') && selTrack(sel.type) === k && (isLocked(k) || isHidden(k))) select({ type: 'clip' });
+    if ((c === 'lock' || c === 'hide') && (sel.type === 'media' ? medTrack(E.media[sel.i]) : selTrack(sel.type)) === k && (isLocked(k) || isHidden(k))) select({ type: 'clip' });
     else { renderTimeline(); renderProps(); }
     applyVolume();
     draw();
@@ -3370,7 +3375,8 @@ function drawMedia(inClip) {
     const src = m._src || (m.file ? 'previews/overlays/' + m.file : '');
     if (el.dataset.f !== src) { el.src = src; el.dataset.f = src; }
     el.dataset.mi = i;
-    el.hidden = isHidden('media') || !itemOn(m, inClip);
+    el.classList.toggle('gfx', !!m.gfx);
+    el.hidden = isHidden(medTrack(m)) || !itemOn(m, inClip);
     el.style.left = `calc(${m.x * 1080}px * var(--k))`;
     el.style.top = `calc(${m.y * 1920}px * var(--k))`;
     el.style.width = `calc(${m.w * 1080}px * var(--k))`;
@@ -3437,7 +3443,7 @@ function bindMediaDrag() {
   // Klik dua kali grafik template = ketik teksnya langsung di layar
   $('mlayer').addEventListener('dblclick', e => {
     const el = e.target.closest('.mimg');
-    if (el && E.media[+el.dataset.mi]?.gfx && !isLocked('media')) startGfxEdit(+el.dataset.mi);
+    if (el && E.media[+el.dataset.mi]?.gfx && !isLocked('gfx')) startGfxEdit(+el.dataset.mi);
   });
 }
 
@@ -3994,7 +4000,7 @@ let inlineEd = null; // { kind: 'line' | 'hook', i, el }
 // Bingkai seleksi mengikuti teks yang dipilih (subtitle baris aktif atau hook) selama teks itu tampil
 // Nilai yang diubah saat kotak seleksi diperbesar / diperkecil
 function resizeTarget() {
-  if (sel.type === 'media' && E.media[sel.i] && !isLocked('media')) {
+  if (sel.type === 'media' && E.media[sel.i] && !isLocked(medTrack(E.media[sel.i]))) {
     const m = E.media[sel.i];
     return { get: () => m.w, set: v => { m.w = Math.round(v * 1e4) / 1e4; }, min: 0.05, max: 1.5 };
   }
@@ -4873,7 +4879,7 @@ function sfxAnchor(v) {
   return { ref: 'main', at: round3(E.base[0] + Math.max(0, Math.min(B, v - P))) };
 }
 function sfxTimelineHtml() {
-  if (!E.sfx.length) return `<div class="sc-mempty" style="--top:216px"><span class="st">${ic('volume')} SFX: tambahkan dari menu Sound effect di panel kiri</span></div>`;
+  if (!E.sfx.length) return `<div class="sc-mempty" style="--top:246px"><span class="st">${ic('volume')} SFX: tambahkan dari menu Sound effect di panel kiri</span></div>`;
   return E.sfx.map((x, i) => {
     const v = sfxStart(x);
     return `<div class="sc-sfx${sel.type === 'sfx' && sel.i === i ? ' on' : ''}" data-sx="${i}" style="left:${v * pps}px;width:${Math.max(14, x.dur * pps)}px"
@@ -5372,11 +5378,16 @@ function renderTimeline() {
     .map(([a, b]) => `<span class="sc-split" style="left:${x(a)}px;width:${x(b) - x(a)}px" title="Split screen"></span>`).join('');
   const W = x(b1);
   const spanX = m => { const [va, vb] = itemV(m); return `left:${va * pps}px;width:${Math.max(24, (vb - va) * pps)}px`; };
-  const meds = E.media.length ? E.media.map((m, i) => {
+  // Gambar di track Media, template grafik di track Grafik; keduanya tetap item E.media (indeks data-mi sama)
+  const medHtml = (m, i) => {
     const on = sel.type === 'media' && sel.i === i, out = !m.ref && (m.e <= t0 || m.s >= t1);
-    return `<div class="sc-media${on ? ' on' : ''}${out ? ' out' : ''}" data-mi="${i}" style="${spanX(m)}" title="${esc(m.name)} · ${fmtTs(m.s - b0)}–${fmtTs(m.e - b0)}">
+    return `<div class="sc-media${m.gfx ? ' sc-gfx' : ''}${on ? ' on' : ''}${out ? ' out' : ''}" data-mi="${i}" style="${spanX(m)}" title="${esc(m.name)} · ${fmtTs(m.s - b0)}–${fmtTs(m.e - b0)}">
       <span class="mh l" data-drag="m0"></span><i class="mth" style="${m.file ? `background-image:url('previews/overlays/${m.file}')` : ''}"></i><span class="nm">${esc(m.name || 'Gambar')}</span><span class="mh r" data-drag="m1"></span></div>`;
-  }).join('') : `<div class="sc-mempty"><span class="st">${ic('image')} Media: pilih gambar di panel Media untuk menambahkannya ke timeline</span></div>`;
+  };
+  const meds = (E.media.some(m => !m.gfx) ? E.media.map((m, i) => m.gfx ? '' : medHtml(m, i)).join('')
+    : `<div class="sc-mempty"><span class="st">${ic('image')} Media: pilih gambar di panel Media untuk menambahkannya ke timeline</span></div>`)
+    + (E.media.some(m => m.gfx) ? E.media.map((m, i) => m.gfx ? medHtml(m, i) : '').join('')
+    : `<div class="sc-mempty" style="--top:126px"><span class="st">${ic('gfx')} Grafik: pilih template dari menu Template grafik di panel kiri</span></div>`);
   if (!$('tlx')) $('tl').innerHTML = `<div class="film" id="film">${filmHtml()}</div><canvas class="wave" id="wave"></canvas><div class="tlx" id="tlx"></div><div class="tl-drop" id="tl-drop" hidden></div>`;
   drawWave();
   Object.assign($('film').style, { left: x(b0) + 'px', width: baseDur() * pps + 'px', right: 'auto' });
@@ -5395,17 +5406,17 @@ function renderTimeline() {
     const on = sel.type === 'text' && sel.i === i, out = !c.ref && (c.e <= t0 || c.s >= t1);
     return `<div class="sc-text${on ? ' on' : ''}${out ? ' out' : ''}" data-ti="${i}" style="${spanX(c)}" title="${esc(c.text)} · ${fmtTs(c.s - b0)}–${fmtTs(c.e - b0)}">
       <span class="mh l" data-drag="m0"></span>${ic('type')}<span class="nm">${esc(c.text)}</span><span class="mh r" data-drag="m1"></span></div>`;
-  }).join('') : `<div class="sc-mempty" style="--top:156px"><span class="st">${ic('type')} Teks: tambahkan dari tab Teks di panel kiri</span></div>`;
+  }).join('') : `<div class="sc-mempty" style="--top:186px"><span class="st">${ic('type')} Teks: tambahkan dari tab Teks di panel kiri</span></div>`;
   const fxs = E.effects.length ? E.effects.map((fx, i) => {
     const on = sel.type === 'effect' && sel.i === i, out = !fx.ref && (fx.e <= t0 || fx.s >= t1);
     return `<div class="sc-fx${on ? ' on' : ''}${out ? ' out' : ''}" data-fi="${i}" style="${spanX(fx)}" title="${esc(EFFECTS[fx.type].label)} · ${fmtTs(fx.s - b0)}–${fmtTs(fx.e - b0)}">
       <span class="mh l" data-drag="m0"></span>${ic('sparkles')}<span class="nm">${esc(EFFECTS[fx.type].label)}</span><span class="mh r" data-drag="m1"></span></div>`;
-  }).join('') : `<div class="sc-mempty" style="--top:186px"><span class="st">${ic('sparkles')} Efek: tambahkan dari menu Efek di panel kiri</span></div>`;
+  }).join('') : `<div class="sc-mempty" style="--top:216px"><span class="st">${ic('sparkles')} Efek: tambahkan dari menu Efek di panel kiri</span></div>`;
   const mus = E.music.length ? E.music.map((m, i) => {
     const on = sel.type === 'music' && sel.i === i, out = !m.ref && (m.e <= t0 || m.s >= t1);
     return `<div class="sc-music${on ? ' on' : ''}${out ? ' out' : ''}" data-mu="${i}" style="${spanX(m)}" title="${esc(m.name)} · ${fmtTs(m.s - b0)}–${fmtTs(m.e - b0)} · volume ${m.vol}%">
       <span class="mh l" data-drag="m0"></span>${ic('music')}<span class="nm">${esc(m.name || 'Musik')}</span><span class="mh r" data-drag="m1"></span></div>`;
-  }).join('') : `<div class="sc-mempty" style="--top:126px"><span class="st">${ic('music')} Musik: pilih lagu dari menu Musik di panel kiri</span></div>`;
+  }).join('') : `<div class="sc-mempty" style="--top:156px"><span class="st">${ic('music')} Musik: pilih lagu dari menu Musik di panel kiri</span></div>`;
   $('tlx').innerHTML = `${rulerHtml()}${meds}${txs}${fxs}${mus}
     <span class="sc-dim l" style="left:${x(b0)}px;width:${x(t0) - x(b0)}px"></span><span class="sc-dim r" style="left:${x(t1)}px;width:${Math.max(0, W - x(t1))}px"></span>
     ${videoMarks()}
