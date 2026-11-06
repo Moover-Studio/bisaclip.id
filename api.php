@@ -1895,7 +1895,7 @@ switch ($action) {
         } catch (RuntimeException $e) {
             respond(['error' => $e->getMessage()], 500);
         }
-        respond(['segments' => $edit['segments'], 'shots' => $edit['shots'], 'cam' => $edit['cam'] ?? null, 'precise' => true]);
+        respond(['segments' => $edit['segments'], 'shots' => $edit['shots'], 'cam' => $edit['cam'] ?? null, 'precise' => TRACK_VERSION]);
 
     case 'mix_upload':
         // Media panel bawah Split mix: satu slot per clip (tidak masuk pustaka Media); foto atau video

@@ -250,6 +250,15 @@ if (!valid_job_id($pid) || !preg_match('/^[a-f0-9]{8}$/', $iid)) {
   .spl.on .shape i { background: var(--accent-fg); }
   .split-opts .p-row { margin-top: 8px; }
   .splits.r3 { margin-bottom: 10px; }
+  /* Daftar momen split: centang = dipakai */
+  .spm-list { display: flex; flex-direction: column; gap: 6px; max-height: 260px; overflow-y: auto; }
+  .spm { display: flex; align-items: flex-start; gap: 8px; padding: 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
+  .spm.off { opacity: .55; }
+  .spm-go { margin-top: 0; flex: none; }
+  .spm-chk { padding-top: 1px; }
+  .spm-body { flex: 1; min-width: 0; font-size: 11.5px; line-height: 1.4; }
+  .spm-body b { display: block; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .spm-body span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; color: var(--muted); }
   .splits.r3 .spl { font-size: 10px; letter-spacing: -.02em; }
   .bgs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   .bgopt { display: flex; align-items: center; gap: 9px; height: 40px; padding: 0 10px; border: 1px solid var(--border-strong); border-radius: 10px;
@@ -2352,6 +2361,7 @@ async function load(retry) {
   setDirty(!!E._migratedHook);
   showPending(d);
   upgradeProxy(IID);
+  retrackStale();
 }
 
 /* Preview lama (proxy 480p) dibuat ulang 720p di latar belakang (±10–20 dtk), lalu video preview ditukar tanpa mengubah posisi putar.
@@ -2380,6 +2390,7 @@ function adoptEdit(d) {
   E.overlay = { enabled: false, file: '', pos: 'bottom', size: 0.9, offset: 0, ...(E.overlay || {}) };
   E.split.early = E.split.early ?? 0;
   delete E.split.screens; // pilihan lama: jumlah layar kini otomatis (maks. 3)
+  E.split.off = (E.split.off || []).map(String); // momen split yang dimatikan user
   if (!SPLIT3_RATIOS.includes(E.split.ratio3)) E.split.ratio3 = SPLIT3_RATIOS[0];
   if (E.style.x === undefined) E.style.x = 0.5;
   E.media = E.media || [];
@@ -2929,15 +2940,47 @@ function gamingCrops(cam, W, H, top = 1344) {
   return [[(W - gw) / 2 / W, (H - gh) / 2 / H, gw / W, gh / H], [x / W, y / H, cw / W, ch / H]];
 }
 
-// Bagian split screen otomatis — sama dengan split_parts() di editor_lib.php:
-// shot 2 orang (min. 0,5 dtk), dimulai lebih awal sebesar toleransi tanpa melewati bagian split sebelumnya.
-// Jumlah layar otomatis: shot 2 orang = 2 panel, shot 3+ orang = 3 panel (maks. 3, orang kiri → atas).
+// Momen split — sama dengan split_moments() di editor_lib.php: hanya saat obrolan berpindah antar narasumber yang tampil
+// bersama dalam satu shot (±3 dtk di sekitar pergantian pembicara). Panel = yang bicara: 2 orang = 2 layar, 3+ = 3 layar.
+const SPLIT_CTX = 3, SPLIT_MERGE = 1.5, SPLIT_MIN = 1.5;
+const splitKey = s => String(Math.floor(s * 10 + 1e-6));
+function splitMoments() {
+  const out = [];
+  for (const sh of E.shots || []) {
+    const people = sh.people || [];
+    if (people.length < 2) continue;
+    const runs = [];
+    for (const sg of E.segments || []) {
+      const a = Math.max(sh.s, sg.s), b = Math.min(sh.e, sg.e);
+      if (b - a <= 0.05) continue;
+      let best = null, bd = 0.15;
+      people.forEach((p, i) => { const d = Math.hypot(p.cx - sg.cx, p.cy - sg.cy); if (d < bd) { best = i; bd = d; } });
+      if (best === null) continue;
+      const last = runs[runs.length - 1];
+      if (last && last[2] === best && a - last[1] < SPLIT_MERGE) last[1] = b; else runs.push([a, b, best]);
+    }
+    const wins = [];
+    for (let i = 0; i + 1 < runs.length; i++) {
+      const [a0, b0, p0] = runs[i], [a1, b1, p1] = runs[i + 1];
+      if (p0 === p1 || a1 - b0 > SPLIT_MERGE) continue;
+      const s = Math.max(a0, b0 - SPLIT_CTX), e = Math.min(b1, a1 + SPLIT_CTX), last = wins[wins.length - 1];
+      if (last && s - last[1] < SPLIT_MERGE) last[1] = Math.max(last[1], e); else wins.push([s, e]);
+    }
+    for (const [s, e] of wins) {
+      if (e - s < SPLIT_MIN) continue;
+      const who = new Map();
+      for (const [a, b, p] of runs) if (b > s + 0.05 && a < e - 0.05) who.set(p, people[p]);
+      const pp = [...who.values()].sort((x, y) => y.fh - x.fh).slice(0, 3).sort((x, y) => x.cx - y.cx);
+      out.push({ k: splitKey(s), s, e, pp });
+    }
+  }
+  return out.sort((x, y) => x.s - y.s);
+}
+// Bagian split yang dipakai — sama dengan split_parts(): momen yang tidak dimatikan, dimajukan sebesar toleransi
 function splitParts() {
   if (!autoSplitOn()) return [];
-  const max = 3;
-  const parts = (E.shots || []).filter(s => s.people.length >= 2 && s.e - s.s >= 0.5).map(s => ({
-    s: s.s, e: s.e, pp: [...s.people].sort((a, b) => b.fh - a.fh).slice(0, Math.min(max, s.people.length)).sort((a, b) => a.cx - b.cx),
-  })).sort((a, b) => a.s - b.s);
+  const off = E.split.off || [];
+  const parts = splitMoments().filter(m => !off.includes(m.k)).map(m => ({ ...m }));
   let prevEnd = 0;
   for (const p of parts) { p.s = Math.max(prevEnd, p.s - (E.split.early || 0), 0); prevEnd = p.e; }
   return parts;
@@ -4450,7 +4493,7 @@ function staticFrame(it, which) {
   let key, make;
   if (it === 'main') {
     const time = which === 'first' ? E.trim[0] + 0.02 : E.trim[1] - 0.05;
-    key = `main:${IID}:${time}:${E.layout}:${E.split.enabled}:${E.split.ratio3}`;
+    key = `main:${IID}:${time}:${E.layout}:${E.split.enabled}:${E.split.ratio3}:${(E.split.off || []).join(',')}:${E.split.early}`;
     make = c => grabFrame(meta.proxy, time - E.pad[0], v => { const g2 = c.getContext('2d'); paintMain(g2, v, time, c.width, c.height); drawFrameMask(g2, c.width, c.height); });
   } else if (it.kind === 'image') {
     const im = footEl(it);
@@ -5863,14 +5906,15 @@ function stepper(key, value) {
 
 // Split podcast hanya di bagian yang memang menampilkan 2 orang sekaligus (sinkron): berapa detik clip ini yang terbelah
 function splitInfo() {
-  if (E.pending || !E.shots) return 'Mencari bagian video yang menampilkan 2 orang…';
+  if (E.pending || !E.shots) return 'Mencari momen obrolan antar narasumber…';
   const [t0, t1] = E.trim, parts = splitParts().filter(p => p.e > t0 && p.s < t1);
   const sec = parts.reduce((a, p) => a + Math.min(t1, p.e) - Math.max(t0, p.s), 0);
   const n3 = parts.filter(p => p.pp.length === 3).length;
-  if (sec < 0.5) return 'Clip ini tidak punya bagian yang menampilkan 2 orang dalam satu gambar, jadi tetap layar penuh mengikuti pembicara. '
-    + 'Split screen hanya muncul saat kamera menampilkan 2 orang sekaligus, supaya gerak bibir tetap sinkron.';
-  return `<b>${Math.round(sec)} dari ${Math.round(t1 - t0)} detik</b> clip ini terbelah: bagian yang menampilkan 2 orang sekaligus jadi 2 layar${n3 ? `, ${n3} bagian dengan 3 orang atau lebih jadi 3 layar` : ''}. Bagian 1 orang tetap layar penuh mengikuti pembicara.
-    <button type="button" class="lnk-btn split-go" data-split-go="${Math.max(t0, parts[0].s)}">${ic('play')} Lihat bagian split</button>`;
+  const all = splitMoments().filter(m => m.e > t0 && m.s < t1);
+  if (!all.length) return 'Tidak ada momen obrolan antar narasumber yang tampil bersama di clip ini, jadi tetap layar penuh mengikuti pembicara. '
+    + 'Split hanya muncul saat pembicara berganti di shot yang menampilkan beberapa orang, supaya gerak bibir tetap sinkron.';
+  if (sec < 0.5) return 'Semua momen split dimatikan: clip tetap layar penuh mengikuti pembicara.';
+  return `<b>${Math.round(sec)} dari ${Math.round(t1 - t0)} detik</b> clip ini terbelah, hanya di momen obrolan antar narasumber${n3 ? ` (${n3} momen jadi 3 layar)` : ''}. Sisanya layar penuh mengikuti pembicara.`;
 }
 
 // Pilihan rasio atas:bawah (dipakai Auto split, Split game & Split mix)
@@ -5887,9 +5931,26 @@ function autoSplitHtml() {
       <span class="shape">${r.split(':').map(p => `<i style="flex:${p}"></i>`).join('')}</span>${r === SPLIT3_RATIOS[0] ? 'Rata' : r}</button>`).join('')}</div>` : ''}
     ${splitRatioHtml(has3 ? 'Atas : Bawah (bagian 2 orang)' : 'Atas : Bawah')}
     <p class="muted small" style="margin:8px 0 0">${splitInfo()}</p>
-    <div class="p-row"><label>Toleransi<span class="tip" data-tip="Split screen muncul lebih awal sebanyak detik ini. Contoh: AI mendeteksi 2 orang di detik 12, toleransi 2 dtk → split mulai di detik 10.">?</span></label>
+    ${splitMomentsHtml()}
+    <div class="p-row"><label>Toleransi<span class="tip" data-tip="Split screen muncul lebih awal sebanyak detik ini. Contoh: momen obrolan terdeteksi di detik 12, toleransi 2 dtk → split mulai di detik 10.">?</span></label>
       <input type="range" min="0" max="5" step="0.25" id="split-lead" value="${E.split.early}">
       <span class="val">${E.split.early.toFixed(2)}s</span></div></div>`;
+}
+// Daftar momen split di clip ini: waktu, jumlah layar, potongan kalimat (bahasan); centang = dipakai, play = lompat ke momen
+function splitMomentsHtml() {
+  const [t0, t1] = E.trim, off = E.split.off || [];
+  const ms = splitMoments().filter(m => m.e > t0 && m.s < t1);
+  if (!ms.length) return '';
+  const said = m => E.lines.flatMap(l => l.words).filter(w => w.e > m.s && w.s < m.e).map(w => w.w).join(' ');
+  return `<div class="split-lbl" style="margin-top:10px">Momen split (${ms.length - ms.filter(m => off.includes(m.k)).length}/${ms.length} dipakai)</div>
+    <div class="spm-list">${ms.map(m => {
+      const txt = said(m), on = !off.includes(m.k);
+      return `<div class="spm ${on ? '' : 'off'}">
+        <label class="spm-chk"><input type="checkbox" data-split-mom="${m.k}" ${on ? 'checked' : ''} aria-label="Pakai momen split ini"></label>
+        <div class="spm-body"><b>${fmtTs(Math.max(t0, m.s) - E.base[0])}–${fmtTs(Math.min(t1, m.e) - E.base[0])} · ${m.pp.length} layar</b>
+          <span title="${esc(txt)}">${txt ? '“' + esc(txt.length > 90 ? txt.slice(0, 90) + '…' : txt) + '”' : 'Tanpa subtitle'}</span></div>
+        <button type="button" class="lnk-btn split-go spm-go" data-split-go="${Math.max(t0, m.s)}" title="Putar momen ini">${ic('play')}</button></div>`;
+    }).join('')}</div>`;
 }
 // Split game: gameplay atas, webcam streamer bawah
 function splitPanelHtml() {
@@ -6244,7 +6305,7 @@ function renderPropsBody() {
     <div class="p-sec">
       <h3><span>Auto split</span><label class="switch"><input type="checkbox" id="autosplit-on" aria-label="Auto split" ${autoSplitOn() ? 'checked' : ''} ${(E.frame.ratio || 'full') === 'full' ? '' : 'disabled'}></label></h3>
       <p class="muted small" style="margin:0">${(E.frame.ratio || 'full') !== 'full' ? 'Pakai layout Full untuk memakai Auto split.'
-        : autoSplitOn() ? 'Layar terbelah otomatis saat beberapa narasumber tampil bersamaan: 2 orang = 2 layar, 3 orang atau lebih = 3 layar.' : 'Layar otomatis terbelah di momen 2–3 narasumber tampil bersamaan (maks. 3 layar).'}</p>
+        : autoSplitOn() ? 'Layar terbelah hanya di momen obrolan antar narasumber yang tampil bersama: 2 orang = 2 layar, 3 orang atau lebih = 3 layar.' : 'Layar otomatis terbelah di momen obrolan antar 2–3 narasumber (maks. 3 layar).'}</p>
       ${autoSplitOn() ? autoSplitHtml() : ''}
     </div>
     <div class="p-sec">
@@ -6508,6 +6569,14 @@ function bindProps() {
   P.addEventListener('change', e => {
     if (e.target.id === 'follow-on') { E.follow = e.target.checked; changed(); renderProps(); draw(); return; }
     if (e.target.matches('[data-mixs]') && mixAt(+e.target.dataset.mixs)) { changed(); return; }
+    if (e.target.dataset.splitMom !== undefined) {
+      // Nyalakan / matikan satu momen split (bahasan yang tidak perlu dibelah)
+      const k = e.target.dataset.splitMom, off = new Set(E.split.off || []);
+      e.target.checked ? off.delete(k) : off.add(k);
+      E.split.off = [...off];
+      changed(); renderProps(); renderTimeline(); draw();
+      return;
+    }
     if (e.target.id === 'autosplit-on') { const prev = autoSplitOn(); E.split.enabled = e.target.checked; return applyLayout(prev); }
     if (e.target.dataset.mixFile !== undefined && e.target.files.length) return uploadMix(e.target.files[0], +e.target.dataset.mixFile);
     if (e.target.dataset.ts && e.target.type === 'number') {
@@ -6876,7 +6945,7 @@ let layoutBusy = false;
 async function applyLayout(prev = false) {
   syncLayout();
   const game = E.frame.ratio === 'split', auto = autoSplitOn();
-  const need = !E.pending && (game ? E.cam === undefined : auto && (!E.shots || !E.precise));
+  const need = !E.pending && (game ? E.cam === undefined : auto && (!E.shots || (+E.precise || 0) < 2)); // 2 = TRACK_VERSION (poster dibuang)
   if (need && !layoutBusy) {
     layoutBusy = true;
     pause();
@@ -6903,8 +6972,30 @@ async function applyLayout(prev = false) {
   if (game && E.cam === null) toast('Webcam tidak terdeteksi, memakai bagian tengah video');
   if (auto && !prev && E.shots) {
     const r = splitSummary();
-    toast(r.n ? `Auto split · ${r.n} bagian split (${Math.round(r.secs)} dtk)${r.n3 ? `, ${r.n3} di antaranya 3 layar` : ''}` : 'Tidak ada bagian dengan 2 orang atau lebih di clip ini');
+    toast(r.n ? `Auto split · ${r.n} momen obrolan (${Math.round(r.secs)} dtk)${r.n3 ? `, ${r.n3} di antaranya 3 layar` : ''}` : 'Tidak ada momen obrolan antar narasumber di clip ini');
   }
+}
+
+// Resep lama dengan Auto split aktif: data orang masih versi lama (poster ikut terdeteksi) → deteksi ulang sekali saat dibuka.
+// Hasilnya sudah disimpan server ke resep, jadi tidak menandai ada perubahan.
+async function retrackStale() {
+  if (E.pending || !autoSplitOn() || !E.shots || (+E.precise || 0) >= 2 || layoutBusy) return;
+  const iid = IID;
+  layoutBusy = true;
+  busy('Memperbarui deteksi narasumber…', 'Mencari momen obrolan untuk Auto split. Biasanya beberapa detik.');
+  try {
+    const d = await api('edit_track', { id: PID, iid });
+    if (iid === IID) Object.assign(E, { segments: d.segments, shots: d.shots, cam: d.cam, precise: d.precise });
+  } catch (err) {
+    toast(err.message);
+  } finally {
+    idle();
+    layoutBusy = false;
+  }
+  if (iid !== IID) return;
+  renderProps();
+  renderTimeline();
+  draw();
 }
 
 // Toleransi diterapkan setelah slider berhenti digeser, dengan loading singkat sebagai tanda
@@ -7570,6 +7661,7 @@ function commitClip(iid, d, v) {
   renderStrip();
   loadProject();
   upgradeProxy(iid);
+  retrackStale();
 }
 
 function openClip(iid, force) {

@@ -163,6 +163,22 @@ def main():
     speaking = speech_mask(args.words, n, fps)
     shot_cuts.append(n)
 
+    # Wajah diam (poster / foto / gambar di dinding): posisi praktis tidak bergeser dan mulut hampir tidak bergerak.
+    # Dibuang dari pemilihan pembicara & daftar orang per shot supaya kamera / split tidak mengarah ke poster.
+    per = {}
+    for row in frames:
+        for tid, cx, cy, fh, m in row:
+            per.setdefault(tid, []).append((cx, cy, m))
+    static = set()
+    for tid, pts in per.items():
+        if len(pts) < 10:
+            continue
+        arr = np.array(pts, dtype=np.float32)
+        if float(arr[:, 0].std() + arr[:, 1].std()) < 0.0008 and float(np.percentile(arr[:, 2], 90)) < 0.7:
+            static.add(tid)
+    if static:
+        frames = [[r for r in row if r[0] not in static] for row in frames]
+
     # Pilih wajah aktif per frame: skor = rata-rata gerakan mulut (diperhalus) selama ada suara
     target = [None] * n           # (track_id, cx, cy, fh)
     score = {}                    # skor halus per track
@@ -243,9 +259,19 @@ def main():
         for k in range(a, b):
             for tid, cx, cy, fh, _ in frames[k]:
                 seen.setdefault(tid, []).append((cx, cy, fh))
+        # Gerakan mulut per wajah di shot ini (untuk membuang wajah diam: poster / foto / gambar di dinding)
+        mot = {}
+        for k in range(a, b):
+            for tid, _, _, _, m in frames[k]:
+                mot.setdefault(tid, []).append(m)
         people = []
         for tid, pts in seen.items():
             if len(pts) >= 0.4 * (b - a):
+                # Wajah statis: posisi praktis tidak bergeser (jitter deteksi orang asli jauh lebih besar)
+                # dan mulut hampir tidak bergerak → poster, bukan narasumber
+                still = (float(np.std([p[0] for p in pts])) + float(np.std([p[1] for p in pts]))) < 0.0008
+                if still and float(np.percentile(mot.get(tid, [0]), 90)) < 0.7:
+                    continue
                 people.append({'cx': float(np.median([p[0] for p in pts])), 'cy': float(np.median([p[1] for p in pts])),
                                'fh': float(np.median([p[2] for p in pts]))})
         people.sort(key=lambda q: q['cx'])

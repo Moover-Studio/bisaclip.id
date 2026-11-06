@@ -1036,7 +1036,7 @@ function run_clip(string $id, array $job, string $cancelFlag): void
         }
         if ($layout === 'split' && $segments === null) {
             // Split screen butuh data shot dari resep edit; resep lama dihitung ulang dulu
-            if ($edit && (!isset($edit['shots']) || empty($edit['precise']))) {
+            if ($edit && (!isset($edit['shots']) || (int) ($edit['precise'] ?? 0) < TRACK_VERSION)) {
                 update_job($id, ['status' => 'converting', 'stage' => 'Mendeteksi posisi orang untuk split screen…']);
                 $edit = retrack_edit($job['project_id'], $job['item_id']);
             }

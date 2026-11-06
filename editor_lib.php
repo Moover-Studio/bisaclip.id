@@ -584,7 +584,7 @@ function prepare_edit(string $jobId, array $job, string $cancelFlag): array
         . ' --out ' . escapeshellarg($trackOut), fn() => null, $cancelFlag, 300);
     $track = json_decode((string) @file_get_contents($trackOut), true);
     [$segments, $shots, $cam] = track_to_edit($track, $padStart, precise_cuts($proxy));
-    return merge_prepared($pid, $iid, ['segments' => $segments, 'shots' => $shots, 'cam' => $cam, 'precise' => true], false);
+    return merge_prepared($pid, $iid, ['segments' => $segments, 'shots' => $shots, 'cam' => $cam, 'precise' => TRACK_VERSION], false);
 }
 
 /**
@@ -729,7 +729,7 @@ function retrack_edit(string $pid, string $iid): array
     $latest['segments'] = $segments;
     $latest['shots'] = $shots;
     $latest['cam'] = $cam;
-    $latest['precise'] = true; // batas shot sudah dipresisikan ke cut per frame
+    $latest['precise'] = TRACK_VERSION; // batas shot dipresisikan ke cut per frame, poster / wajah diam dibuang
     write_edit($pid, $iid, $latest);
     return $latest;
 }
@@ -768,6 +768,8 @@ function split_cfg(array $edit): array
         'early' => max(0, min(5, (float) ($cfg['early'] ?? 0))),
         // Rasio panel atas : tengah : bawah untuk bagian 3 orang
         'ratio3' => in_array($cfg['ratio3'] ?? '', SPLIT3_RATIOS, true) ? $cfg['ratio3'] : SPLIT3_RATIOS[0],
+        // Momen split yang dimatikan user (kunci = split_key(awal momen))
+        'off' => array_values(array_map('strval', (array) ($cfg['off'] ?? []))),
     ];
 }
 
@@ -778,36 +780,114 @@ function base_layout(array $edit): string
     return $e['layout'] === 'gaming' ? 'gaming' : (($e['follow'] ?? true) === false ? 'crop_center' : 'speaker');
 }
 
-/** Shot 2 orang yang lebih pendek dari ini tidak dijadikan split, supaya tampilan tidak berkedip. */
-const SPLIT_MIN_SHOT = 0.5;
+/** Versi data deteksi orang: 2 = poster / wajah diam dibuang. Resep dengan versi lebih lama dideteksi ulang untuk Auto split. */
+const TRACK_VERSION = 2;
+
+/** Momen split: detik sebelum & sesudah pergantian pembicara, jarak gabung antar momen, durasi minimal. */
+const SPLIT_CTX = 3.0;
+const SPLIT_MERGE = 1.5;
+const SPLIT_MIN = 1.5;
+
+/** Kunci momen split = awal momen dalam persepuluh detik (sama persis dengan splitKey() di editor.php). */
+function split_key(float $s): string
+{
+    return (string) (int) floor($s * 10 + 1e-6);
+}
 
 /**
- * Bagian split screen (waktu absolut): shot berisi 2 orang, dimulai lebih awal sebesar toleransi
- * (tidak melewati akhir bagian split sebelumnya). Selama detik "lebih awal" itu posisi dua orang
- * diambil dari shot 2 orang tersebut. Hasil: [[s, e, [orangAtas, (orangTengah,) orangBawah]], ...]
- * (Shot 3+ orang → 3 orang terbesar jadi 3 layar, urut kiri ke kanan = atas ke bawah.)
+ * Semua kandidat momen split (waktu absolut, sebelum toleransi): hanya saat obrolan berpindah antar narasumber yang
+ * tampil bersama dalam satu shot, ±SPLIT_CTX detik di sekitar pergantian pembicara. Shot lebar yang diam sepanjang
+ * clip tidak lagi dibelah penuh. Panel = narasumber yang bicara di momen itu: 2 orang → 2 layar, 3+ → 3 layar
+ * (3 wajah terbesar), urut kiri ke kanan = atas ke bawah. Hasil: [['k' => kunci, 's', 'e', 'pp' => [...]], ...]
+ */
+function split_moments(array $edit): array
+{
+    $out = [];
+    foreach ($edit['shots'] ?? [] as $sh) {
+        $people = $sh['people'] ?? [];
+        if (count($people) < 2) {
+            continue;
+        }
+        // Siapa yang bicara sepanjang shot: segmen pembicara → orang terdekat di shot ini
+        $runs = [];
+        foreach ($edit['segments'] ?? [] as $sg) {
+            $a = max($sh['s'], $sg['s']);
+            $b = min($sh['e'], $sg['e']);
+            if ($b - $a <= 0.05) {
+                continue;
+            }
+            $best = null;
+            $bd = 0.15;
+            foreach ($people as $i => $p) {
+                $d = hypot($p['cx'] - $sg['cx'], $p['cy'] - $sg['cy']);
+                if ($d < $bd) {
+                    [$best, $bd] = [$i, $d];
+                }
+            }
+            if ($best === null) {
+                continue;
+            }
+            $n = count($runs);
+            if ($n && $runs[$n - 1][2] === $best && $a - $runs[$n - 1][1] < SPLIT_MERGE) {
+                $runs[$n - 1][1] = $b;
+            } else {
+                $runs[] = [$a, $b, $best];
+            }
+        }
+        // Jendela di sekitar tiap pergantian pembicara, digabung kalau berdekatan
+        $wins = [];
+        for ($i = 0; $i + 1 < count($runs); $i++) {
+            [$a0, $b0, $p0] = $runs[$i];
+            [$a1, $b1, $p1] = $runs[$i + 1];
+            if ($p0 === $p1 || $a1 - $b0 > SPLIT_MERGE) {
+                continue;
+            }
+            $s = max($a0, $b0 - SPLIT_CTX);
+            $e = min($b1, $a1 + SPLIT_CTX);
+            $n = count($wins);
+            if ($n && $s - $wins[$n - 1][1] < SPLIT_MERGE) {
+                $wins[$n - 1][1] = max($wins[$n - 1][1], $e);
+            } else {
+                $wins[] = [$s, $e];
+            }
+        }
+        foreach ($wins as [$s, $e]) {
+            if ($e - $s < SPLIT_MIN) {
+                continue;
+            }
+            $who = [];
+            foreach ($runs as [$a, $b, $p]) {
+                if ($b > $s + 0.05 && $a < $e - 0.05) {
+                    $who[$p] = $people[$p];
+                }
+            }
+            $pp = array_values($who);
+            usort($pp, fn($x, $y) => $y['fh'] <=> $x['fh']);
+            $pp = array_slice($pp, 0, 3);
+            usort($pp, fn($x, $y) => $x['cx'] <=> $y['cx']);
+            $out[] = ['k' => split_key($s), 's' => round($s, 3), 'e' => round($e, 3), 'pp' => $pp];
+        }
+    }
+    usort($out, fn($x, $y) => $x['s'] <=> $y['s']);
+    return $out;
+}
+
+/**
+ * Bagian split screen yang dipakai (waktu absolut): momen split yang tidak dimatikan user, dimulai lebih awal sebesar
+ * toleransi (tidak melewati akhir bagian split sebelumnya). Hasil: [[s, e, [orangAtas, (orangTengah,) orangBawah]], ...]
  */
 function split_parts(array $edit): array
 {
-    $early = split_cfg($edit)['early'];
+    $cfg = split_cfg($edit);
     $parts = [];
-    foreach ($edit['shots'] ?? [] as $sh) {
-        if (count($sh['people']) < 2) {
-            continue;
-        }
-        $pp = $sh['people'];
-        usort($pp, fn($x, $y) => $y['fh'] <=> $x['fh']);
-        // Otomatis: 2 orang → 2 panel, 3 orang atau lebih → 3 panel (maks. 3 layar)
-        $pp = array_slice($pp, 0, min(3, count($pp)));
-        usort($pp, fn($x, $y) => $x['cx'] <=> $y['cx']);
-        if ($sh['e'] - $sh['s'] >= SPLIT_MIN_SHOT) {
-            $parts[] = [$sh['s'], $sh['e'], $pp];
+    foreach (split_moments($edit) as $m) {
+        if (!in_array($m['k'], $cfg['off'], true)) {
+            $parts[] = [$m['s'], $m['e'], $m['pp']];
         }
     }
-    usort($parts, fn($x, $y) => $x[0] <=> $y[0]);
     $prevEnd = 0.0;
     foreach ($parts as $k => [$s, $e]) {
-        $parts[$k][0] = max($prevEnd, $s - $early, 0);
+        $parts[$k][0] = max($prevEnd, $s - $cfg['early'], 0);
         $prevEnd = $e;
     }
     return $parts;
@@ -947,7 +1027,8 @@ function sanitize_edit(array $in, array $current): array
     $sp = (array) ($up['split'] ?? []);
     // Auto split (toggle): split 2 orang otomatis, hanya untuk layout Full
     $edit['split'] = ['enabled' => !empty($sp['enabled']) && $ratio === 'full', 'early' => round($num($sp['early'] ?? 0, 0, 5), 2),
-        'ratio3' => in_array($sp['ratio3'] ?? '', SPLIT3_RATIOS, true) ? $sp['ratio3'] : SPLIT3_RATIOS[0]];
+        'ratio3' => in_array($sp['ratio3'] ?? '', SPLIT3_RATIOS, true) ? $sp['ratio3'] : SPLIT3_RATIOS[0],
+        'off' => array_values(array_unique(array_map(fn($k) => (string) (int) $k, array_filter(array_slice((array) ($sp['off'] ?? []), 0, 200), 'is_numeric'))))];
     $edit['subtitles'] = !empty($in['subtitles']);
     $edit['volume'] = (int) $num($in['volume'] ?? 100, 0, 200); // volume audio clip, persen
     $edit['volKf'] = kf_sanitize($in['volKf'] ?? [], $p0, $p1, 200); // keyframe volume audio clip (kosong = volume tetap)
