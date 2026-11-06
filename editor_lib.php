@@ -756,14 +756,47 @@ function mix3_sanitize($m): array
     return ['pos' => isset(MIX3_POS[$pos]) ? $pos : 'mid', 'panels' => [mix_sanitize($p[0] ?? null), mix_sanitize($p[1] ?? null)]];
 }
 
-/** Pengaturan split screen otomatis (resep lama dengan layout "split" dianggap ikuti pembicara + split aktif). */
+/** Split manual: [{s, e, n}] waktu absolut di dalam pad, n = 2 / 3 layar, urut & tidak saling tumpuk (maks. 50). */
+function split_manual_sanitize($list, float $p0, float $p1): array
+{
+    $out = [];
+    foreach (array_slice((array) $list, 0, 50) as $m) {
+        if (!is_array($m) || !is_numeric($m['s'] ?? null) || !is_numeric($m['e'] ?? null)) {
+            continue;
+        }
+        $a = round(max($p0, min($p1, (float) $m['s'])), 3);
+        $b = round(max($p0, min($p1, (float) $m['e'])), 3);
+        if ($b - $a >= 0.5) {
+            $out[] = ['s' => $a, 'e' => $b, 'n' => (int) ($m['n'] ?? 2) === 3 ? 3 : 2];
+        }
+    }
+    usort($out, fn($x, $y) => $x['s'] <=> $y['s']);
+    $res = [];
+    foreach ($out as $m) {
+        $n = count($res);
+        if ($n && $m['s'] < $res[$n - 1]['e']) {
+            $m['s'] = $res[$n - 1]['e'];
+        }
+        if ($m['e'] - $m['s'] >= 0.5) {
+            $res[] = $m;
+        }
+    }
+    return $res;
+}
+
+/** Pengaturan split screen: Auto split (momen obrolan) dan/atau split manual (resep lama dengan layout "split" = Auto split aktif). */
 function split_cfg(array $edit): array
 {
-    // Auto split (toggle) hanya berlaku di layout Full
+    // Split screen hanya berlaku di layout Full
     $e = upgrade_layout($edit);
     $cfg = $e['split'] ?? [];
+    $full = ($e['frame']['ratio'] ?? 'full') === 'full' && $e['layout'] !== 'gaming';
+    $manual = array_values(array_filter((array) ($cfg['manual'] ?? []), fn($m) => is_array($m) && isset($m['s'], $m['e'])));
     return [
-        'enabled' => !empty($cfg['enabled']) && ($e['frame']['ratio'] ?? 'full') === 'full' && $e['layout'] !== 'gaming',
+        // enabled = ada split apa pun (otomatis / manual) → clip dirender lewat jalur split
+        'enabled' => $full && (!empty($cfg['enabled']) || $manual),
+        'auto' => $full && !empty($cfg['enabled']),
+        'manual' => $full ? $manual : [],
         // Toleransi = split muncul sekian detik LEBIH AWAL dari shot 2 orang yang terdeteksi AI
         'early' => max(0, min(5, (float) ($cfg['early'] ?? 0))),
         // Rasio panel atas : tengah : bawah untuk bagian 3 orang
@@ -787,6 +820,20 @@ const TRACK_VERSION = 2;
 const SPLIT_CTX = 3.0;
 const SPLIT_MERGE = 1.5;
 const SPLIT_MIN = 1.5;
+
+/**
+ * Jatah area horizontal tiap panel (lo / hi, pecahan lebar video): batasnya di tengah antar orang yang berurutan
+ * (sudah urut kiri ke kanan), supaya potongan panel tidak saling tumpuk dan isi tiap layar berbeda.
+ */
+function split_bounds(array $pp): array
+{
+    $n = count($pp);
+    foreach ($pp as $i => $p) {
+        $pp[$i]['lo'] = round($i > 0 ? ($pp[$i - 1]['cx'] + $p['cx']) / 2 : 0, 4);
+        $pp[$i]['hi'] = round($i < $n - 1 ? ($p['cx'] + $pp[$i + 1]['cx']) / 2 : 1, 4);
+    }
+    return $pp;
+}
 
 /** Kunci momen split = awal momen dalam persepuluh detik (sama persis dengan splitKey() di editor.php). */
 function split_key(float $s): string
@@ -865,7 +912,7 @@ function split_moments(array $edit): array
             usort($pp, fn($x, $y) => $y['fh'] <=> $x['fh']);
             $pp = array_slice($pp, 0, 3);
             usort($pp, fn($x, $y) => $x['cx'] <=> $y['cx']);
-            $out[] = ['k' => split_key($s), 's' => round($s, 3), 'e' => round($e, 3), 'pp' => $pp];
+            $out[] = ['k' => split_key($s), 's' => round($s, 3), 'e' => round($e, 3), 'pp' => split_bounds($pp)];
         }
     }
     usort($out, fn($x, $y) => $x['s'] <=> $y['s']);
@@ -880,17 +927,94 @@ function split_parts(array $edit): array
 {
     $cfg = split_cfg($edit);
     $parts = [];
-    foreach (split_moments($edit) as $m) {
-        if (!in_array($m['k'], $cfg['off'], true)) {
-            $parts[] = [$m['s'], $m['e'], $m['pp']];
+    if ($cfg['auto']) {
+        foreach (split_moments($edit) as $m) {
+            if (!in_array($m['k'], $cfg['off'], true)) {
+                $parts[] = [$m['s'], $m['e'], $m['pp']];
+            }
+        }
+        $prevEnd = 0.0;
+        foreach ($parts as $k => [$s, $e]) {
+            $parts[$k][0] = max($prevEnd, $s - $cfg['early'], 0);
+            $prevEnd = $e;
         }
     }
-    $prevEnd = 0.0;
-    foreach ($parts as $k => [$s, $e]) {
-        $parts[$k][0] = max($prevEnd, $s - $cfg['early'], 0);
-        $prevEnd = $e;
+    if (!$cfg['manual']) {
+        return $parts;
     }
+    // Split manual menang atas momen otomatis: bagian otomatis yang beririsan dipotong
+    foreach ($cfg['manual'] as $m) {
+        $next = [];
+        foreach ($parts as [$s, $e, $pp]) {
+            if ($e <= $m['s'] || $s >= $m['e']) {
+                $next[] = [$s, $e, $pp];
+                continue;
+            }
+            if ($m['s'] - $s >= 0.3) {
+                $next[] = [$s, $m['s'], $pp];
+            }
+            if ($e - $m['e'] >= 0.3) {
+                $next[] = [$m['e'], $e, $pp];
+            }
+        }
+        $parts = $next;
+    }
+    foreach ($cfg['manual'] as $m) {
+        array_push($parts, ...split_manual_parts($edit, $m));
+    }
+    usort($parts, fn($x, $y) => $x[0] <=> $y[0]);
     return $parts;
+}
+
+/**
+ * Potongan satu split manual, dipecah per shot kamera: tiap shot memakai n wajah terbesar yang terdeteksi di shot itu
+ * (urut kiri ke kanan = atas ke bawah). Kalau orangnya kurang dari n, panel diisi kolom kiri / tengah / kanan gambar.
+ */
+function split_manual_parts(array $edit, array $m): array
+{
+    $n = (int) $m['n'] === 3 ? 3 : 2;
+    // Kolom kiri / tengah / kanan selebar 1/n gambar (tidak saling tumpuk), setinggi wajah yang terdeteksi kalau ada
+    $colsAt = function (array $people) use ($n) {
+        $cys = array_column($people, 'cy');
+        sort($cys);
+        $cy = $cys ? $cys[intdiv(count($cys), 2)] : 0.45;
+        return split_bounds(array_map(fn($i) => ['cx' => ($i + 0.5) / $n, 'cy' => $cy, 'fh' => 0], range(0, $n - 1)));
+    };
+    $cols = $colsAt([]);
+    $pick = function (array $people) use ($n, $colsAt) {
+        if (count($people) < $n) {
+            return $colsAt($people);
+        }
+        usort($people, fn($x, $y) => $y['fh'] <=> $x['fh']);
+        $pp = array_slice($people, 0, $n);
+        usort($pp, fn($x, $y) => $x['cx'] <=> $y['cx']);
+        return split_bounds($pp);
+    };
+    $out = [];
+    $cursor = $m['s'];
+    foreach ($edit['shots'] ?? [] as $sh) {
+        $a = max($cursor, $sh['s']);
+        $b = min($m['e'], $sh['e']);
+        if ($b - $a <= 0.05) {
+            continue;
+        }
+        if ($a > $cursor + 0.05) {
+            $out[] = [$cursor, $a, $cols];
+        }
+        $out[] = [$a, $b, $pick($sh['people'] ?? [])];
+        $cursor = $b;
+    }
+    if ($m['e'] - $cursor > 0.05) {
+        $out[] = [$cursor, $m['e'], $cols];
+    }
+    // Potongan sangat pendek (< 0,4 dtk, mis. ujung split yang melewati pergantian kamera) memakai susunan panel tetangganya
+    // supaya tidak berkedip
+    foreach ($out as $i => [$a, $b]) {
+        if ($b - $a < 0.4 && count($out) > 1) {
+            $out[$i][2] = ($out[$i + 1] ?? $out[$i - 1])[2];
+        }
+    }
+    return $out;
 }
 
 /**
@@ -1028,7 +1152,9 @@ function sanitize_edit(array $in, array $current): array
     // Auto split (toggle): split 2 orang otomatis, hanya untuk layout Full
     $edit['split'] = ['enabled' => !empty($sp['enabled']) && $ratio === 'full', 'early' => round($num($sp['early'] ?? 0, 0, 5), 2),
         'ratio3' => in_array($sp['ratio3'] ?? '', SPLIT3_RATIOS, true) ? $sp['ratio3'] : SPLIT3_RATIOS[0],
-        'off' => array_values(array_unique(array_map(fn($k) => (string) (int) $k, array_filter(array_slice((array) ($sp['off'] ?? []), 0, 200), 'is_numeric'))))];
+        'off' => array_values(array_unique(array_map(fn($k) => (string) (int) $k, array_filter(array_slice((array) ($sp['off'] ?? []), 0, 200), 'is_numeric')))),
+        // Split manual: rentang pilihan user (2 / 3 layar), berlaku walau Auto split mati (tetap hanya di layout Full)
+        'manual' => $ratio === 'full' ? split_manual_sanitize($sp['manual'] ?? [], $p0, $p1) : []];
     $edit['subtitles'] = !empty($in['subtitles']);
     $edit['volume'] = (int) $num($in['volume'] ?? 100, 0, 200); // volume audio clip, persen
     $edit['volKf'] = kf_sanitize($in['volKf'] ?? [], $p0, $p1, 200); // keyframe volume audio clip (kosong = volume tetap)
@@ -1256,9 +1382,10 @@ function sanitize_edit(array $in, array $current): array
     // Kontrol track timeline: sembunyikan / kunci (+ bisukan untuk video & musik). Subtitle memakai saklar 'subtitles'.
     $tr = (array) ($in['tracks'] ?? []);
     $edit['tracks'] = [];
-    foreach (['media', 'gfx', 'text', 'fx', 'sub', 'video', 'music', 'sfx'] as $k) {
+    foreach (['media', 'gfx', 'text', 'fx', 'sub', 'video', 'split', 'music', 'sfx'] as $k) {
         $t = (array) ($tr[$k] ?? []);
-        $edit['tracks'][$k] = ['lock' => !empty($t['lock'])] + (!in_array($k, ['sub', 'music', 'sfx'], true) ? ['hide' => !empty($t['hide'])] : [])
+        // Track Split: hanya kunci (pita momen split tidak bisa diseret)
+        $edit['tracks'][$k] = ['lock' => !empty($t['lock'])] + (!in_array($k, ['sub', 'split', 'music', 'sfx'], true) ? ['hide' => !empty($t['hide'])] : [])
             + (in_array($k, ['video', 'music', 'sfx'], true) ? ['mute' => !empty($t['mute'])] : []);
     }
     // Urutan lapisan di atas video (paling atas dulu)

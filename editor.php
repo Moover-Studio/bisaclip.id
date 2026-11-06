@@ -255,8 +255,25 @@ if (!valid_job_id($pid) || !preg_match('/^[a-f0-9]{8}$/', $iid)) {
   .spm { display: flex; align-items: flex-start; gap: 8px; padding: 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
   .spm.off { opacity: .55; }
   .spm-go { margin-top: 0; flex: none; }
-  .spm-dot { display: inline-block; width: 8px; height: 8px; margin-right: 4px; border-radius: 2px; background: var(--c-split); vertical-align: 0; }
-  .spm-dot.s3 { background: var(--c-split3); }
+  .spm-add { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .spm-add .spl { flex-direction: row; justify-content: center; gap: 7px; padding: 8px 4px; }
+  .spm-add .spl .shape { width: 12px; height: 20px; }
+  .spm.man { align-items: stretch; }
+  .spm-n { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 6px 0; }
+  .spm-n .spl { padding: 5px 2px; }
+  .spm-t { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
+  .spm-t > span { width: 42px; flex: none; color: var(--muted); }
+  .spm-t .lnk-btn { font: inherit; font-size: 11px; font-weight: 600; border: 0; background: none; color: var(--accent-fg); cursor: pointer; padding: 0; }
+  .spm-acts { display: flex; flex-direction: column; gap: 10px; align-items: center; }
+  .spm-del { font: inherit; border: 0; background: none; color: var(--muted); cursor: pointer; padding: 0; }
+  .spm-del:hover { color: #ff7a7a; }
+  .spm-del .i { width: 13px; height: 13px; }
+  /* Legenda daftar momen: miniatur pita timeline (2 / 3 lajur) */
+  .spm-dot { --c: var(--c-split-rgb); display: inline-block; width: 9px; height: 10px; margin-right: 6px; border-radius: 2px; vertical-align: -1px;
+    background: linear-gradient(to bottom, rgba(var(--c), .9) 0 calc(50% - .6px), transparent calc(50% - .6px) calc(50% + .6px), rgba(var(--c), .9) calc(50% + .6px)); }
+  .spm-dot.s3 { --c: var(--c-split3-rgb);
+    background: linear-gradient(to bottom, rgba(var(--c), .9) 0 calc(33.33% - .6px), transparent calc(33.33% - .6px) calc(33.33% + .6px),
+      rgba(var(--c), .9) calc(33.33% + .6px) calc(66.66% - .6px), transparent calc(66.66% - .6px) calc(66.66% + .6px), rgba(var(--c), .9) calc(66.66% + .6px)); }
   .spm-chk { padding-top: 1px; }
   .spm-body { flex: 1; min-width: 0; font-size: 11.5px; line-height: 1.4; }
   .spm-body b { display: block; font-weight: 600; font-variant-numeric: tabular-nums; }
@@ -853,6 +870,32 @@ if (!valid_job_id($pid) || !preg_match('/^[a-f0-9]{8}$/', $iid)) {
   .sc-lbl.on { background: #2a303b; color: #fff; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .14); z-index: 4; }
   .sc-split { position: absolute; top: 110px; z-index: 1; height: 5px; border-radius: 2px; background: var(--c-split); pointer-events: none; }
   .sc-split.s3 { background: var(--c-split3); }
+  /* Pita momen split yang bisa diseret (di atas deretan frame video) */
+  /* Track Split (tipis, 16 px): chip ringkas segaya item track lain — isian transparan + tepi tipis berwarna, ikon lajur
+     (2 / 3 layar) & label kecil kalau muat. 2 layar = lavender-indigo, 3 layar = sky-cyan. Manual ditandai label "Manual".
+     Ujung chip = pegangan durasi (muncul saat hover). */
+  .sc-sm { --c: var(--c-split-rgb); --t: #C9CDFF; position: absolute; top: 96px; z-index: 3; height: 16px; box-sizing: border-box;
+    display: flex; align-items: center; gap: 5px; padding: 0 7px; border-radius: 5px; overflow: hidden; white-space: nowrap; cursor: grab; touch-action: none;
+    background: rgba(var(--c), .16); box-shadow: inset 0 0 0 1px rgba(var(--c), .42); color: var(--t);
+    font-size: 10px; font-weight: 600; letter-spacing: .01em; transition: background .15s, box-shadow .15s; }
+  .sc-sm.s3 { --c: var(--c-split3-rgb); --t: #AEE7F7; }
+  .sc-sm:hover, body.dragging .sc-sm:hover, body.moving .sc-sm:hover { background: rgba(var(--c), .26); box-shadow: inset 0 0 0 1px rgba(var(--c), .85); }
+  .sc-sm .gl { flex: none; width: 8px; height: 9px; border-radius: 1.5px; pointer-events: none;
+    background: linear-gradient(to bottom, rgb(var(--c)) 0 calc(50% - .6px), transparent calc(50% - .6px) calc(50% + .6px), rgb(var(--c)) calc(50% + .6px)); }
+  .sc-sm.s3 .gl { background: linear-gradient(to bottom, rgb(var(--c)) 0 calc(33.33% - .6px), transparent calc(33.33% - .6px) calc(33.33% + .6px),
+    rgb(var(--c)) calc(33.33% + .6px) calc(66.66% - .6px), transparent calc(66.66% - .6px) calc(66.66% + .6px), rgb(var(--c)) calc(66.66% + .6px)); }
+  .sc-sm .nm { overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
+  .sc-sm .nm small { font-size: inherit; font-weight: 500; opacity: .65; }
+  .sc-sm.narrow { padding: 0; justify-content: center; } .sc-sm.narrow .nm { display: none; }
+  .sc-inner.l-split .sc-sm { pointer-events: none; opacity: .45; }
+  .sc-sm .smh { position: absolute; top: 3px; bottom: 3px; width: 2px; border-radius: 1px; background: rgb(var(--c)); cursor: ew-resize; opacity: 0; transition: opacity .15s; }
+  .sc-sm .smh::before { content: ""; position: absolute; inset: -3px -5px; }
+  .sc-sm .smh.l { left: 2px; }
+  .sc-sm .smh.r { right: 2px; }
+  .sc-sm:hover .smh { opacity: 1; }
+  body.moving .sc-sm { cursor: grabbing; }
+  /* Lajur latar track Split (selalu ada, seperti track lain) */
+  .sc-mempty.sm-empty { height: 16px !important; top: 96px; border-radius: 5px; }
   .handle { position: absolute; top: -2px; bottom: -2px; width: 14px; background: var(--accent); cursor: ew-resize; z-index: 2; }
   .handle::after { content: ""; position: absolute; left: 5px; top: 30%; bottom: 30%; width: 4px; border-left: 1.5px solid #fff; border-right: 1.5px solid #fff; }
   .handle.l { left: -2px; border-radius: 6px 0 0 6px; }
@@ -1238,8 +1281,8 @@ if (!valid_job_id($pid) || !preg_match('/^[a-f0-9]{8}$/', $iid)) {
     --c-fx: #0B8297; --c-fx-rgb: 11, 130, 151;
     --c-music: #5B4FD6; --c-music-rgb: 91, 79, 214;
     --c-foot: #2B86CC; --c-foot-rgb: 43, 134, 204;
-    --c-split: #7C8CFF; --c-split-rgb: 124, 140, 255;
-    --c-split3: #F2A93B; /* momen split 3 layar: dibedakan dari 2 layar */
+    --c-split: #8B93FF; --c-split-rgb: 139, 147, 255;    /* split 2 layar: lavender-indigo */
+    --c-split3: #4FC3E8; --c-split3-rgb: 79, 195, 232;   /* split 3 layar: sky-cyan, satu keluarga biru */
   }
   /* Warna dasar mengikuti token netral app.css, sama dengan editor manual (project.php) */
   :root { --accent-fg: #8fb8ff; }
@@ -1348,22 +1391,25 @@ if (!valid_job_id($pid) || !preg_match('/^[a-f0-9]{8}$/', $iid)) {
   :root .sc-lbl.on { background: var(--accent-soft); color: #fff; box-shadow: inset 0 0 0 1px rgba(110, 168, 255, .45); }
   :root .sc-lbl.narrow { color: transparent; }
   .film, .sc-clip, .sc-foot { border-radius: 7px; }
-  /* Posisi track (dari atas): 5 track utama terlihat langsung — Gambar 22 · Video 52 · Subtitle 96 · Grafik 126 · Musik 156 —
-     lalu Teks 186 · Efek 216 · SFX 246 (scroll vertikal). Baris 26 px, video 40 px. Dipakai juga oleh area drop
+  /* Posisi track (dari atas): track utama terlihat langsung — Gambar 22 · Video 52 · Split 96 (tipis 16 px) · Subtitle 116 · Grafik 146 ·
+     Musik 176 — lalu Teks 206 · Efek 236 · SFX 266 (scroll vertikal). Baris 26 px, video 40 px. Dipakai juga oleh area drop
      (bindTimelineDrop) & track kosong (--top) di JS. */
-  .sc-inner { height: 276px; }
+  .sc-inner { height: 296px; }
   /* align-items: flex-start: area track setinggi isinya (tidak dipotong setinggi kotak scroll) supaya semua track ikut ter-scroll */
-  .scrub { max-height: 206px; overflow-y: auto; overflow-x: hidden; scrollbar-width: thin; align-items: flex-start; }
-  .tl-gut .t-media { top: 22px; height: 26px; } .tl-gut .t-video { top: 52px; height: 40px; } .tl-gut .t-sub { top: 96px; height: 26px; }
-  .tl-gut .t-gfx { top: 126px; height: 26px; } .tl-gut .t-music { top: 156px; height: 26px; } .tl-gut .t-text { top: 186px; height: 26px; }
-  .tl-gut .t-fx { top: 216px; height: 26px; } .tl-gut .t-sfx { top: 246px; height: 26px; }
+  .scrub { max-height: 226px; overflow-y: auto; overflow-x: hidden; scrollbar-width: thin; align-items: flex-start; }
+  .tl-gut .t-media { top: 22px; height: 26px; } .tl-gut .t-video { top: 52px; height: 40px; } .tl-gut .t-split { top: 96px; height: 16px; }
+  .tl-gut .t-sub { top: 116px; height: 26px; }
+  .tl-gut .t-gfx { top: 146px; height: 26px; } .tl-gut .t-music { top: 176px; height: 26px; } .tl-gut .t-text { top: 206px; height: 26px; }
+  .tl-gut .t-fx { top: 236px; height: 26px; } .tl-gut .t-sfx { top: 266px; height: 26px; }
   .tl-gut .ti { width: 22px; height: 22px; } .tl-gut .ti .i { width: 14px; height: 14px; }
   .tl-gut .tc { width: 20px; height: 20px; }
+  /* Header track Split mengikuti barisnya yang tipis */
+  .tl-gut .t-split .ti { height: 16px; } .tl-gut .t-split .ti .i { width: 12px; height: 12px; } .tl-gut .t-split .tc { height: 16px; }
   .sc-media, .tl-drop.med, .sc-mempty { top: var(--top, 22px); height: 26px; }
-  .sc-media { top: 22px; } .sc-music { top: 156px; height: 26px; } .sc-text { top: 186px; height: 26px; } .sc-fx { top: 216px; height: 26px; }
-  .sc-sfx { top: 246px; height: 26px; }
+  .sc-media { top: 22px; } .sc-music { top: 176px; height: 26px; } .sc-text { top: 206px; height: 26px; } .sc-fx { top: 236px; height: 26px; }
+  .sc-sfx { top: 266px; height: 26px; }
   /* Template grafik: track sendiri, terpisah dari gambar & teks tambahan */
-  .sc-media.sc-gfx { top: 126px; background: var(--c-gfx); }
+  .sc-media.sc-gfx { top: 146px; background: var(--c-gfx); }
   .sc-media, .sc-text, .sc-fx, .sc-music { font-size: 11.5px; border-radius: 8px; }
   .sc-media .mth { width: 18px; height: 18px; }
   .film, .sc-foot, .sc-dim, .sc-clip, .sc-seg, .sc-cut, .sc-gap { top: 52px; height: 40px; }
@@ -1371,7 +1417,7 @@ if (!valid_job_id($pid) || !preg_match('/^[a-f0-9]{8}$/', $iid)) {
   .wave { top: 74px; height: 18px; }
   .sc-tr { top: 61px; }
   .tl-drop.foot { top: 48px; height: 48px; }
-  :root .sc-lbl { top: 96px; height: 26px; line-height: 26px; margin-top: 0; font-size: 11px; }
+  :root .sc-lbl { top: 116px; height: 26px; line-height: 26px; margin-top: 0; font-size: 11px; }
   .tl-tools { min-height: 32px; margin-bottom: 2px; }
   #app .tlbar { padding-bottom: 8px; }
 
@@ -1724,6 +1770,8 @@ function syncLayout() {
 }
 // Auto split (toggle): layar terbelah 2 orang otomatis di bagian yang menampilkan 2 narasumber; hanya untuk layout Full
 const autoSplitOn = () => !!E.split.enabled && (E.frame.ratio || 'full') === 'full';
+// Split screen aktif (otomatis atau manual); split manual juga hanya berlaku di layout Full
+const splitOn = () => (E.frame.ratio || 'full') === 'full' && (!!E.split.enabled || !!E.split.manual?.length);
 // Layout bingkai: rasio area video (lebar / tinggi) di layar 9:16; selain Full, video di tengah dengan background solid (hitam) atau blur
 const FRAME_RATIOS = [['full', 'Full', 9 / 16], ['1:1', '1:1', 1], ['4:5', '4:5', 0.8], ['3:4', '3:4', 0.75], ['16:9', '16:9', 16 / 9]];
 function frameGeom(CW = 1080, CH = 1920) {
@@ -1745,7 +1793,7 @@ function frameGeom(CW = 1080, CH = 1920) {
 function drawFrameMask(g, CW, CH) {
   const G = frameGeom(CW, CH);
   // Background blur sudah digambar paintMain di luar bingkai (sudut membulat lewat clip)
-  if (!G.on || G.blur || (E.split.enabled && splitPair(t))) return;
+  if (!G.on || G.blur || splitPair(t)) return;
   g.save();
   g.fillStyle = '#000';
   g.beginPath();
@@ -2203,7 +2251,7 @@ function gfxPanelHtml(m) {
 }
 
 /* ---------- Kontrol track timeline: sembunyikan / bisukan / kunci ---------- */
-const TRACKS = [['media', 'trk-media', 'Media'], ['gfx', 'gfx', 'Grafik'], ['text', 'trk-text', 'Teks'], ['fx', 'trk-fx', 'Efek'], ['video', 'trk-video', 'Video'], ['sub', 'trk-sub', 'Subtitle'], ['music', 'music', 'Musik'], ['sfx', 'volume', 'SFX']];
+const TRACKS = [['media', 'trk-media', 'Media'], ['gfx', 'gfx', 'Grafik'], ['text', 'trk-text', 'Teks'], ['fx', 'trk-fx', 'Efek'], ['video', 'trk-video', 'Video'], ['split', 'trk-split', 'Split'], ['sub', 'trk-sub', 'Subtitle'], ['music', 'music', 'Musik'], ['sfx', 'volume', 'SFX']];
 const trk = k => (E.tracks[k] ||= {});
 const isHidden = k => k === 'sub' ? !E.subtitles : !!E.tracks?.[k]?.hide;
 const isLocked = k => !!E.tracks?.[k]?.lock;
@@ -2395,6 +2443,7 @@ function adoptEdit(d) {
   E.split.early = E.split.early ?? 0;
   delete E.split.screens; // pilihan lama: jumlah layar kini otomatis (maks. 3)
   E.split.off = (E.split.off || []).map(String); // momen split yang dimatikan user
+  E.split.manual = E.split.manual || [];         // split manual: [{s, e, n}] waktu absolut, n = 2 / 3 layar
   if (!SPLIT3_RATIOS.includes(E.split.ratio3)) E.split.ratio3 = SPLIT3_RATIOS[0];
   if (E.style.x === undefined) E.style.x = 0.5;
   E.media = E.media || [];
@@ -2592,7 +2641,7 @@ function buildUI() {
       </div>
       <div class="scrub" id="tl-scroll" title="Klik/geser untuk pindah posisi · tarik ujung bar untuk trim">
         <div class="tl-gut" id="tl-gut">${TRACKS.map(([k, icon, name]) => `<div class="trk t-${k}" data-trk="${k}"><span class="ti" title="${name}">${ic(icon)}</span>
-          ${k !== 'music' && k !== 'sfx' ? `<button class="tc" data-tc="hide" aria-label="Sembunyikan ${name}"></button>` : ''}<button class="tc" data-tc="lock" aria-label="Kunci ${name}"></button>${['video', 'music', 'sfx'].includes(k) ? `<button class="tc" data-tc="mute" aria-label="Bisukan ${name}"></button>` : ''}</div>`).join('')}</div>
+          ${!['music', 'sfx', 'split'].includes(k) ? `<button class="tc" data-tc="hide" aria-label="Sembunyikan ${name}"></button>` : ''}<button class="tc" data-tc="lock" aria-label="Kunci ${name}"></button>${['video', 'music', 'sfx'].includes(k) ? `<button class="tc" data-tc="mute" aria-label="Bisukan ${name}"></button>` : ''}</div>`).join('')}</div>
         <div class="tl-view" id="tl-view"><div class="sc-inner" id="tl"></div></div>
       </div>
     </div>`;
@@ -2660,7 +2709,7 @@ function buildUI() {
   // Dikecualikan: alat untuk mengedit item terpilih (panel properti, menu kiri, toolbar, penggaris & playhead, modal).
   if (!window.deselectBound) {
     window.deselectBound = true;
-    const ITEMS = '#sub, #hook, .mimg, .tbox, #kbox, #selbox, .sc-lbl, .sc-media, .sc-text, .sc-fx, .sc-music, .sc-foot, .sc-tr, .sc-op, #film, [data-drag], [data-pr]';
+    const ITEMS = '#sub, #hook, .mimg, .tbox, #kbox, #selbox, .sc-lbl, .sc-sm, .sc-media, .sc-text, .sc-fx, .sc-music, .sc-foot, .sc-tr, .sc-op, #film, [data-drag], [data-pr]';
     // #tl: timeline menangani klik area kosongnya sendiri (lihat bindTimeline)
     const KEEP = '#tl, #props, .reels, .lp-tabs, .lp-body, .tl-tools, .transport, .ruler, .playhead, .trk, .tipbox, .gfx-ed, .sty, .modal, [role=dialog], .toast, header';
     document.addEventListener('click', e => {
@@ -2924,7 +2973,10 @@ function halfCrop(p, W, H, a = 9 / 8) {
   ch = Math.max(minH, Math.min(H, ch));
   let cw = ch * a;
   if (cw > W) { cw = W; ch = Math.min(H, W / a); }
-  const x = Math.max(0, Math.min(W - cw, p.cx * W - cw / 2));
+  // Jatah area horizontal panel (sama dengan half_crop()): potongan antar panel tidak saling tumpuk
+  const lo = (p.lo ?? 0) * W, hi = (p.hi ?? 1) * W;
+  if (cw > hi - lo) { cw = hi - lo; ch = cw / a; }
+  const x = Math.max(lo, Math.min(hi - cw, W - cw, p.cx * W - cw / 2));
   const y = Math.max(0, Math.min(H - ch, p.cy * H - ch * 0.45));
   return [x / W, y / H, cw / W, ch / H];
 }
@@ -2947,6 +2999,8 @@ function gamingCrops(cam, W, H, top = 1344) {
 // Momen split — sama dengan split_moments() di editor_lib.php: hanya saat obrolan berpindah antar narasumber yang tampil
 // bersama dalam satu shot (±3 dtk di sekitar pergantian pembicara). Panel = yang bicara: 2 orang = 2 layar, 3+ = 3 layar.
 const SPLIT_CTX = 3, SPLIT_MERGE = 1.5, SPLIT_MIN = 1.5;
+// Jatah area horizontal tiap panel — sama dengan split_bounds(): batas di tengah antar orang (urut kiri ke kanan)
+const splitBounds = pp => pp.map((p, i) => ({ ...p, lo: i ? (pp[i - 1].cx + p.cx) / 2 : 0, hi: i < pp.length - 1 ? (p.cx + pp[i + 1].cx) / 2 : 1 }));
 const splitKey = s => String(Math.floor(s * 10 + 1e-6));
 function splitMoments() {
   const out = [];
@@ -2975,19 +3029,55 @@ function splitMoments() {
       const who = new Map();
       for (const [a, b, p] of runs) if (b > s + 0.05 && a < e - 0.05) who.set(p, people[p]);
       const pp = [...who.values()].sort((x, y) => y.fh - x.fh).slice(0, 3).sort((x, y) => x.cx - y.cx);
-      out.push({ k: splitKey(s), s, e, pp });
+      out.push({ k: splitKey(s), s, e, pp: splitBounds(pp) });
     }
   }
   return out.sort((x, y) => x.s - y.s);
 }
 // Bagian split yang dipakai — sama dengan split_parts(): momen yang tidak dimatikan, dimajukan sebesar toleransi
 function splitParts() {
-  if (!autoSplitOn()) return [];
+  if (!splitOn()) return [];
   const off = E.split.off || [];
-  const parts = splitMoments().filter(m => !off.includes(m.k)).map(m => ({ ...m }));
+  let parts = autoSplitOn() ? splitMoments().filter(m => !off.includes(m.k)).map(m => ({ ...m })) : [];
   let prevEnd = 0;
   for (const p of parts) { p.s = Math.max(prevEnd, p.s - (E.split.early || 0), 0); prevEnd = p.e; }
-  return parts;
+  // Split manual menang atas momen otomatis (sama dengan split_parts() di editor_lib.php)
+  for (const m of E.split.manual || []) {
+    const next = [];
+    for (const p of parts) {
+      if (p.e <= m.s || p.s >= m.e) { next.push(p); continue; }
+      if (m.s - p.s >= 0.3) next.push({ ...p, e: m.s });
+      if (p.e - m.e >= 0.3) next.push({ ...p, s: m.e });
+    }
+    parts = next;
+  }
+  (E.split.manual || []).forEach((m, i) => parts.push(...splitManualParts(m).map(p => ({ ...p, man: i }))));
+  return parts.sort((a, b) => a.s - b.s);
+}
+// Potongan satu split manual per shot — sama dengan split_manual_parts(): n wajah terbesar di shot itu (kiri → atas),
+// kalau orangnya kurang dari n, panel diisi kolom kiri / tengah / kanan gambar
+function splitManualParts(m) {
+  const n = m.n === 3 ? 3 : 2;
+  // Kolom selebar 1/n gambar (tidak saling tumpuk), setinggi wajah yang terdeteksi kalau ada
+  const colsAt = people => {
+    const cys = people.map(p => p.cy).sort((a, b) => a - b), cy = cys.length ? cys[Math.floor(cys.length / 2)] : 0.45;
+    return splitBounds(Array.from({ length: n }, (_, i) => ({ cx: (i + 0.5) / n, cy, fh: 0 })));
+  };
+  const cols = colsAt([]);
+  const pick = people => people.length < n ? colsAt(people) : splitBounds([...people].sort((a, b) => b.fh - a.fh).slice(0, n).sort((a, b) => a.cx - b.cx));
+  const out = [];
+  let cursor = m.s;
+  for (const sh of E.shots || []) {
+    const a = Math.max(cursor, sh.s), b = Math.min(m.e, sh.e);
+    if (b - a <= 0.05) continue;
+    if (a > cursor + 0.05) out.push({ s: cursor, e: a, pp: cols });
+    out.push({ s: a, e: b, pp: pick(sh.people || []) });
+    cursor = b;
+  }
+  if (m.e - cursor > 0.05) out.push({ s: cursor, e: m.e, pp: cols });
+  // Potongan < 0,4 dtk memakai susunan panel tetangganya supaya tidak berkedip (sama dengan split_manual_parts())
+  out.forEach((p, i) => { if (p.e - p.s < 0.4 && out.length > 1) p.pp = (out[i + 1] || out[i - 1]).pp; });
+  return out;
 }
 
 // Orang per panel (atas → bawah; 2 atau 3) kalau waktu ini masuk bagian split, selain itu null
@@ -4497,7 +4587,7 @@ function staticFrame(it, which) {
   let key, make;
   if (it === 'main') {
     const time = which === 'first' ? E.trim[0] + 0.02 : E.trim[1] - 0.05;
-    key = `main:${IID}:${time}:${E.layout}:${E.split.enabled}:${E.split.ratio3}:${(E.split.off || []).join(',')}:${E.split.early}`;
+    key = `main:${IID}:${time}:${E.layout}:${E.split.enabled}:${E.split.ratio3}:${(E.split.off || []).join(',')}:${E.split.early}:${JSON.stringify(E.split.manual || [])}`;
     make = c => grabFrame(meta.proxy, time - E.pad[0], v => { const g2 = c.getContext('2d'); paintMain(g2, v, time, c.width, c.height); drawFrameMask(g2, c.width, c.height); });
   } else if (it.kind === 'image') {
     const im = footEl(it);
@@ -4978,7 +5068,7 @@ function sfxAnchor(v) {
   return { ref: 'main', at: round3(E.base[0] + Math.max(0, Math.min(B, v - P))) };
 }
 function sfxTimelineHtml() {
-  if (!E.sfx.length) return `<div class="sc-mempty" style="--top:246px"><span class="st">${ic('volume')} SFX: tambahkan dari menu Sound effect di panel kiri</span></div>`;
+  if (!E.sfx.length) return `<div class="sc-mempty" style="--top:266px"><span class="st">${ic('volume')} SFX: tambahkan dari menu Sound effect di panel kiri</span></div>`;
   return E.sfx.map((x, i) => {
     const v = sfxStart(x);
     return `<div class="sc-sfx${sel.type === 'sfx' && sel.i === i ? ' on' : ''}" data-sx="${i}" style="left:${v * pps}px;width:${Math.max(14, x.dur * pps)}px"
@@ -5474,8 +5564,16 @@ function renderTimeline() {
     return `<span class="sc-lbl${on ? ' on' : ''}${out ? ' out' : ''}${w < 44 ? ' narrow' : ''}" data-line="${i}" style="left:${x(a)}px;width:${w}px" title="${esc(txt)}">${esc(txt)}</span>`;
   }).join('') : '';
   // Garis momen split: 2 layar = indigo, 3 layar = oranye
-  const bands = splitParts().map(p => [Math.max(p.s, E.base[0]), Math.min(p.e, E.base[1]), p.pp.length]).filter(([a, b]) => b - a > 0.05)
-    .map(([a, b, n]) => `<span class="sc-split${n === 3 ? ' s3' : ''}" style="left:${x(a)}px;width:${x(b) - x(a)}px" title="Split ${n} layar"></span>`).join('');
+  // Momen split: indigo = 2 layar, oranye = 3 layar, bergaris = manual. Seret ujung = ubah awal / akhir, seret tengah = geser.
+  // Split manual satu pita per rentang; momen otomatis per potongan (diseret → jadi split manual)
+  const band = (a, b, n, attr, man) => b - a > 0.05 ? `<span class="sc-sm${n === 3 ? ' s3' : ''}${man ? ' man' : ''}${x(b) - x(a) < (man ? 120 : 76) ? ' narrow' : ''}" ${attr}
+      style="left:${x(a)}px;width:${Math.max(8, x(b) - x(a))}px" title="Split ${n} layar${man ? ' (manual)' : ' (otomatis)'} · ${fmtTs(a - E.base[0])}–${fmtTs(b - E.base[0])} · seret ujung untuk mengatur durasi, seret tengah untuk menggeser">
+      <i class="smh l" data-smh="0"></i><i class="gl"></i><span class="nm">${man ? 'Manual · ' : ''}${n} layar <small>· ${(b - a).toFixed(1)} dtk</small></span><i class="smh r" data-smh="1"></i></span>` : '';
+  const splitEmpty = `<div class="sc-mempty sm-empty"><span class="st">${ic('trk-split')} Split: aktifkan Auto split atau tambah split manual di panel kanan</span></div>`;
+  const bands = (!splitOn() ? '' : [
+    ...splitParts().filter(p => p.man === undefined).map(p => band(Math.max(p.s, E.base[0]), Math.min(p.e, E.base[1]), p.pp.length, `data-sm="a:${p.k}" data-ps="${p.s}"`, false)),
+    ...(E.split.manual || []).map((m, i) => band(Math.max(m.s, E.base[0]), Math.min(m.e, E.base[1]), m.n, `data-sm="m:${i}"`, true)),
+  ].join('')) + splitEmpty;
   const W = x(b1);
   const spanX = m => { const [va, vb] = itemV(m); return `left:${va * pps}px;width:${Math.max(24, (vb - va) * pps)}px`; };
   // Gambar di track Media, template grafik di track Grafik; keduanya tetap item E.media (indeks data-mi sama)
@@ -5487,7 +5585,7 @@ function renderTimeline() {
   const meds = (E.media.some(m => !m.gfx) ? E.media.map((m, i) => m.gfx ? '' : medHtml(m, i)).join('')
     : `<div class="sc-mempty"><span class="st">${ic('image')} Media: pilih gambar di panel Media untuk menambahkannya ke timeline</span></div>`)
     + (E.media.some(m => m.gfx) ? E.media.map((m, i) => m.gfx ? medHtml(m, i) : '').join('')
-    : `<div class="sc-mempty" style="--top:126px"><span class="st">${ic('gfx')} Grafik: pilih template dari menu Template grafik di panel kiri</span></div>`);
+    : `<div class="sc-mempty" style="--top:146px"><span class="st">${ic('gfx')} Grafik: pilih template dari menu Template grafik di panel kiri</span></div>`);
   if (!$('tlx')) $('tl').innerHTML = `<div class="film" id="film">${filmHtml()}</div><canvas class="wave" id="wave"></canvas><div class="tlx" id="tlx"></div><div class="tl-drop" id="tl-drop" hidden></div>`;
   drawWave();
   Object.assign($('film').style, { left: x(b0) + 'px', width: baseDur() * pps + 'px', right: 'auto' });
@@ -5506,17 +5604,17 @@ function renderTimeline() {
     const on = sel.type === 'text' && sel.i === i, out = !c.ref && (c.e <= t0 || c.s >= t1);
     return `<div class="sc-text${on ? ' on' : ''}${out ? ' out' : ''}" data-ti="${i}" style="${spanX(c)}" title="${esc(c.text)} · ${fmtTs(c.s - b0)}–${fmtTs(c.e - b0)}">
       <span class="mh l" data-drag="m0"></span>${ic('type')}<span class="nm">${esc(c.text)}</span><span class="mh r" data-drag="m1"></span></div>`;
-  }).join('') : `<div class="sc-mempty" style="--top:186px"><span class="st">${ic('type')} Teks: tambahkan dari tab Teks di panel kiri</span></div>`;
+  }).join('') : `<div class="sc-mempty" style="--top:206px"><span class="st">${ic('type')} Teks: tambahkan dari tab Teks di panel kiri</span></div>`;
   const fxs = E.effects.length ? E.effects.map((fx, i) => {
     const on = sel.type === 'effect' && sel.i === i, out = !fx.ref && (fx.e <= t0 || fx.s >= t1);
     return `<div class="sc-fx${on ? ' on' : ''}${out ? ' out' : ''}" data-fi="${i}" style="${spanX(fx)}" title="${esc(EFFECTS[fx.type].label)} · ${fmtTs(fx.s - b0)}–${fmtTs(fx.e - b0)}">
       <span class="mh l" data-drag="m0"></span>${ic('sparkles')}<span class="nm">${esc(EFFECTS[fx.type].label)}</span><span class="mh r" data-drag="m1"></span></div>`;
-  }).join('') : `<div class="sc-mempty" style="--top:216px"><span class="st">${ic('sparkles')} Efek: tambahkan dari menu Efek di panel kiri</span></div>`;
+  }).join('') : `<div class="sc-mempty" style="--top:236px"><span class="st">${ic('sparkles')} Efek: tambahkan dari menu Efek di panel kiri</span></div>`;
   const mus = E.music.length ? E.music.map((m, i) => {
     const on = sel.type === 'music' && sel.i === i, out = !m.ref && (m.e <= t0 || m.s >= t1);
     return `<div class="sc-music${on ? ' on' : ''}${out ? ' out' : ''}" data-mu="${i}" style="${spanX(m)}" title="${esc(m.name)} · ${fmtTs(m.s - b0)}–${fmtTs(m.e - b0)} · volume ${m.vol}%">
       <span class="mh l" data-drag="m0"></span>${ic('music')}<span class="nm">${esc(m.name || 'Musik')}</span><span class="mh r" data-drag="m1"></span></div>`;
-  }).join('') : `<div class="sc-mempty" style="--top:156px"><span class="st">${ic('music')} Musik: pilih lagu dari menu Musik di panel kiri</span></div>`;
+  }).join('') : `<div class="sc-mempty" style="--top:176px"><span class="st">${ic('music')} Musik: pilih lagu dari menu Musik di panel kiri</span></div>`;
   $('tlx').innerHTML = `${rulerHtml()}${meds}${txs}${fxs}${mus}
     <span class="sc-dim l" style="left:${x(b0)}px;width:${x(t0) - x(b0)}px"></span><span class="sc-dim r" style="left:${x(t1)}px;width:${Math.max(0, W - x(t1))}px"></span>
     ${videoMarks()}
@@ -5746,6 +5844,18 @@ function bindTimeline() {
       document.body.classList.add('moving');
       return;
     }
+    const smb = e.target.closest('.sc-sm');
+    if (smb && !isLocked('split')) {
+      // Pita momen split: ujung = ubah awal / akhir, tengah = geser. Momen otomatis baru diubah jadi manual saat benar-benar diseret.
+      pause();
+      tl.setPointerCapture(e.pointerId);
+      const [k, id] = smb.dataset.sm.split(':'), hd = e.target.closest('[data-smh]')?.dataset.smh;
+      const m = k === 'm' ? E.split.manual[+id] : null, s0 = m ? m.s : +smb.dataset.ps;
+      drag = { kind: hd === '0' ? 'sm0' : hd === '1' ? 'sm1' : 'smm', i: m ? +id : -1, auto: m ? null : id, ps: s0,
+        off: timeAt(e.clientX) - s0, x0: e.clientX, ph: t, moved: false };
+      document.body.classList.add(drag.kind === 'smm' ? 'moving' : 'dragging');
+      return;
+    }
     const md = e.target.closest('.sc-media, .sc-text, .sc-fx, .sc-music');
     if (md) {
       const tr = md.classList.contains('sc-text') ? 'text' : md.classList.contains('sc-fx') ? 'effect' : md.classList.contains('sc-music') ? 'music' : 'media';
@@ -5825,6 +5935,29 @@ function bindTimeline() {
       renderProps();
       return updateTime();
     }
+    if (drag.kind === 'sm0' || drag.kind === 'sm1' || drag.kind === 'smm') {
+      if (!drag.moved && Math.abs(e.clientX - drag.x0) < 3) return;
+      drag.moved = true;
+      if (drag.auto) { drag.i = splitAutoToManual(drag.auto, drag.ps); drag.auto = null; }
+      const L = E.split.manual, m = L[drag.i];
+      if (!m) return;
+      // Tidak menumpuk split manual lain; magnet ke playhead awal seret & batas trim (±8px), ujung menempel ke awal / akhir kata (Alt = bebas)
+      const lo = drag.i > 0 ? L[drag.i - 1].e : E.base[0], hi = drag.i + 1 < L.length ? L[drag.i + 1].s : E.base[1];
+      const mag = v => { for (const p of [drag.ph, E.trim[0], E.trim[1]]) if (Math.abs(p - v) * pps < 8) return p; return v; };
+      if (drag.kind === 'smm') {
+        const d = m.e - m.s;
+        let s0 = mag(time - drag.off);
+        if (mag(s0 + d) !== s0 + d) s0 = mag(s0 + d) - d;
+        s0 = Math.max(lo, Math.min(hi - d, s0));
+        m.s = round3(s0); m.e = round3(s0 + d);
+        seek(m.s + 0.01);
+      } else if (drag.kind === 'sm0') { m.s = round3(Math.max(lo, Math.min(m.e - 0.5, mag(snap(time, e.altKey))))); seek(m.s + 0.01); }
+      else { m.e = round3(Math.min(hi, Math.max(m.s + 0.5, mag(snap(time, e.altKey))))); seek(m.e - 0.05); }
+      changed();
+      renderTimeline();
+      if (sel.type === 'clip') renderProps();
+      return draw();
+    }
     if (drag.kind === 'm0' || drag.kind === 'm1' || drag.kind === 'mm') {
       const m = trackArr(drag.tr)[drag.i];
       // Magnet ke playhead & batas trim (±8px); hanya untuk item di rentang clip (detik video asli)
@@ -5871,6 +6004,8 @@ function bindTimeline() {
   tl.addEventListener('pointermove', onMove);
   const end = () => {
     if (drag?.kind === 'film') { tlTapAt = performance.now(); pause(); select({ type: 'video', at: drag.at }); }
+    // Ketuk pita split tanpa menyeret = lompat ke awal momen itu
+    if (drag && /^sm/.test(drag.kind) && !drag.moved) seek(Math.max(E.trim[0], (drag.i >= 0 ? E.split.manual[drag.i]?.s : drag.ps) ?? drag.ps) + 0.01);
     drag = null;
     lastMove = null;
     if (autoRaf > 0) cancelAnimationFrame(autoRaf);
@@ -5935,11 +6070,64 @@ function autoSplitHtml() {
     <div class="splits r3">${SPLIT3_RATIOS.map(r => `<button type="button" class="spl ${E.split.ratio3 === r ? 'on' : ''}" data-split3="${r}">
       <span class="shape">${r.split(':').map(p => `<i style="flex:${p}"></i>`).join('')}</span>${r === SPLIT3_RATIOS[0] ? 'Rata' : r}</button>`).join('')}</div>` : ''}
     ${splitRatioHtml(has3 ? 'Atas : Bawah (bagian 2 orang)' : 'Atas : Bawah')}
-    <p class="muted small" style="margin:8px 0 0">${splitInfo()}</p>
+    ${autoSplitOn() ? `<p class="muted small" style="margin:8px 0 0">${splitInfo()}</p>
     ${splitMomentsHtml()}
     <div class="p-row"><label>Toleransi<span class="tip" data-tip="Split screen muncul lebih awal sebanyak detik ini. Contoh: momen obrolan terdeteksi di detik 12, toleransi 2 dtk → split mulai di detik 10.">?</span></label>
       <input type="range" min="0" max="5" step="0.25" id="split-lead" value="${E.split.early}">
-      <span class="val">${E.split.early.toFixed(2)}s</span></div></div>`;
+      <span class="val">${E.split.early.toFixed(2)}s</span></div>` : ''}</div>`;
+}
+// Split manual: user memilih sendiri durasi split (2 / 3 layar). Ditambah dari posisi playhead, awal / akhir bisa digeser.
+function manualSplitHtml() {
+  const list = E.split.manual || [];
+  const row = (m, i) => `<div class="spm man">
+      <div class="spm-body"><b><i class="spm-dot${m.n === 3 ? ' s3' : ''}"></i>Split manual ${i + 1}</b>
+        <div class="spm-n">${[2, 3].map(n => `<button type="button" class="spl ${m.n === n ? 'on' : ''}" data-split-mn="${i}:${n}">${n} layar</button>`).join('')}</div>
+        <div class="spm-t"><span>Mulai</span>${stepper('ss:' + i, m.s)}<button type="button" class="lnk-btn" data-split-ph="ss:${i}" title="Pakai posisi playhead">Playhead</button></div>
+        <div class="spm-t"><span>Selesai</span>${stepper('se:' + i, m.e)}<button type="button" class="lnk-btn" data-split-ph="se:${i}" title="Pakai posisi playhead">Playhead</button></div></div>
+      <div class="spm-acts"><button type="button" class="lnk-btn split-go spm-go" data-split-go="${m.s}" title="Putar split ini">${ic('play')}</button>
+        <button type="button" class="lnk-btn spm-del" data-split-del="${i}" title="Hapus split ini">${ic('trash')}</button></div></div>`;
+  return `<div class="split-opts">
+    <div class="split-lbl">Split manual${list.length ? ` (${list.length})` : ''}</div>
+    <p class="muted small" style="margin:0 0 8px">Pilih sendiri bagian yang dibelah: taruh playhead di awal bagian, lalu tambah split. ${E.split.enabled ? 'Split manual menggantikan momen otomatis di durasi yang sama.' : 'Bisa dipakai tanpa Auto split.'}</p>
+    <div class="spm-add">${[2, 3].map(n => `<button type="button" class="spl" data-split-add="${n}"><span class="shape">${'<i style="flex:1"></i>'.repeat(n)}</span>+ ${n} layar</button>`).join('')}</div>
+    ${list.length ? `<div class="spm-list" style="margin-top:8px">${list.map(row).join('')}</div>` : ''}</div>`;
+}
+// Tambah split manual mulai dari playhead (5 dtk, dipotong di akhir clip / sebelum split manual berikutnya)
+function addManualSplit(n) {
+  const list = E.split.manual;
+  const s = round3(Math.max(E.trim[0], Math.min(E.trim[1] - 0.5, t)));
+  if (list.some(m => s >= m.s && s < m.e)) return toast('Sudah ada split manual di posisi playhead');
+  const nextS = Math.min(...list.filter(m => m.s > s).map(m => m.s), E.trim[1]);
+  const e = round3(Math.min(s + 5, nextS));
+  if (e - s < 0.5) return toast('Ruang terlalu sempit untuk split baru di posisi ini');
+  list.push({ s, e, n });
+  list.sort((a, b) => a.s - b.s);
+  splitChanged();
+  toast(`Split ${n} layar ditambahkan · ${fmtTs(s - E.base[0])}–${fmtTs(e - E.base[0])}`);
+}
+// Momen otomatis diseret di timeline → jadi split manual (semua potongannya), momen aslinya dimatikan.
+// Mengembalikan indeks split manual untuk potongan yang dimulai di ps.
+function splitAutoToManual(k, ps) {
+  const pieces = splitParts().filter(p => p.man === undefined && p.k === k);
+  for (const p of pieces) E.split.manual.push({ s: round3(Math.max(E.base[0], p.s)), e: round3(Math.min(E.base[1], p.e)), n: p.pp.length === 3 ? 3 : 2 });
+  E.split.off = [...new Set([...(E.split.off || []), k])];
+  E.split.manual.sort((a, b) => a.s - b.s);
+  const s0 = round3(Math.max(E.base[0], ps));
+  toast('Momen otomatis diubah jadi split manual');
+  return E.split.manual.findIndex(m => m.s === s0);
+}
+// Ubah awal / akhir split manual ke-i (tidak menumpuk split manual lain, min. 0,5 dtk)
+function setManualSplitTime(i, which, v) {
+  const list = E.split.manual, m = list[i];
+  if (!m) return;
+  const prevE = i > 0 ? list[i - 1].e : E.base[0], nextS = i + 1 < list.length ? list[i + 1].s : E.base[1];
+  if (which === 'ss') { m.s = round3(Math.max(prevE, Math.min(m.e - 0.5, v))); seek(m.s + 0.01); }
+  else { m.e = round3(Math.min(nextS, Math.max(m.s + 0.5, v))); seek(m.e - 0.05); }
+}
+// Split manual berubah: butuh data shot terbaru untuk memilih wajah, lalu render ulang panel, timeline & preview
+function splitChanged() {
+  if (splitOn() && (!E.shots || (+E.precise || 0) < 2)) return applyLayout(autoSplitOn());
+  changed(); renderProps(); renderTimeline(); draw();
 }
 // Daftar momen split di clip ini: waktu, jumlah layar, potongan kalimat (bahasan); centang = dipakai, play = lompat ke momen
 function splitMomentsHtml() {
@@ -6311,7 +6499,8 @@ function renderPropsBody() {
       <h3><span>Auto split</span><label class="switch"><input type="checkbox" id="autosplit-on" aria-label="Auto split" ${autoSplitOn() ? 'checked' : ''} ${(E.frame.ratio || 'full') === 'full' ? '' : 'disabled'}></label></h3>
       <p class="muted small" style="margin:0">${(E.frame.ratio || 'full') !== 'full' ? 'Pakai layout Full untuk memakai Auto split.'
         : autoSplitOn() ? 'Layar terbelah hanya di momen obrolan antar narasumber yang tampil bersama: 2 orang = 2 layar, 3 orang atau lebih = 3 layar.' : 'Layar otomatis terbelah di momen obrolan antar 2–3 narasumber (maks. 3 layar).'}</p>
-      ${autoSplitOn() ? autoSplitHtml() : ''}
+      ${splitOn() ? autoSplitHtml() : ''}
+      ${(E.frame.ratio || 'full') === 'full' ? manualSplitHtml() : ''}
     </div>
     <div class="p-sec">
       <h3><span>Layout</span></h3>
@@ -6635,10 +6824,19 @@ function bindProps() {
     if (!b) return;
     if (b.dataset.nudge) {
       const k = b.dataset.nudge, cur = { t0: E.trim[0], t1: E.trim[1], ls: E.lines[sel.i]?.s, le: E.lines[sel.i]?.e,
-        ms: E.media?.[sel.i]?.s, me: E.media?.[sel.i]?.e, xs: E.texts?.[sel.i]?.s, xe: E.texts?.[sel.i]?.e }[k];
+        ms: E.media?.[sel.i]?.s, me: E.media?.[sel.i]?.e, xs: E.texts?.[sel.i]?.s, xe: E.texts?.[sel.i]?.e }[k]
+        ?? (/^s[se]:\d+$/.test(k) ? E.split.manual[+k.split(':')[1]]?.[k[1]] : undefined);
       return applyTime(k, cur + Number(b.dataset.v));
     }
     if (b.dataset.split) { E.frame.split = +b.dataset.split; changed(); renderProps(); draw(); return; }
+    if (b.dataset.splitAdd) return addManualSplit(+b.dataset.splitAdd);
+    if (b.dataset.splitMn) {
+      const [i, n] = b.dataset.splitMn.split(':').map(Number);
+      if (E.split.manual[i]) E.split.manual[i].n = n === 3 ? 3 : 2;
+      return splitChanged();
+    }
+    if (b.dataset.splitPh) { const [w, i] = b.dataset.splitPh.split(':'); return applyTime(`${w}:${i}`, t); }
+    if (b.dataset.splitDel !== undefined) { E.split.manual.splice(+b.dataset.splitDel, 1); return splitChanged(); }
     if (b.dataset.split3) { E.split.ratio3 = b.dataset.split3; changed(); renderProps(); draw(); return; }
     if (b.dataset.splitGo) { seek(+b.dataset.splitGo + 0.05); return play(); }
     if (b.dataset.caption) return setCaption(b.dataset.caption);
@@ -6950,7 +7148,7 @@ let layoutBusy = false;
 async function applyLayout(prev = false) {
   syncLayout();
   const game = E.frame.ratio === 'split', auto = autoSplitOn();
-  const need = !E.pending && (game ? E.cam === undefined : auto && (!E.shots || (+E.precise || 0) < 2)); // 2 = TRACK_VERSION (poster dibuang)
+  const need = !E.pending && (game ? E.cam === undefined : splitOn() && (!E.shots || (+E.precise || 0) < 2)); // 2 = TRACK_VERSION (poster dibuang)
   if (need && !layoutBusy) {
     layoutBusy = true;
     pause();
@@ -6984,7 +7182,7 @@ async function applyLayout(prev = false) {
 // Resep lama dengan Auto split aktif: data orang masih versi lama (poster ikut terdeteksi) → deteksi ulang sekali saat dibuka.
 // Hasilnya sudah disimpan server ke resep, jadi tidak menandai ada perubahan.
 async function retrackStale() {
-  if (E.pending || !autoSplitOn() || !E.shots || (+E.precise || 0) >= 2 || layoutBusy) return;
+  if (E.pending || !splitOn() || !E.shots || (+E.precise || 0) >= 2 || layoutBusy) return;
   const iid = IID;
   layoutBusy = true;
   busy('Memperbarui deteksi narasumber…', 'Mencari momen obrolan untuk Auto split. Biasanya beberapa detik.');
@@ -7030,6 +7228,7 @@ function applyTime(key, v) {
   const tx = E.texts?.[sel.i];
   if (key === 'xs' && tx) { tx.s = round3(Math.max(E.base[0], Math.min(tx.e - 0.2, v))); seek(tx.s + 0.01); }
   if (key === 'xe' && tx) { tx.e = round3(Math.min(E.base[1], Math.max(tx.s + 0.2, v))); seek(tx.e - 0.05); }
+  if (/^s[se]:\d+$/.test(key)) setManualSplitTime(+key.split(':')[1], key.slice(0, 2), v);
   changed();
   renderProps();
   renderTimeline();
@@ -7195,7 +7394,8 @@ async function styleInto(T, parts, item) {
     T.kind = E.kind;
     T.follow = E.follow;
     T.frame = clone(E.frame);
-    T.split = clone(E.split);
+    // Pengaturan split ikut, tapi split manual & momen yang dimatikan khusus clip ini (waktunya beda tiap clip): punya clip tujuan tetap
+    T.split = { ...clone(E.split), off: T.split?.off || [], manual: T.split?.manual || [] };
   }
   if (parts.has('filter')) {
     T.effects = T.effects.filter(fx => EFFECTS[fx.type]?.kind !== 'grade')
@@ -7290,7 +7490,7 @@ function presetSnapshot() {
   return clone({
     trim: E.trim, style: E.style, subtitles: E.subtitles, caption: E.caption, kinetic: { y: E.kinetic.y, x: E.kinetic.x ?? 0.5 },
     media: E.media.filter(m => m.gfx || spanFull(m, E)).map(strip), texts: E.texts.filter(c => !c.ref),
-    effects: E.effects.filter(fx => EFFECTS[fx.type]?.kind === 'grade'), layout: E.layout, frame: E.frame, split: E.split, kind: E.kind, follow: E.follow,
+    effects: E.effects.filter(fx => EFFECTS[fx.type]?.kind === 'grade'), layout: E.layout, frame: E.frame, split: { enabled: E.split.enabled, early: E.split.early, ratio3: E.split.ratio3 }, kind: E.kind, follow: E.follow,
     volume: E.volume, volKf: E.volKf, opening: E.opening, music: E.music, tracks: { music: E.tracks.music || {} }, layers: E.layers,
   });
 }

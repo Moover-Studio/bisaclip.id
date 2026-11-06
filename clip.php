@@ -232,9 +232,15 @@ function half_crop(array $p, int $W, int $H, float $aspect = 9 / 8): array
         $cw = $W;
         $ch = min($H, $W / $aspect);
     }
+    // Jatah area horizontal panel (lo..hi, pecahan lebar): potongan tiap panel tidak saling tumpuk → isi tiap layar berbeda
+    [$lo, $hi] = [(float) ($p['lo'] ?? 0) * $W, (float) ($p['hi'] ?? 1) * $W];
+    if ($cw > $hi - $lo) {
+        $cw = $hi - $lo;
+        $ch = $cw / $aspect;
+    }
     $cw = (int) (floor($cw / 2) * 2);
     $ch = (int) (floor($ch / 2) * 2);
-    $x = (int) (floor(max(0, min($W - $cw, $p['cx'] * $W - $cw / 2)) / 2) * 2);
+    $x = (int) (floor(max($lo, min($hi - $cw, $W - $cw, $p['cx'] * $W - $cw / 2)) / 2) * 2);
     $y = (int) (floor(max(0, min($H - $ch, $p['cy'] * $H - $ch * 0.45)) / 2) * 2);
     return [$cw, $ch, $x, $y];
 }

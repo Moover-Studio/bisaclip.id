@@ -2081,7 +2081,7 @@ switch ($action) {
         $item['start'] = $edit['trim'][0];
         $item['end'] = $edit['trim'][1];
         $item['layout'] = $edit['layout'];
-        $item['split'] = !empty($edit['split']['enabled']);
+        $item['split'] = !empty($edit['split']['enabled']) || !empty($edit['split']['manual']);
         $item['subtitles'] = $edit['subtitles'];
         $item['hook_text'] = $edit['hook']['enabled'] ? $edit['hook']['text'] : '';
         if ($action === 'edit_render') {
@@ -2503,7 +2503,7 @@ switch ($action) {
             $item['start'] = $edit['trim'][0];
             $item['end'] = $edit['trim'][1];
             $item['layout'] = $edit['layout'];
-            $item['split'] = !empty($edit['split']['enabled']);
+            $item['split'] = !empty($edit['split']['enabled']) || !empty($edit['split']['manual']);
             $item['subtitles'] = $edit['subtitles'];
             $item['hook_text'] = $edit['hook']['enabled'] ? $edit['hook']['text'] : '';
             archive_clip_job($item);
