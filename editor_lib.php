@@ -83,6 +83,11 @@ function frame_geom(array $edit): array
         $r = (int) ($f['radius'] ?? 0);
         return [1080 / $h, $h, 0, $r, true];
     }
+    if ($ratio === 'mix3') {
+        // Split 3: clip di salah satu dari 3 panel 640 px (atas / tengah / bawah), dua panel lain media user (mix_graph di clip.php)
+        $y0 = (MIX3_POS[$f['mix3']['pos'] ?? 'mid'] ?? 1) * MIX3_H;
+        return [1080 / MIX3_H, MIX3_H, $y0, (int) ($f['radius'] ?? 0), true];
+    }
     $a = FRAME_RATIOS[$ratio] ?? 9 / 16;
     $h = $ratio === 'full' ? 1920 : (int) round(1080 / $a / 2) * 2;
     $r = (int) ($f['radius'] ?? 0);
@@ -100,7 +105,7 @@ function frame_mask(array $edit): ?string
     if (!is_dir($dir)) {
         @mkdir($dir, 0777, true);
     }
-    $file = "$dir/frame_{$h}_{$r}.png";
+    $file = "$dir/frame_{$h}_{$y0}_{$r}.png";   // y0: panel clip Split 3 bisa di atas / tengah / bawah
     if (!is_file($file)) {
         $y1 = $y0 + $h - 1;
         $d = "hypot(max(0,max($r-X,X-(1079-$r))),max(0,max($y0+$r-Y,Y-($y1-$r))))";
@@ -309,8 +314,25 @@ function upgrade_layout(array $edit): array
     return $edit;
 }
 
+/** Split 3: tinggi tiap panel (3 panel sama tinggi) & posisi panel clip → urutan panel dari atas. */
+const MIX3_H = 640;
+const MIX3_POS = ['top' => 0, 'mid' => 1, 'bot' => 2];
+
 /** Pilihan rasio split screen: persen tinggi panel atas (game / orang pertama). */
 const SPLIT_RATIOS = [50, 40, 60, 30, 70];
+
+/** Pilihan rasio Auto split 3 layar: persen tinggi panel atas : tengah : bawah (urutan pertama = bawaan, sama tinggi). */
+const SPLIT3_RATIOS = ['33:33:33', '25:50:25', '40:30:30', '30:40:30', '30:30:40'];
+
+/** Tinggi 3 panel Auto split 3 layar dalam px (genap, total 1920) dari kunci rasio. */
+function split3_heights(string $key): array
+{
+    $w = array_map('intval', explode(':', in_array($key, SPLIT3_RATIOS, true) ? $key : SPLIT3_RATIOS[0]));
+    $sum = array_sum($w);
+    $a = (int) (round(1920 * $w[0] / $sum / 2) * 2);
+    $b = (int) (round(1920 * $w[1] / $sum / 2) * 2);
+    return [$a, $b, 1920 - $a - $b];
+}
 
 /** Tinggi panel atas split screen dalam px (dari 1920). */
 function split_top(array $edit): int
@@ -725,6 +747,15 @@ function mix_sanitize($m): ?array
         's' => $f('s', 0.2, 4, 1), 'cx' => $f('cx', -1, 2, 0.5), 'cy' => $f('cy', -1, 2, 0.5)];
 }
 
+/** Split 3: posisi panel clip + media dua panel lainnya (urut dari atas); panel kosong = null. */
+function mix3_sanitize($m): array
+{
+    $m = (array) $m;
+    $pos = (string) ($m['pos'] ?? '');
+    $p = array_values((array) ($m['panels'] ?? []));
+    return ['pos' => isset(MIX3_POS[$pos]) ? $pos : 'mid', 'panels' => [mix_sanitize($p[0] ?? null), mix_sanitize($p[1] ?? null)]];
+}
+
 /** Pengaturan split screen otomatis (resep lama dengan layout "split" dianggap ikuti pembicara + split aktif). */
 function split_cfg(array $edit): array
 {
@@ -735,6 +766,8 @@ function split_cfg(array $edit): array
         'enabled' => !empty($cfg['enabled']) && ($e['frame']['ratio'] ?? 'full') === 'full' && $e['layout'] !== 'gaming',
         // Toleransi = split muncul sekian detik LEBIH AWAL dari shot 2 orang yang terdeteksi AI
         'early' => max(0, min(5, (float) ($cfg['early'] ?? 0))),
+        // Rasio panel atas : tengah : bawah untuk bagian 3 orang
+        'ratio3' => in_array($cfg['ratio3'] ?? '', SPLIT3_RATIOS, true) ? $cfg['ratio3'] : SPLIT3_RATIOS[0],
     ];
 }
 
@@ -751,7 +784,8 @@ const SPLIT_MIN_SHOT = 0.5;
 /**
  * Bagian split screen (waktu absolut): shot berisi 2 orang, dimulai lebih awal sebesar toleransi
  * (tidak melewati akhir bagian split sebelumnya). Selama detik "lebih awal" itu posisi dua orang
- * diambil dari shot 2 orang tersebut. Hasil: [[s, e, [orangAtas, orangBawah]], ...]
+ * diambil dari shot 2 orang tersebut. Hasil: [[s, e, [orangAtas, (orangTengah,) orangBawah]], ...]
+ * (Shot 3+ orang → 3 orang terbesar jadi 3 layar, urut kiri ke kanan = atas ke bawah.)
  */
 function split_parts(array $edit): array
 {
@@ -763,7 +797,8 @@ function split_parts(array $edit): array
         }
         $pp = $sh['people'];
         usort($pp, fn($x, $y) => $y['fh'] <=> $x['fh']);
-        $pp = array_slice($pp, 0, 2);
+        // Otomatis: 2 orang → 2 panel, 3 orang atau lebih → 3 panel (maks. 3 layar)
+        $pp = array_slice($pp, 0, min(3, count($pp)));
         usort($pp, fn($x, $y) => $x['cx'] <=> $y['cx']);
         if ($sh['e'] - $sh['s'] >= SPLIT_MIN_SHOT) {
             $parts[] = [$sh['s'], $sh['e'], $pp];
@@ -809,6 +844,7 @@ function edit_split_relative(array $edit): array
         }
     };
     $cursor = $t0;
+    $hs3 = split3_heights(split_cfg($edit)['ratio3']);
     foreach (split_parts($edit) as [$s, $e, $pp]) {
         $a = max($t0, $s, $cursor);
         $b = min($t1, $e);
@@ -816,7 +852,8 @@ function edit_split_relative(array $edit): array
             continue;
         }
         $fill($cursor, $a);
-        $out[] = ['mode' => 'split', 'start' => $a - $t0, 'end' => $b - $t0, 'a' => $pp[0], 'b' => $pp[1]];
+        $out[] = ['mode' => 'split', 'start' => $a - $t0, 'end' => $b - $t0, 'a' => $pp[0], 'b' => $pp[1], 'pp' => $pp]
+            + (count($pp) >= 3 ? ['hs' => $hs3] : []);
         $cursor = $b;
     }
     $fill($cursor, $t1);
@@ -890,7 +927,7 @@ function sanitize_edit(array $in, array $current): array
     $up = upgrade_layout(['layout' => (string) ($in['layout'] ?? $cur['layout']), 'frame' => (array) ($in['frame'] ?? $cur['frame']),
         'split' => (array) ($in['split'] ?? []), 'kind' => $in['kind'] ?? $cur['kind'], 'follow' => $in['follow'] ?? $cur['follow'] ?? true]);
     $fr = (array) $up['frame'];
-    $ratio = in_array($fr['ratio'] ?? '', [...array_keys(FRAME_RATIOS), 'split', 'mix'], true) ? $fr['ratio'] : 'full';
+    $ratio = in_array($fr['ratio'] ?? '', [...array_keys(FRAME_RATIOS), 'split', 'mix', 'mix3'], true) ? $fr['ratio'] : 'full';
     $edit['kind'] = $up['kind'] === 'gaming' ? 'gaming' : 'podcast';
     $edit['follow'] = $up['follow'] !== false;
     $edit['frame'] = [
@@ -899,6 +936,7 @@ function sanitize_edit(array $in, array $current): array
         'bg' => ($fr['bg'] ?? '') === 'blur' ? 'blur' : 'solid',
         'split' => in_array((int) ($fr['split'] ?? 0), SPLIT_RATIOS, true) ? (int) $fr['split'] : ($ratio === 'split' ? 70 : 50),
         'mix' => mix_sanitize($fr['mix'] ?? null),   // Split mix: media panel bawah
+        'mix3' => mix3_sanitize($fr['mix3'] ?? null), // Split 3: posisi clip + media 2 panel lain
     ];
     $edit['layout'] = $ratio === 'split' ? 'gaming' : 'speaker';
     // Gaya teks ucapan: subtitle biasa atau teks kinetik (beat bertumpuk)
@@ -908,7 +946,8 @@ function sanitize_edit(array $in, array $current): array
     $edit['quality'] = in_array($in['quality'] ?? '', ['standard', 'hd', 'ultra'], true) ? $in['quality'] : ($current['quality'] ?? 'hd');
     $sp = (array) ($up['split'] ?? []);
     // Auto split (toggle): split 2 orang otomatis, hanya untuk layout Full
-    $edit['split'] = ['enabled' => !empty($sp['enabled']) && $ratio === 'full', 'early' => round($num($sp['early'] ?? 0, 0, 5), 2)];
+    $edit['split'] = ['enabled' => !empty($sp['enabled']) && $ratio === 'full', 'early' => round($num($sp['early'] ?? 0, 0, 5), 2),
+        'ratio3' => in_array($sp['ratio3'] ?? '', SPLIT3_RATIOS, true) ? $sp['ratio3'] : SPLIT3_RATIOS[0]];
     $edit['subtitles'] = !empty($in['subtitles']);
     $edit['volume'] = (int) $num($in['volume'] ?? 100, 0, 200); // volume audio clip, persen
     $edit['volKf'] = kf_sanitize($in['volKf'] ?? [], $p0, $p1, 200); // keyframe volume audio clip (kosong = volume tetap)

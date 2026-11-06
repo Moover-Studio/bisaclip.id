@@ -204,6 +204,15 @@ if (!valid_job_id($pid) || !preg_match('/^[a-f0-9]{8}$/', $iid)) {
   .ratio .shape.mix { display: flex; flex-direction: column; justify-content: center; gap: 2px; background: none; }
   .ratio .shape.mix i { width: 18px; height: 15px; }
   .ratio .shape.mix i + i { opacity: .45; background: repeating-linear-gradient(135deg, currentColor 0 2px, transparent 2px 4px); }
+  /* Split 3: tiga panel; panel tengah = clip, atas & bawah = media */
+  .ratio .shape.mix3 { display: flex; flex-direction: column; justify-content: center; gap: 2px; background: none; }
+  .ratio .shape.mix3 i { width: 18px; height: 9px; }
+  .ratio .shape.mix3 i:not(:nth-child(2)) { opacity: .45; background: repeating-linear-gradient(135deg, currentColor 0 2px, transparent 2px 4px); }
+  /* Pilihan posisi clip Split 3: kotak clip penuh, panel media bergaris */
+  .splits:has(.v3) { grid-template-columns: repeat(3, 1fr); margin-bottom: 4px; }
+  .spl .shape.v3 { flex-direction: column; }
+  .spl .shape.v3 i { flex: 1; }
+  .spl .shape.v3 i:not(.cl) { opacity: .45; background: repeating-linear-gradient(135deg, currentColor 0 2px, transparent 2px 4px); }
   /* Split mix: media panel bawah */
   .mix-up { display: flex; align-items: center; gap: 12px; margin-top: 10px; padding: 14px; border: 1px dashed var(--border-strong); border-radius: 10px; cursor: pointer; color: var(--text-2); }
   .mix-up:hover { border-color: var(--accent); color: var(--text); }
@@ -240,6 +249,8 @@ if (!valid_job_id($pid) || !preg_match('/^[a-f0-9]{8}$/', $iid)) {
   .spl.on { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-fg); }
   .spl.on .shape i { background: var(--accent-fg); }
   .split-opts .p-row { margin-top: 8px; }
+  .splits.r3 { margin-bottom: 10px; }
+  .splits.r3 .spl { font-size: 10px; letter-spacing: -.02em; }
   .bgs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   .bgopt { display: flex; align-items: center; gap: 9px; height: 40px; padding: 0 10px; border: 1px solid var(--border-strong); border-radius: 10px;
     background: var(--surface); color: var(--text); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; transition: border-color .15s, background .15s; }
@@ -1686,6 +1697,13 @@ function setAlign(tg, a) {
 }
 // Rasio split screen: persen tinggi panel atas (sama dengan SPLIT_RATIOS di editor_lib.php)
 const SPLIT_RATIOS = [50, 40, 60, 30, 70];
+// Rasio Auto split 3 layar: persen atas : tengah : bawah (sama dengan SPLIT3_RATIOS / split3_heights() di editor_lib.php)
+const SPLIT3_RATIOS = ['33:33:33', '25:50:25', '40:30:30', '30:40:30', '30:30:40'];
+function split3Heights() {
+  const w = (SPLIT3_RATIOS.includes(E.split.ratio3) ? E.split.ratio3 : SPLIT3_RATIOS[0]).split(':').map(Number), sum = w[0] + w[1] + w[2];
+  const a = Math.round(1920 * w[0] / sum / 2) * 2, b = Math.round(1920 * w[1] / sum / 2) * 2;
+  return [a, b, 1920 - a - b];
+}
 const splitTop = () => Math.round(1920 * (SPLIT_RATIOS.includes(E.frame.split) ? E.frame.split : 50) / 100 / 2) * 2;
 // Layout "Split game" (bingkai split) = gameplay atas + webcam bawah; selain itu ikuti pembicara (sama dengan editor_lib.php)
 function syncLayout() {
@@ -1700,6 +1718,11 @@ function frameGeom(CW = 1080, CH = 1920) {
   if (E.layout !== 'gaming' && E.frame?.ratio === 'mix') {
     const h = CH * splitTop() / 1920;
     return { a: CW / h, full: false, mix: true, x: 0, y: 0, w: CW, h, r: (E.frame.radius || 0) * CW / 1080, on: true, blur: false };
+  }
+  // Split 3: clip di salah satu dari 3 panel sama tinggi, dua panel lain media pilihan user
+  if (E.layout !== 'gaming' && E.frame?.ratio === 'mix3') {
+    const h = CH * MIX3_H / 1920, y = h * (MIX3_POS[E.frame.mix3.pos] ?? 1);
+    return { a: CW / h, full: false, mix: true, x: 0, y, w: CW, h, r: (E.frame.radius || 0) * CW / 1080, on: true, blur: false };
   }
   const f = E.layout === 'gaming' ? {} : E.frame || {}, a = (FRAME_RATIOS.find(r => r[0] === f.ratio) || FRAME_RATIOS[0])[2];
   const full = ['full', 'split'].includes(f.ratio || 'full'), h = full ? CH : CW / a; // split screen selalu layar penuh
@@ -1717,10 +1740,21 @@ function drawFrameMask(g, CW, CH) {
   g.roundRect(G.x, G.y, G.w, G.h, G.r);
   g.fill('evenodd');
   g.restore();
-  if (G.mix) drawMix(g, CW, CH, G);
+  if (G.mix) drawMix(g, CW, CH);
   else if (g === ctx && !$('mixbox').hidden) placeMixBox();
 }
-// Media panel bawah Split mix: foto diam / video diulang mengikuti waktu clip, memenuhi panel (dipotong rata tengah)
+// Split 3: 3 panel sama tinggi (px desain), panel clip di atas / tengah / bawah; dua panel lain media user (sama dengan editor_lib.php)
+const MIX3_H = 640, MIX3_POS = { top: 0, mid: 1, bot: 2 };
+const isMix = () => ['mix', 'mix3'].includes(E.frame?.ratio);
+// Panel media di luar clip, urut dari atas: { m, y, ph } (px desain). Split mix = 1 panel di bawah clip, Split 3 = 2 panel 640 px
+function mixPanels() {
+  if (E.frame.ratio === 'mix') { const T = splitTop(); return [{ m: E.frame.mix, y: T, ph: 1920 - T }]; }
+  if (E.frame.ratio !== 'mix3') return [];
+  const clip = MIX3_POS[E.frame.mix3.pos] ?? 1, rows = [0, 1, 2].filter(r => r !== clip);
+  return rows.map((r, j) => ({ m: E.frame.mix3.panels[j], y: r * MIX3_H, ph: MIX3_H }));
+}
+const mixAt = i => mixPanels()[i]?.m || null;
+// Media panel bawah Split mix / panel Split 3: foto diam / video diulang mengikuti waktu clip, memenuhi panel (dipotong rata tengah)
 const mixEls = {};
 function mixEl(m) {
   let el = mixEls[m.file];
@@ -1739,50 +1773,52 @@ function mixEl(m) {
   return el;
 }
 // Ukuran & posisi media dalam px desain (lebar layar 1080): s = skala dari ukuran "memenuhi panel", cx/cy = titik tengah (pecahan panel)
-function mixRect(iw, ih) {
-  const m = E.frame.mix, T = splitTop(), ph = 1920 - T, k = Math.max(1080 / iw, ph / ih) * (m.s ?? 1);
+function mixRect(iw, ih, P) {
+  const m = P.m, T = P.y, ph = P.ph, k = Math.max(1080 / iw, ph / ih) * (m.s ?? 1);
   const w = iw * k, h = ih * k;
   return { x: 1080 * (m.cx ?? 0.5) - w / 2, y: T + ph * (m.cy ?? 0.5) - h / 2, w, h, T, ph };
 }
 const mixDims = el => el instanceof HTMLVideoElement ? [el.videoWidth, el.videoHeight] : [el.naturalWidth, el.naturalHeight];
-function drawMix(g, CW, CH, G) {
-  const m = E.frame.mix, y = G.h, h = CH - y;
-  g.fillStyle = m ? '#000' : '#15171c';
-  g.fillRect(0, y, CW, h);
-  if (!m) {
-    g.fillStyle = 'rgba(255,255,255,.45)';
-    g.font = `600 ${Math.round(CW / 26)}px Inter, system-ui, sans-serif`;
-    g.textAlign = 'center';
-    g.fillText('Pilih foto / video untuk panel ini', CW / 2, y + h / 2);
-    if (g === ctx) placeMixBox();
-    return;
-  }
-  const el = mixEl(m), vid2 = m.kind === 'video';
-  if (vid2) {
-    if (el.readyState < 2 || !el.duration) return;
-    const want = ((t - E.trim[0]) % el.duration + el.duration) % el.duration;
-    if (playing && !fp) { if (el.paused) el.play().catch(() => {}); if (Math.abs(el.currentTime - want) > 0.35) el.currentTime = want; }
-    else { if (!el.paused) el.pause(); if (Math.abs(el.currentTime - want) > 0.04) el.currentTime = want; }
-  } else if (!el.complete || !el.naturalWidth) return;
-  const [iw, ih] = mixDims(el), r = mixRect(iw, ih), k = CW / 1080;
-  g.save();
-  g.beginPath();
-  g.rect(0, y, CW, h);
-  g.clip();
-  g.drawImage(el, r.x * k, r.y * k, r.w * k, r.h * k);
-  g.restore();
+function drawMix(g, CW, CH) {
+  const k = CW / 1080;
+  mixPanels().forEach(P => {
+    const m = P.m, y = P.y * k, h = P.ph * k;
+    g.fillStyle = m ? '#000' : '#15171c';
+    g.fillRect(0, y, CW, h);
+    if (!m) {
+      g.fillStyle = 'rgba(255,255,255,.45)';
+      g.font = `600 ${Math.round(CW / 26)}px Inter, system-ui, sans-serif`;
+      g.textAlign = 'center';
+      g.fillText('Pilih foto / video untuk panel ini', CW / 2, y + h / 2);
+      return;
+    }
+    const el = mixEl(m);
+    if (m.kind === 'video') {
+      if (el.readyState < 2 || !el.duration) return;
+      const want = ((t - E.trim[0]) % el.duration + el.duration) % el.duration;
+      if (playing && !fp) { if (el.paused) el.play().catch(() => {}); if (Math.abs(el.currentTime - want) > 0.35) el.currentTime = want; }
+      else { if (!el.paused) el.pause(); if (Math.abs(el.currentTime - want) > 0.04) el.currentTime = want; }
+    } else if (!el.complete || !el.naturalWidth) return;
+    const r = mixRect(...mixDims(el), P);
+    g.save();
+    g.beginPath();
+    g.rect(0, y, CW, h);
+    g.clip();
+    g.drawImage(el, r.x * k, r.y * k, r.w * k, r.h * k);
+    g.restore();
+  });
   if (g === ctx) placeMixBox();
 }
-// Kotak atur media di atas preview (tampil saat media panel bawah dipilih)
-let mixSel = false, mixDrag = null;
+// Kotak atur media di atas preview (tampil saat media salah satu panel dipilih); mixSel = indeks panel, -1 = tidak ada
+let mixSel = -1, mixDrag = null;
 function placeMixBox() {
-  const box = $('mixbox'), m = E?.frame?.mix;
+  const box = $('mixbox'), P = E && isMix() ? mixPanels()[mixSel] : null;
   if (!box) return;
-  const el = m && E.frame.ratio === 'mix' && mixEls[m.file];
-  const ok = !!(mixSel && el && !fp && mixDims(el)[0]);
+  const el = P?.m && mixEls[P.m.file];
+  const ok = !!(el && !fp && mixDims(el)[0]);
   box.hidden = !ok;
   if (!ok) return;
-  const r = mixRect(...mixDims(el));
+  const r = mixRect(...mixDims(el), P);
   Object.assign(box.style, { left: r.x / 10.8 + '%', top: r.y / 19.2 + '%', width: r.w / 10.8 + '%', height: r.h / 19.2 + '%' });
 }
 function mixPoint(e) {
@@ -1793,34 +1829,36 @@ function bindMixBox() {
   const box = $('mixbox');
   if (!box || box._bound) return;
   box._bound = true;
-  // Klik media di panel bawah preview: pilih lalu langsung bisa diseret
+  // Klik media di panel media preview: pilih lalu langsung bisa diseret
   $('cv').addEventListener('pointerdown', e => {
-    if (!E || fp || E.frame.ratio !== 'mix' || !E.frame.mix || mixDrag) return;
-    if (mixPoint(e)[1] < splitTop()) return;
-    mixSel = true;
+    if (!E || fp || !isMix() || mixDrag) return;
+    const y = mixPoint(e)[1], i = mixPanels().findIndex(P => P.m && y >= P.y && y < P.y + P.ph);
+    if (i < 0) return;
+    mixSel = i;
     draw();
     startMixDrag(e, null);
   });
   box.addEventListener('pointerdown', e => startMixDrag(e, e.target.dataset.mc || null));
   box.addEventListener('wheel', e => {
     e.preventDefault();
-    const m = E.frame.mix;
+    const m = mixAt(mixSel);
+    if (!m) return;
     m.s = Math.round(Math.max(0.2, Math.min(4, (m.s ?? 1) * Math.exp(-e.deltaY * 0.0015))) * 1000) / 1000;
     draw(); syncMixSlider();
     clearTimeout(box._t); box._t = setTimeout(changed, 400);
   }, { passive: false });
   // Klik di luar media & panel properti: kotak disembunyikan
   document.addEventListener('pointerdown', e => {
-    if (!mixSel || e.target.closest('#mixbox, #cv, #props')) return;
-    mixSel = false; placeMixBox();
+    if (mixSel < 0 || e.target.closest('#mixbox, #cv, #props')) return;
+    mixSel = -1; placeMixBox();
   });
 }
 function startMixDrag(e, corner) {
-  const m = E.frame.mix, el = m && mixEls[m.file];
+  const P = mixPanels()[mixSel], m = P?.m, el = m && mixEls[m.file];
   if (!el || !mixDims(el)[0]) return;
   e.preventDefault(); e.stopPropagation();
   pause();
-  const r = mixRect(...mixDims(el)), [px, py] = mixPoint(e);
+  const r = mixRect(...mixDims(el), P), [px, py] = mixPoint(e);
   mixDrag = { corner, px, py, r, s: m.s ?? 1, cx: m.cx ?? 0.5, cy: m.cy ?? 0.5,
     ox: corner?.[1] === 'l' ? r.x + r.w : r.x, oy: corner?.[0] === 't' ? r.y + r.h : r.y };
   const move = ev => {
@@ -1853,11 +1891,11 @@ function startMixDrag(e, corner) {
   addEventListener('pointermove', move);
   addEventListener('pointerup', up);
 }
-// Slider "Ukuran" di panel ikut berubah saat media diubah dari preview
+// Slider "Ukuran" panel yang sedang diatur ikut berubah saat media diubah dari preview
 function syncMixSlider() {
-  const r = $('props')?.querySelector('[data-mixs]');
-  if (!r) return;
-  r.value = Math.round((E.frame.mix.s ?? 1) * 100);
+  const r = $('props')?.querySelector(`[data-mixs="${mixSel}"]`), m = mixAt(mixSel);
+  if (!r || !m) return;
+  r.value = Math.round((m.s ?? 1) * 100);
   r.nextElementSibling.textContent = r.value + '%';
   syncRange(r);
 }
@@ -2341,6 +2379,8 @@ function adoptEdit(d) {
   E.split = E.split || { enabled: false, min: 0.75 };
   E.overlay = { enabled: false, file: '', pos: 'bottom', size: 0.9, offset: 0, ...(E.overlay || {}) };
   E.split.early = E.split.early ?? 0;
+  delete E.split.screens; // pilihan lama: jumlah layar kini otomatis (maks. 3)
+  if (!SPLIT3_RATIOS.includes(E.split.ratio3)) E.split.ratio3 = SPLIT3_RATIOS[0];
   if (E.style.x === undefined) E.style.x = 0.5;
   E.media = E.media || [];
   E.volume = E.volume ?? 100;
@@ -2370,6 +2410,7 @@ function adoptEdit(d) {
   E.follow = E.follow !== false;
   E.frame.bg = E.frame.bg === 'blur' ? 'blur' : 'solid';
   E.frame.mix = E.frame.mix?.file ? E.frame.mix : null;
+  E.frame.mix3 = { pos: MIX3_POS[E.frame.mix3?.pos] !== undefined ? E.frame.mix3.pos : 'mid', panels: [0, 1].map(j => E.frame.mix3?.panels?.[j]?.file ? E.frame.mix3.panels[j] : null) };
   if (!SPLIT_RATIOS.includes(E.frame.split)) E.frame.split = E.frame.ratio === 'split' ? 70 : 50;
   syncLayout();
   E.kinetic = { beats: [], y: 0.3, x: 0.5, ...(E.kinetic && !Array.isArray(E.kinetic) ? E.kinetic : {}) };
@@ -2889,18 +2930,20 @@ function gamingCrops(cam, W, H, top = 1344) {
 }
 
 // Bagian split screen otomatis — sama dengan split_parts() di editor_lib.php:
-// shot 2 orang (min. 0,5 dtk), dimulai lebih awal sebesar toleransi tanpa melewati bagian split sebelumnya
+// shot 2 orang (min. 0,5 dtk), dimulai lebih awal sebesar toleransi tanpa melewati bagian split sebelumnya.
+// Jumlah layar otomatis: shot 2 orang = 2 panel, shot 3+ orang = 3 panel (maks. 3, orang kiri → atas).
 function splitParts() {
   if (!autoSplitOn()) return [];
+  const max = 3;
   const parts = (E.shots || []).filter(s => s.people.length >= 2 && s.e - s.s >= 0.5).map(s => ({
-    s: s.s, e: s.e, pp: [...s.people].sort((a, b) => b.fh - a.fh).slice(0, 2).sort((a, b) => a.cx - b.cx),
+    s: s.s, e: s.e, pp: [...s.people].sort((a, b) => b.fh - a.fh).slice(0, Math.min(max, s.people.length)).sort((a, b) => a.cx - b.cx),
   })).sort((a, b) => a.s - b.s);
   let prevEnd = 0;
   for (const p of parts) { p.s = Math.max(prevEnd, p.s - (E.split.early || 0), 0); prevEnd = p.e; }
   return parts;
 }
 
-// Pasangan orang (atas, bawah) kalau waktu ini masuk bagian split, selain itu null
+// Orang per panel (atas → bawah; 2 atau 3) kalau waktu ini masuk bagian split, selain itu null
 function splitPair(time) {
   const p = splitParts().find(x => time >= x.s && time < x.e);
   return p ? p.pp : null;
@@ -2972,6 +3015,15 @@ function paintMain(g, v, time, CW, CH) {
   const T = splitTop(), top = CH * T / 1920;
   if (E.layout === 'gaming' && E.cam) {
     gamingCrops(E.cam, E.src.w, E.src.h, T).forEach((r, k) => drawPanel(g, v, r, 0, k ? top : 0, CW, k ? CH - top : top));
+  } else if (splitPair(time)?.length === 3) {
+    // Auto split 3 layar: 3 panel sesuai rasio atas : tengah : bawah
+    const hs = split3Heights();
+    let y = 0;
+    splitPair(time).forEach((p, k) => {
+      const ph = CH * hs[k] / 1920;
+      drawPanel(g, v, halfCrop(p, E.src.w, E.src.h, 1080 / hs[k]), 0, y, CW, ph);
+      y += ph;
+    });
   } else if (splitPair(time)) {
     splitPair(time).forEach((p, k) => {
       drawPanel(g, v, halfCrop(p, E.src.w, E.src.h, 1080 / (k ? 1920 - T : T)), 0, k ? top : 0, CW, k ? CH - top : top);
@@ -4398,7 +4450,7 @@ function staticFrame(it, which) {
   let key, make;
   if (it === 'main') {
     const time = which === 'first' ? E.trim[0] + 0.02 : E.trim[1] - 0.05;
-    key = `main:${IID}:${time}:${E.layout}:${E.split.enabled}`;
+    key = `main:${IID}:${time}:${E.layout}:${E.split.enabled}:${E.split.ratio3}`;
     make = c => grabFrame(meta.proxy, time - E.pad[0], v => { const g2 = c.getContext('2d'); paintMain(g2, v, time, c.width, c.height); drawFrameMask(g2, c.width, c.height); });
   } else if (it.kind === 'image') {
     const im = footEl(it);
@@ -5814,9 +5866,10 @@ function splitInfo() {
   if (E.pending || !E.shots) return 'Mencari bagian video yang menampilkan 2 orang…';
   const [t0, t1] = E.trim, parts = splitParts().filter(p => p.e > t0 && p.s < t1);
   const sec = parts.reduce((a, p) => a + Math.min(t1, p.e) - Math.max(t0, p.s), 0);
+  const n3 = parts.filter(p => p.pp.length === 3).length;
   if (sec < 0.5) return 'Clip ini tidak punya bagian yang menampilkan 2 orang dalam satu gambar, jadi tetap layar penuh mengikuti pembicara. '
     + 'Split screen hanya muncul saat kamera menampilkan 2 orang sekaligus, supaya gerak bibir tetap sinkron.';
-  return `<b>${Math.round(sec)} dari ${Math.round(t1 - t0)} detik</b> clip ini terbelah: bagian yang menampilkan 2 orang sekaligus. Bagian 1 orang tetap layar penuh mengikuti pembicara.
+  return `<b>${Math.round(sec)} dari ${Math.round(t1 - t0)} detik</b> clip ini terbelah: bagian yang menampilkan 2 orang sekaligus jadi 2 layar${n3 ? `, ${n3} bagian dengan 3 orang atau lebih jadi 3 layar` : ''}. Bagian 1 orang tetap layar penuh mengikuti pembicara.
     <button type="button" class="lnk-btn split-go" data-split-go="${Math.max(t0, parts[0].s)}">${ic('play')} Lihat bagian split</button>`;
 }
 
@@ -5826,7 +5879,13 @@ const splitRatioHtml = lbl => `<div class="split-lbl">${lbl}</div>
       <span class="shape"><i style="flex:${p}"></i><i style="flex:${100 - p}"></i></span>${p}:${100 - p}</button>`).join('')}</div>`;
 // Auto split aktif: rasio, berapa detik clip ini terbelah, toleransi
 function autoSplitHtml() {
-  return `<div class="split-opts">${splitRatioHtml('Atas : Bawah')}
+  // Rasio 3 layar hanya ditampilkan kalau clip ini punya bagian 3 orang
+  const has3 = splitParts().some(p => p.pp.length === 3 && p.e > E.trim[0] && p.s < E.trim[1]);
+  return `<div class="split-opts">
+    ${has3 ? `<div class="split-lbl">Atas : Tengah : Bawah (bagian 3 orang)</div>
+    <div class="splits r3">${SPLIT3_RATIOS.map(r => `<button type="button" class="spl ${E.split.ratio3 === r ? 'on' : ''}" data-split3="${r}">
+      <span class="shape">${r.split(':').map(p => `<i style="flex:${p}"></i>`).join('')}</span>${r === SPLIT3_RATIOS[0] ? 'Rata' : r}</button>`).join('')}</div>` : ''}
+    ${splitRatioHtml(has3 ? 'Atas : Bawah (bagian 2 orang)' : 'Atas : Bawah')}
     <p class="muted small" style="margin:8px 0 0">${splitInfo()}</p>
     <div class="p-row"><label>Toleransi<span class="tip" data-tip="Split screen muncul lebih awal sebanyak detik ini. Contoh: AI mendeteksi 2 orang di detik 12, toleransi 2 dtk → split mulai di detik 10.">?</span></label>
       <input type="range" min="0" max="5" step="0.25" id="split-lead" value="${E.split.early}">
@@ -5838,22 +5897,37 @@ function splitPanelHtml() {
     <p class="muted small" style="margin:8px 0 0">${E.cam ? 'Atas: gameplay · Bawah: webcam streamer (terdeteksi otomatis).' : E.pending ? 'Mendeteksi posisi webcam…'
       : E.cam === null ? 'Webcam tidak terdeteksi: preview & hasil memakai bagian tengah video.' : 'Atas: gameplay · Bawah: webcam streamer.'}</p></div>`;
 }
-// Split mix: clip di atas, satu foto / video di bawah. Unggah baru = ganti media lama (tidak menumpuk di pustaka Media)
-function mixPanelHtml() {
-  const m = E.frame.mix, src = m && 'previews/overlays/' + (m.kind === 'video' ? m.file.replace(/\.\w+$/, '.thumb.jpg') : m.file);
-  const input = '<input type="file" id="mix-file" accept="image/png,image/jpeg,image/webp,video/mp4,video/quicktime,video/webm" hidden>';
-  return `<div class="split-opts">${splitRatioHtml('Clip : Media')}
-    ${m ? `<div class="mix-cur"><img class="mix-th" src="${src}" alt=""><span><b title="${esc(m.name || '')}">${esc(m.name || 'Media')}</b>
+// Satu slot media panel (Split mix: panel bawah; Split 3: panel ke-i dari atas di luar clip). Unggah baru = ganti media lama
+// (tidak menumpuk di pustaka Media)
+function mixSlotHtml(i, label, hint) {
+  const m = mixAt(i), src = m && 'previews/overlays/' + (m.kind === 'video' ? m.file.replace(/\.\w+$/, '.thumb.jpg') : m.file);
+  const input = `<input type="file" data-mix-file="${i}" accept="image/png,image/jpeg,image/webp,video/mp4,video/quicktime,video/webm" hidden>`;
+  return m ? `<div class="mix-cur"><img class="mix-th" src="${src}" alt=""><span>${label ? `<small class="muted">${label}</small>` : ''}<b title="${esc(m.name || '')}">${esc(m.name || 'Media')}</b>
         <small class="muted">${m.kind === 'video' ? 'Video · diulang sepanjang clip' : 'Foto · sepanjang clip'}</small></span></div>
-      <div class="p-actions"><label class="btn sm">${ic('refresh')} Ganti${input}</label><button type="button" class="btn sm ghost" data-mix-clear>${ic('x')} Lepas</button></div>
-      <div class="p-row"><label>Ukuran</label><input type="range" min="20" max="400" step="1" data-mixs value="${Math.round((m.s ?? 1) * 100)}"><span class="val">${Math.round((m.s ?? 1) * 100)}%</span></div>
-      <div class="p-actions"><button type="button" class="btn sm" data-mix-fit>${ic('maximize')} Pas panel</button></div>
-      <p class="mix-hint">Klik media di preview, lalu seret untuk menggeser. Tarik sudutnya (atau scroll) untuk mengubah ukuran.</p>`
-    : `<label class="mix-up">${ic('upload')}<span><b>Unggah foto / video</b><small>Satu media untuk panel bawah. Video diputar tanpa suara & diulang.</small></span>${input}</label>`}</div>`;
+      <div class="p-actions"><label class="btn sm">${ic('refresh')} Ganti${input}</label><button type="button" class="btn sm ghost" data-mix-clear="${i}">${ic('x')} Lepas</button></div>
+      <div class="p-row"><label>Ukuran</label><input type="range" min="20" max="400" step="1" data-mixs="${i}" value="${Math.round((m.s ?? 1) * 100)}"><span class="val">${Math.round((m.s ?? 1) * 100)}%</span></div>
+      <div class="p-actions"><button type="button" class="btn sm" data-mix-fit="${i}">${ic('maximize')} Pas panel</button></div>`
+    : `<label class="mix-up">${ic('upload')}<span><b>Unggah foto / video${label ? ' · ' + label : ''}</b><small>${hint} Video diputar tanpa suara & diulang.</small></span>${input}</label>`;
 }
-// Unggah media Split mix; media sebelumnya yang belum tersimpan di mana pun langsung dihapus dari disk
+const MIX_HINT = '<p class="mix-hint">Klik media di preview, lalu seret untuk menggeser. Tarik sudutnya (atau scroll) untuk mengubah ukuran.</p>';
+// Split mix: clip di atas, satu foto / video di bawah
+function mixPanelHtml() {
+  return `<div class="split-opts">${splitRatioHtml('Clip : Media')}
+    ${mixSlotHtml(0, '', 'Satu media untuk panel bawah.')}${E.frame.mix ? MIX_HINT : ''}</div>`;
+}
+// Split 3: posisi panel clip, lalu media untuk dua panel lainnya (urut dari atas)
+function mix3PanelHtml() {
+  const pos = E.frame.mix3.pos, names = { top: 'Atas', mid: 'Tengah', bot: 'Bawah' };
+  const others = Object.keys(MIX3_POS).filter(k => k !== pos);
+  return `<div class="split-opts"><div class="split-lbl">Posisi clip</div>
+    <div class="splits">${Object.keys(MIX3_POS).map(k => `<button type="button" class="spl ${pos === k ? 'on' : ''}" data-mix3-pos="${k}">
+      <span class="shape v3">${[0, 1, 2].map(r => `<i class="${r === MIX3_POS[k] ? 'cl' : ''}"></i>`).join('')}</span>${names[k]}</button>`).join('')}</div>
+    ${others.map((k, j) => mixSlotHtml(j, 'Panel ' + names[k].toLowerCase(), `Media untuk panel ${names[k].toLowerCase()}.`)).join('')}
+    ${E.frame.mix3.panels.some(Boolean) ? MIX_HINT : ''}</div>`;
+}
+// Unggah media panel ke-i; media sebelumnya yang belum tersimpan di mana pun langsung dihapus dari disk
 let mixBusy = false;
-async function uploadMix(f) {
+async function uploadMix(f, i = 0) {
   if (!/^(image\/(png|jpeg|webp)|video\/(mp4|quicktime|webm|x-m4v))$/.test(f.type)) return toast('Format media harus PNG, JPG, WEBP, MP4, MOV, atau WEBM.');
   if (f.size > UPLOAD_MAX) return toast(`${f.name} terlalu besar (maksimal ${Math.round(UPLOAD_MAX / 1048576)} MB).`);
   if (mixBusy) return;
@@ -5865,16 +5939,18 @@ async function uploadMix(f) {
     const res = await fetch('api.php?action=mix_upload', { method: 'POST', body: fd });
     const d = await res.json().catch(() => ({ error: 'Respons server tidak valid.' }));
     if (!res.ok || d.error) throw new Error(d.error || 'Media gagal diunggah.');
-    setMix({ file: d.file, kind: d.kind, name: d.name });
-    toast('Media panel bawah diganti');
+    setMix({ file: d.file, kind: d.kind, name: d.name }, i);
+    toast('Media panel diganti');
   } catch (err) { toast(err.message); }
   mixBusy = false;
 }
-function setMix(m) {
-  const old = E.frame.mix?.file;
-  E.frame.mix = m;
-  if (!m) mixSel = false;
-  if (old && old !== m?.file) api('mix_gc', { file: old }).catch(() => {});
+function setMix(m, i = 0) {
+  const old = mixAt(i)?.file;
+  if (E.frame.ratio === 'mix3') E.frame.mix3.panels[i] = m; else E.frame.mix = m;
+  if (!m && mixSel === i) mixSel = -1;
+  // File lama dihapus kalau tidak dipakai lagi (termasuk di panel lain clip ini yang belum disimpan)
+  const used = [E.frame.mix, ...E.frame.mix3.panels].some(x => x?.file === old);
+  if (old && old !== m?.file && !used) api('mix_gc', { file: old }).catch(() => {});
   changed(); renderProps(); draw();
 }
 
@@ -6168,7 +6244,7 @@ function renderPropsBody() {
     <div class="p-sec">
       <h3><span>Auto split</span><label class="switch"><input type="checkbox" id="autosplit-on" aria-label="Auto split" ${autoSplitOn() ? 'checked' : ''} ${(E.frame.ratio || 'full') === 'full' ? '' : 'disabled'}></label></h3>
       <p class="muted small" style="margin:0">${(E.frame.ratio || 'full') !== 'full' ? 'Pakai layout Full untuk memakai Auto split.'
-        : autoSplitOn() ? 'Layar terbelah atas-bawah saat 2 narasumber tampil bersamaan.' : 'Layar otomatis terbelah atas-bawah di momen 2 narasumber tampil bersamaan.'}</p>
+        : autoSplitOn() ? 'Layar terbelah otomatis saat beberapa narasumber tampil bersamaan: 2 orang = 2 layar, 3 orang atau lebih = 3 layar.' : 'Layar otomatis terbelah di momen 2–3 narasumber tampil bersamaan (maks. 3 layar).'}</p>
       ${autoSplitOn() ? autoSplitHtml() : ''}
     </div>
     <div class="p-sec">
@@ -6177,11 +6253,12 @@ function renderPropsBody() {
         const h = Math.round(Math.min(32, 18 / a)), w = Math.round(Math.min(18, 32 * a));
         return `<button class="ratio ${(E.frame.ratio || 'full') === k ? 'on' : ''}" data-ratio="${k}"><span class="shape"><i style="width:${w}px;height:${h}px"></i></span>${n}</button>`;
       }).join('')}<button class="ratio ${E.frame.ratio === 'split' ? 'on' : ''}" data-ratio="split" title="Gameplay di atas, webcam streamer di bawah"><span class="shape split"><i></i><i></i></span>Split game</button>
-        <button class="ratio ${E.frame.ratio === 'mix' ? 'on' : ''}" data-ratio="mix" title="Clip di atas, foto / video pilihan sendiri di bawah"><span class="shape mix"><i></i><i></i></span>Split mix</button></div>
-      ${E.frame.ratio === 'split' ? splitPanelHtml() : E.frame.ratio === 'mix' ? mixPanelHtml() : ''}
+        <button class="ratio ${E.frame.ratio === 'mix' ? 'on' : ''}" data-ratio="mix" title="Clip di atas, foto / video pilihan sendiri di bawah"><span class="shape mix"><i></i><i></i></span>Split mix</button>
+        <button class="ratio ${E.frame.ratio === 'mix3' ? 'on' : ''}" data-ratio="mix3" title="3 layar: clip di satu panel, 2 foto / video pilihan sendiri di panel lain"><span class="shape mix3"><i></i><i></i><i></i></span>Split 3</button></div>
+      ${E.frame.ratio === 'split' ? splitPanelHtml() : E.frame.ratio === 'mix' ? mixPanelHtml() : E.frame.ratio === 'mix3' ? mix3PanelHtml() : ''}
       <div class="p-row"><label>Sudut</label><input type="range" min="0" max="120" step="2" data-k="frame.radius" value="${E.frame.radius || 0}"><span class="val">${E.frame.radius || 0}px</span></div>
     </div>
-    ${['split', 'mix'].includes(E.frame.ratio) ? '' : `<div class="p-sec">
+    ${['split', 'mix', 'mix3'].includes(E.frame.ratio) ? '' : `<div class="p-sec">
       <h3><span>Background<span class="tip" data-tip="Isi layar di luar video saat layout bukan Full. Solid = hitam, Blur = video yang sama diperbesar & diblur.">?</span></span></h3>
       <div class="bgs">${[['solid', 'Solid'], ['blur', 'Blur']].map(([k, n]) =>
         `<button type="button" class="bgopt ${E.frame.bg === k ? 'on' : ''}" data-fbg="${k}" ${(E.frame.ratio || 'full') === 'full' ? 'disabled' : ''}><span class="sw-${k}"></span>${n}</button>`).join('')}</div>
@@ -6316,9 +6393,9 @@ function bindProps() {
   P.addEventListener('input', e => { if (introPanelOn()) introInput(e); });
   P.addEventListener('change', e => { if (introPanelOn() && e.target.closest('[data-itc], [data-itch], #it-label, #it-w')) introChange(e); });
   P.addEventListener('input', e => {
-    if (e.target.matches('[data-mixs]') && E.frame.mix) {
-      // Ukuran media Split mix (titik tengah tetap)
-      E.frame.mix.s = +e.target.value / 100;
+    if (e.target.matches('[data-mixs]') && mixAt(+e.target.dataset.mixs)) {
+      // Ukuran media panel Split mix / Split 3 (titik tengah tetap)
+      mixAt(+e.target.dataset.mixs).s = +e.target.value / 100;
       e.target.nextElementSibling.textContent = e.target.value + '%';
       draw();
       return;
@@ -6430,9 +6507,9 @@ function bindProps() {
   });
   P.addEventListener('change', e => {
     if (e.target.id === 'follow-on') { E.follow = e.target.checked; changed(); renderProps(); draw(); return; }
-    if (e.target.matches('[data-mixs]') && E.frame.mix) { changed(); return; }
+    if (e.target.matches('[data-mixs]') && mixAt(+e.target.dataset.mixs)) { changed(); return; }
     if (e.target.id === 'autosplit-on') { const prev = autoSplitOn(); E.split.enabled = e.target.checked; return applyLayout(prev); }
-    if (e.target.id === 'mix-file' && e.target.files.length) return uploadMix(e.target.files[0]);
+    if (e.target.dataset.mixFile !== undefined && e.target.files.length) return uploadMix(e.target.files[0], +e.target.dataset.mixFile);
     if (e.target.dataset.ts && e.target.type === 'number') {
       const v = e.target.dataset.ts.split('.').reduce((o, k) => o[k], E);
       e.target.value = v;
@@ -6488,11 +6565,13 @@ function bindProps() {
       return applyTime(k, cur + Number(b.dataset.v));
     }
     if (b.dataset.split) { E.frame.split = +b.dataset.split; changed(); renderProps(); draw(); return; }
+    if (b.dataset.split3) { E.split.ratio3 = b.dataset.split3; changed(); renderProps(); draw(); return; }
     if (b.dataset.splitGo) { seek(+b.dataset.splitGo + 0.05); return play(); }
     if (b.dataset.caption) return setCaption(b.dataset.caption);
     if (b.dataset.ratio) { const prev = autoSplitOn(); E.frame.ratio = b.dataset.ratio; return applyLayout(prev); }
-    if (b.dataset.mixClear !== undefined) return setMix(null);
-    if (b.dataset.mixFit !== undefined && E.frame.mix) { Object.assign(E.frame.mix, { s: 1, cx: 0.5, cy: 0.5 }); changed(); renderProps(); draw(); return; }
+    if (b.dataset.mixClear !== undefined) return setMix(null, +b.dataset.mixClear);
+    if (b.dataset.mix3Pos) { E.frame.mix3.pos = b.dataset.mix3Pos; mixSel = -1; changed(); renderProps(); draw(); return; }
+    if (b.dataset.mixFit !== undefined && mixAt(+b.dataset.mixFit)) { Object.assign(mixAt(+b.dataset.mixFit), { s: 1, cx: 0.5, cy: 0.5 }); changed(); renderProps(); draw(); return; }
     if (b.dataset.fbg) { E.frame.bg = b.dataset.fbg; changed(); renderProps(); draw(); return; }
     if (b.dataset.p === 'kin-rebuild') { changed(); return ensureKinetic(true).then(() => toast('Teks kinetik disusun ulang')); }
     if (b.dataset.anim) {
@@ -6788,7 +6867,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
 function splitSummary() {
   const parts = splitParts().filter(p => p.e > E.trim[0] && p.s < E.trim[1]);
   const secs = parts.reduce((a, p) => a + Math.min(p.e, E.trim[1]) - Math.max(p.s, E.trim[0]), 0);
-  return { n: parts.length, secs };
+  return { n: parts.length, n3: parts.filter(p => p.pp.length === 3).length, secs };
 }
 
 // Layout / Auto split berubah: turunkan layout, lalu siapkan data yang dibutuhkan kalau resepnya belum punya
@@ -6824,7 +6903,7 @@ async function applyLayout(prev = false) {
   if (game && E.cam === null) toast('Webcam tidak terdeteksi, memakai bagian tengah video');
   if (auto && !prev && E.shots) {
     const r = splitSummary();
-    toast(r.n ? `Auto split · ${r.n} bagian dengan 2 orang (${Math.round(r.secs)} dtk)` : 'Tidak ada bagian dengan 2 orang di clip ini');
+    toast(r.n ? `Auto split · ${r.n} bagian split (${Math.round(r.secs)} dtk)${r.n3 ? `, ${r.n3} di antaranya 3 layar` : ''}` : 'Tidak ada bagian dengan 2 orang atau lebih di clip ini');
   }
 }
 
@@ -7132,7 +7211,7 @@ function presetChips(S) {
   if (S.subtitles !== false && S.style) out.push(`<span><i style="background:${esc(S.style.color)}"></i><i style="background:${esc(S.style.highlight)}"></i>${esc(font || 'Subtitle')}${S.caption === 'kinetic' ? ' · kinetik' : ''}</span>`);
   (S.media || []).filter(m => m.gfx).forEach(m => out.push(`<span><i style="background:${esc(m.gfx.c1 === '#FFFFFF' ? m.gfx.c2 : m.gfx.c1)}"></i>${esc(GFX[m.gfx.type]?.name || 'Grafik')}</span>`));
   if (S.effects?.length) out.push(`<span>${esc(EFFECTS[S.effects[0].type]?.label || 'Filter')}</span>`);
-  if (S.frame?.ratio && S.frame.ratio !== 'full') out.push(`<span>${S.frame.ratio === 'split' ? 'Split game' : S.frame.ratio === 'mix' ? 'Split mix' : 'Bingkai ' + esc(S.frame.ratio)}</span>`);
+  if (S.frame?.ratio && S.frame.ratio !== 'full') out.push(`<span>${S.frame.ratio === 'split' ? 'Split game' : S.frame.ratio === 'mix' ? 'Split mix' : S.frame.ratio === 'mix3' ? 'Split 3' : 'Bingkai ' + esc(S.frame.ratio)}</span>`);
   if (S.music?.length) out.push(`<span>♪ ${esc(S.music[0].name || 'Musik')}</span>`);
   return out.join('');
 }
@@ -7527,7 +7606,7 @@ document.addEventListener('keydown', e => {
   if (!e.metaKey && !e.ctrlKey && !e.altKey && (e.key.toLowerCase() === 'f' || e.code === 'Backquote')) { e.preventDefault(); togglePvFullscreen(); }
   if (e.key === 'ArrowLeft') { pause(); seekV(curV() - (e.shiftKey ? 1 : 0.1)); }
   if (e.key === 'ArrowRight') { pause(); seekV(curV() + (e.shiftKey ? 1 : 0.1)); }
-  if ((e.key === 'Delete' || e.key === 'Backspace') && mixSel && E.frame.mix) { e.preventDefault(); return setMix(null); }
+  if ((e.key === 'Delete' || e.key === 'Backspace') && isMix() && mixAt(mixSel)) { e.preventDefault(); return setMix(null, mixSel); }
   if ((e.key === 'Delete' || e.key === 'Backspace') && ['line', 'hook', 'media', 'text', 'video', 'effect', 'footage', 'transition', 'music', 'opening', 'sfx'].includes(sel.type)) { e.preventDefault(); deleteSelectedText(); }
   if (e.key === 'Enter' && !e.target.closest('button, a') && ['line', 'hook', 'text'].includes(sel.type)) { e.preventDefault(); startInlineEdit(); }
   if (e.key === 'Enter' && !e.target.closest('button, a') && sel.type === 'media' && E.media[sel.i]?.gfx) { e.preventDefault(); startGfxEdit(sel.i); }

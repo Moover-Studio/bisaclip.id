@@ -290,7 +290,8 @@ function gaming_filter(array $cam, int $W, int $H, int $topH = GAMING_TOP_H): st
 }
 
 /**
- * Filtergraph split screen: per potongan, shot 2 orang = atas/bawah (vstack), selain itu satu orang penuh.
+ * Filtergraph split screen: per potongan, shot 2 orang = atas/bawah (vstack), shot 3 orang (Auto split 3 layar) = 3 panel,
+ * selain itu satu orang penuh.
  * Semua potongan digabung lagi → [cv].
  */
 function split_graph(array $items, int $W, int $H, int $vi, float $dur, int $topH = 960): string
@@ -303,7 +304,16 @@ function split_graph(array $items, int $W, int $H, int $vi, float $dur, int $top
         $a = $i === 0 ? 0 : $it['start'];
         $b = $i === $n - 1 ? $dur + 1 : $it['end'];
         $cut = "[s$i]trim=start={$fmt($a)}:end={$fmt($b)},setpts=PTS-STARTPTS";
-        if ($it['mode'] === 'split') {
+        if ($it['mode'] === 'split' && count($it['pp'] ?? []) >= 3) {
+            // Auto split 3 layar: 3 panel sesuai rasio atas : tengah : bawah (bawaan 640 px), orang kiri → atas
+            $hs = $it['hs'] ?? [640, 640, 640];
+            $parts[] = "$cut,split=3[u$i][m$i][d$i]";
+            foreach (['u', 'm', 'd'] as $k => $tag) {
+                [$pw, $phh, $px, $py] = half_crop($it['pp'][$k], $W, $H, 1080 / $hs[$k]);
+                $parts[] = "[$tag$i]crop=$pw:$phh:$px:$py," . fit_panel(1080, $hs[$k]) . "[t$tag$i]";
+            }
+            $parts[] = "[tu$i][tm$i][td$i]vstack=inputs=3[c$i]";
+        } elseif ($it['mode'] === 'split') {
             [$aw, $ah, $ax, $ay] = half_crop($it['a'], $W, $H, 1080 / $topH);
             [$bw, $bh, $bx, $by] = half_crop($it['b'], $W, $H, 1080 / $botH);
             $parts[] = "$cut,split[u$i][d$i]";
@@ -329,33 +339,64 @@ function split_graph(array $items, int $W, int $H, int $vi, float $dur, int $top
 }
 
 /**
- * Split mix: sumber [mxm] seukuran panel bawah berisi media user (foto diam / video diulang tanpa suara) dengan ukuran & posisi
- * dari editor (s = skala dari "memenuhi panel", cx/cy = titik tengah), di atas latar hitam. Sama dengan mixRect() di editor.
- * Kosong kalau layout bukan Split mix atau belum ada media.
+ * Panel media Split mix / Split 3: [[media, y atas, tinggi panel], …] dari atas ke bawah. Split mix = satu panel di bawah clip
+ * (setinggi sisa layar), Split 3 = dua panel 640 px di luar panel clip. Panel tanpa media dilewati (tetap hitam dari masker).
  */
-function mix_graph(?array $edit, int $topH): string
+function mix_panels(?array $edit, int $topH): array
 {
-    $m = $edit['frame']['mix'] ?? null;
-    $path = OVERLAY_DIR . '/' . ($m['file'] ?? '');
-    if (($edit['frame']['ratio'] ?? '') !== 'mix' || !$m || !is_file($path)) {
+    $ratio = $edit['frame']['ratio'] ?? '';
+    if ($ratio === 'mix') {
+        return [[$edit['frame']['mix'] ?? null, $topH, 1920 - $topH]];
+    }
+    if ($ratio !== 'mix3') {
+        return [];
+    }
+    $m3 = $edit['frame']['mix3'] ?? [];
+    $clip = MIX3_POS[$m3['pos'] ?? 'mid'] ?? 1;
+    $rows = array_values(array_diff([0, 1, 2], [$clip]));
+    return array_map(fn($j) => [$m3['panels'][$j] ?? null, $rows[$j] * MIX3_H, MIX3_H], [0, 1]);
+}
+
+/**
+ * Split mix / Split 3: media user (foto diam / video diulang tanpa suara) ditumpuk di panelnya [$in] -> [$out], dengan ukuran
+ * & posisi dari editor (s = skala dari "memenuhi panel", cx/cy = titik tengah), di atas latar hitam. Sama dengan mixRect() di editor.
+ * Kosong kalau layout bukan Split mix / Split 3 atau belum ada media.
+ */
+function mix_graph(?array $edit, int $topH, string $in, string $out): string
+{
+    $parts = [];
+    $cur = $in;
+    $n = 0;
+    foreach (mix_panels($edit, $topH) as [$m, $py, $ph]) {
+        $path = OVERLAY_DIR . '/' . ($m['file'] ?? '');
+        if (!$m || !is_file($path)) {
+            continue;
+        }
+        $info = json_decode((string) shell_exec(escapeshellarg(FFPROBE) . ' -v error -select_streams v:0 -show_entries stream=width,height -of json '
+            . escapeshellarg($path)), true);
+        $iw = (int) ($info['streams'][0]['width'] ?? 0);
+        $ih = (int) ($info['streams'][0]['height'] ?? 0);
+        if (!$iw || !$ih) {
+            continue;
+        }
+        $k = max(1080 / $iw, $ph / $ih) * (float) ($m['s'] ?? 1);
+        $w = (int) min(8640, max(2, round($iw * $k / 2) * 2));
+        $h = (int) min(8640, max(2, round($ih * $k / 2) * 2));
+        $x = (int) round(1080 * (float) ($m['cx'] ?? 0.5) - $w / 2);
+        $y = (int) round($ph * (float) ($m['cy'] ?? 0.5) - $h / 2);
+        $src = "movie=$path" . (($m['kind'] ?? '') === 'video' ? ':loop=0,setpts=N/FRAME_RATE/TB' : '');
+        $parts[] = "$src,scale=$w:$h:flags=lanczos,setsar=1,format=yuva420p[mxs$n]";
+        $parts[] = "color=c=black:s=1080x$ph:r=60,format=yuva420p[mxb$n]";
+        $parts[] = "[mxb$n][mxs$n]overlay=$x:$y:eof_action=repeat:format=auto[mxm$n]";
+        $parts[] = "[$cur][mxm$n]overlay=0:$py:eof_action=repeat:format=auto[mxo$n]";
+        $cur = "mxo$n";
+        $n++;
+    }
+    if (!$parts) {
         return '';
     }
-    $info = json_decode((string) shell_exec(escapeshellarg(FFPROBE) . ' -v error -select_streams v:0 -show_entries stream=width,height -of json '
-        . escapeshellarg($path)), true);
-    $iw = (int) ($info['streams'][0]['width'] ?? 0);
-    $ih = (int) ($info['streams'][0]['height'] ?? 0);
-    if (!$iw || !$ih) {
-        return '';
-    }
-    $ph = 1920 - $topH;
-    $k = max(1080 / $iw, $ph / $ih) * (float) ($m['s'] ?? 1);
-    $w = (int) min(8640, max(2, round($iw * $k / 2) * 2));
-    $h = (int) min(8640, max(2, round($ih * $k / 2) * 2));
-    $x = (int) round(1080 * (float) ($m['cx'] ?? 0.5) - $w / 2);
-    $y = (int) round($ph * (float) ($m['cy'] ?? 0.5) - $h / 2);
-    $src = "movie=$path" . (($m['kind'] ?? '') === 'video' ? ':loop=0,setpts=N/FRAME_RATE/TB' : '');
-    return "$src,scale=$w:$h:flags=lanczos,setsar=1,format=yuva420p[mxs];\n"
-        . "color=c=black:s=1080x$ph:r=60,format=yuva420p[mxb];\n[mxb][mxs]overlay=$x:$y:eof_action=repeat:format=auto[mxm]";
+    $parts[count($parts) - 1] = preg_replace('/\[mxo\d+\]$/', "[$out]", $parts[count($parts) - 1]);
+    return implode(";\n", $parts);
 }
 
 /** Filtergraph: potong per segmen, crop ke pembicara, skala 1080x1920, lalu gabungkan lagi → [cv]. */
@@ -1073,16 +1114,16 @@ function run_clip(string $id, array $job, string $cancelFlag): void
         $overlay = $layered ? overlay_graph($edit, 'cv', 'co', false) : '';
         // Masker bingkai (bar hitam & sudut membulat) di atas video + efek, di bawah media & teks
         // Background blur: area video yang sama diperbesar memenuhi layar & diblur, tampil di luar bingkai (alpha masker)
-        $frameBlur = $frameMask && $fH < 1920 && ($edit['frame']['bg'] ?? '') === 'blur' && ($edit['frame']['ratio'] ?? '') !== 'mix';
-        // Split mix: media user mengisi panel bawah, di atas masker & di bawah media / teks / subtitle
-        $mixG = $frameMask && $layout !== 'split' ? mix_graph($edit, $fH) : '';
+        $frameBlur = $frameMask && $fH < 1920 && ($edit['frame']['bg'] ?? '') === 'blur' && !in_array($edit['frame']['ratio'] ?? '', ['mix', 'mix3'], true);
+        // Split mix / Split 3: media user mengisi panel di luar clip, di atas masker & di bawah media / teks / subtitle
+        $mixG = $frameMask && $layout !== 'split' ? mix_graph($edit, $fH, 'fmq', 'fmo') : '';
         $masked0 = fn(string $from) => !$frameMask ? "[$from]null[fmo];\n" : ($frameBlur
             ? "[$from]split[fga][fgb];\n[fgb]crop=1080:$fH:0:$fY0,scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,"
                 . "boxblur=25:3,eq=brightness=-0.08,format=rgba[fbg];\nmovie=$frameMask,format=rgba,alphaextract[fma];\n"
                 . "[fbg][fma]alphamerge[fbm];\n[fga][fbm]overlay=0:0:format=auto[fmo];\n"
             : "movie=$frameMask,format=rgba[fmk];\n[$from][fmk]overlay=0:0:format=auto[fmo];\n");
         $masked = fn(string $from) => $mixG === '' ? $masked0($from)
-            : str_replace('[fmo]', '[fmq]', $masked0($from)) . "$mixG;\n[fmq][mxm]overlay=0:$fH:eof_action=repeat:format=auto[fmo];\n";
+            : str_replace('[fmo]', '[fmq]', $masked0($from)) . "$mixG;\n";
         if (($layout === 'speaker' || $layout === 'split') && $segments) {
             $graph = ($layout === 'split'
                 ? split_graph($segments, (int) $video['width'], (int) $video['height'], $vi, $dur, $edit ? split_top($edit) : 960)

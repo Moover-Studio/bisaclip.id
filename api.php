@@ -2072,8 +2072,9 @@ switch ($action) {
         }
         write_edit($project['id'], $item['iid'], $edit);
         // Media Split mix yang diganti / dilepas: file lamanya dihapus kalau tidak dipakai lagi
-        $oldMix = (string) ($current['frame']['mix']['file'] ?? '');
-        if ($oldMix !== '' && $oldMix !== (string) ($edit['frame']['mix']['file'] ?? '')) {
+        $mixFiles = fn($e) => array_filter(array_merge([(string) ($e['frame']['mix']['file'] ?? '')],
+            array_map(fn($m) => (string) ($m['file'] ?? ''), (array) ($e['frame']['mix3']['panels'] ?? []))));
+        foreach (array_diff($mixFiles($current), $mixFiles($edit)) as $oldMix) {
             overlay_gc($oldMix);
         }
         // Data kartu di Studio ikut diperbarui
