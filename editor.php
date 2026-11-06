@@ -255,6 +255,8 @@ if (!valid_job_id($pid) || !preg_match('/^[a-f0-9]{8}$/', $iid)) {
   .spm { display: flex; align-items: flex-start; gap: 8px; padding: 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
   .spm.off { opacity: .55; }
   .spm-go { margin-top: 0; flex: none; }
+  .spm-dot { display: inline-block; width: 8px; height: 8px; margin-right: 4px; border-radius: 2px; background: var(--c-split); vertical-align: 0; }
+  .spm-dot.s3 { background: var(--c-split3); }
   .spm-chk { padding-top: 1px; }
   .spm-body { flex: 1; min-width: 0; font-size: 11.5px; line-height: 1.4; }
   .spm-body b { display: block; font-weight: 600; font-variant-numeric: tabular-nums; }
@@ -850,6 +852,7 @@ if (!valid_job_id($pid) || !preg_match('/^[a-f0-9]{8}$/', $iid)) {
   .sc-lbl.out { opacity: .38; }
   .sc-lbl.on { background: #2a303b; color: #fff; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .14); z-index: 4; }
   .sc-split { position: absolute; top: 110px; z-index: 1; height: 5px; border-radius: 2px; background: var(--c-split); pointer-events: none; }
+  .sc-split.s3 { background: var(--c-split3); }
   .handle { position: absolute; top: -2px; bottom: -2px; width: 14px; background: var(--accent); cursor: ew-resize; z-index: 2; }
   .handle::after { content: ""; position: absolute; left: 5px; top: 30%; bottom: 30%; width: 4px; border-left: 1.5px solid #fff; border-right: 1.5px solid #fff; }
   .handle.l { left: -2px; border-radius: 6px 0 0 6px; }
@@ -1236,6 +1239,7 @@ if (!valid_job_id($pid) || !preg_match('/^[a-f0-9]{8}$/', $iid)) {
     --c-music: #5B4FD6; --c-music-rgb: 91, 79, 214;
     --c-foot: #2B86CC; --c-foot-rgb: 43, 134, 204;
     --c-split: #7C8CFF; --c-split-rgb: 124, 140, 255;
+    --c-split3: #F2A93B; /* momen split 3 layar: dibedakan dari 2 layar */
   }
   /* Warna dasar mengikuti token netral app.css, sama dengan editor manual (project.php) */
   :root { --accent-fg: #8fb8ff; }
@@ -5469,8 +5473,9 @@ function renderTimeline() {
     const txt = l.words.map(w => w.w).join(' ');
     return `<span class="sc-lbl${on ? ' on' : ''}${out ? ' out' : ''}${w < 44 ? ' narrow' : ''}" data-line="${i}" style="left:${x(a)}px;width:${w}px" title="${esc(txt)}">${esc(txt)}</span>`;
   }).join('') : '';
-  const bands = splitParts().map(p => [Math.max(p.s, E.base[0]), Math.min(p.e, E.base[1])]).filter(([a, b]) => b - a > 0.05)
-    .map(([a, b]) => `<span class="sc-split" style="left:${x(a)}px;width:${x(b) - x(a)}px" title="Split screen"></span>`).join('');
+  // Garis momen split: 2 layar = indigo, 3 layar = oranye
+  const bands = splitParts().map(p => [Math.max(p.s, E.base[0]), Math.min(p.e, E.base[1]), p.pp.length]).filter(([a, b]) => b - a > 0.05)
+    .map(([a, b, n]) => `<span class="sc-split${n === 3 ? ' s3' : ''}" style="left:${x(a)}px;width:${x(b) - x(a)}px" title="Split ${n} layar"></span>`).join('');
   const W = x(b1);
   const spanX = m => { const [va, vb] = itemV(m); return `left:${va * pps}px;width:${Math.max(24, (vb - va) * pps)}px`; };
   // Gambar di track Media, template grafik di track Grafik; keduanya tetap item E.media (indeks data-mi sama)
@@ -5947,7 +5952,7 @@ function splitMomentsHtml() {
       const txt = said(m), on = !off.includes(m.k);
       return `<div class="spm ${on ? '' : 'off'}">
         <label class="spm-chk"><input type="checkbox" data-split-mom="${m.k}" ${on ? 'checked' : ''} aria-label="Pakai momen split ini"></label>
-        <div class="spm-body"><b>${fmtTs(Math.max(t0, m.s) - E.base[0])}–${fmtTs(Math.min(t1, m.e) - E.base[0])} · ${m.pp.length} layar</b>
+        <div class="spm-body"><b>${fmtTs(Math.max(t0, m.s) - E.base[0])}–${fmtTs(Math.min(t1, m.e) - E.base[0])} · <i class="spm-dot${m.pp.length === 3 ? ' s3' : ''}"></i>${m.pp.length} layar</b>
           <span title="${esc(txt)}">${txt ? '“' + esc(txt.length > 90 ? txt.slice(0, 90) + '…' : txt) + '”' : 'Tanpa subtitle'}</span></div>
         <button type="button" class="lnk-btn split-go spm-go" data-split-go="${Math.max(t0, m.s)}" title="Putar momen ini">${ic('play')}</button></div>`;
     }).join('')}</div>`;
