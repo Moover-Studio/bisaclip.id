@@ -1,0 +1,25 @@
+BISACLIP UNTUK WINDOWS
+=====================
+
+Butuh: Windows 10 (22H2) atau Windows 11, ruang kosong +-25 GB di drive C:, internet.
+Punya GPU NVIDIA? Perbarui dulu driver NVIDIA di Windows (Game Ready / Studio) supaya render lebih cepat.
+
+PASANG (sekali per laptop)
+1. Klik kanan file ZIP ini > Extract All > Extract.
+2. Buka folder hasil ekstrak, klik dua kali "Install BisaClip.bat".
+   - Kalau muncul "Windows protected your PC": klik More info > Run anyway.
+   - Kalau muncul jendela izin Administrator: klik Yes.
+   - Kalau diminta RESTART: restart laptop, lalu klik dua kali "Install BisaClip.bat" lagi.
+3. Tunggu sampai muncul "Selesai!" (20-40 menit). Browser akan membuka BisaClip.
+
+MEMAKAI
+- Klik dua kali ikon "BisaClip" di Desktop. Browser terbuka ke http://localhost/bisaclip/
+- Biarkan jendela hitamnya terbuka (boleh di-minimize). Menutupnya = mematikan BisaClip.
+- Video hasil ada di ikon "Hasil BisaClip" di Desktop (BisaClip harus sedang menyala).
+- Di Pengaturan > Kompresi, pilih H.264 supaya clip bisa diputar & diedit di Windows.
+
+UPDATE
+- Ekstrak paket versi baru, lalu klik dua kali "Install BisaClip.bat" lagi.
+  Hanya kode yang diganti; preset, musik, project, dan hasil render tetap aman.
+
+Panduan lengkap & solusi masalah: file "Panduan Windows.md" di folder ini.

@@ -11,13 +11,14 @@
 set -euo pipefail
 
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-OUT="$HOME/Desktop/bisaclip-library.tar.gz"
+OUT="$HOME/Desktop/bisaclip-library.tar.gz"   # --out=PATH untuk lokasi lain
 WITH_KEYS=0
 WITH_MODELS=0
 for a in "$@"; do
   case "$a" in
     --with-keys) WITH_KEYS=1 ;;
     --with-models) WITH_MODELS=1 ;;
+    --out=*) OUT="${a#--out=}" ;;
     *) printf 'Opsi tidak dikenal: %s\n' "$a"; exit 1 ;;
   esac
 done
@@ -56,6 +57,6 @@ ok "Musik: $n_music file · SFX: $n_sfx file · gambar preset: $n_ov file"
 
 say "Membuat ${OUT}…"
 # COPYFILE_DISABLE: tanpa file ._ metadata macOS
-COPYFILE_DISABLE=1 tar -czf "$OUT" -T "$LIST"
+COPYFILE_DISABLE=1 tar --no-mac-metadata --no-xattrs -czf "$OUT" -T "$LIST"
 ok "Selesai: $OUT ($(du -h "$OUT" | cut -f1))"
 printf '\nSalin file itu ke Mac baru (Desktop / Downloads), lalu jalankan di sana:  bash install/setup-mac.sh\n\n'

@@ -168,4 +168,4 @@ say "Cek sistem"
 sudo -u www-data php "$APP_DIR/install/doctor.php" || true
 rm -rf "$TMPD"
 printf '\n\033[1;32mSelesai.\033[0m Buka di browser Windows: \033[1mhttp://localhost/bisaclip/\033[0m\n'
-printf 'Untuk menyalakan BisaClip berikutnya, klik dua kali install\\BisaClip.bat (lihat INSTALL-WINDOWS.md).\n\n'
+printf 'Untuk menyalakan BisaClip berikutnya, klik dua kali ikon BisaClip di Desktop (lihat INSTALL-WINDOWS.md).\n\n'

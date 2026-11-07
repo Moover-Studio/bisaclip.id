@@ -18,7 +18,7 @@ membuat subtitle, judul, hook & caption, lalu kamu tinggal merapikan di editor. 
 
 | | |
 |---|---|
-| Komputer | **Mac Apple Silicon** (M1, M2, M3, M4, …). Mac Intel belum didukung. Windows: lihat [install/INSTALL-WINDOWS.md](install/INSTALL-WINDOWS.md) |
+| Komputer | **Mac Apple Silicon** (M1, M2, M3, M4, …). Mac Intel belum didukung. **Windows 10/11**: pakai paket installer sekali klik, lihat [install/INSTALL-WINDOWS.md](install/INSTALL-WINDOWS.md) |
 | Ruang disk | ±15 GB kosong (tool, model AI, ditambah video yang kamu proses) |
 | Internet | Untuk instalasi, unduh video, dan layanan AI |
 | API key Gemini | Gratis, dibuat di [aistudio.google.com/apikey](https://aistudio.google.com/apikey) (login akun Google) |
